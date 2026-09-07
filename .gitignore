@@ -1,0 +1,18 @@
+# .NET build output
+**/bin/
+**/obj/
+
+# Local environment and deployment secrets
+**/appsettings.Production.json
+.env
+.env.*
+
+# Local publish/deployment output
+artifacts/publish/
+artifacts/deploy/
+deploy/iis/*.zip
+deploy/iis/backups/
+
+# Test and coverage output
+**/TestResults/
+**/coverage/

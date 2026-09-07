@@ -1,0 +1,45 @@
+<main class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark">Q</span><span>quickcart<span class="brand-dot">.</span></span></div>
+    <div class="workspace-label">OPERATIONS CONSOLE</div>
+    <nav>
+      <a class="active" href="#overview"><span>◈</span> Overview</a>
+      <a href="#catalog"><span>▦</span> Catalog</a>
+      <a href="#inventory"><span>◌</span> Inventory</a>
+      <a href="#orders"><span>↗</span> Orders</a>
+      <a href="#stores"><span>⌂</span> Stores</a>
+    </nav>
+    <div class="sidebar-footer"><div class="avatar">AK</div><div><strong>Amara Kapoor</strong><small>Administrator</small></div><span class="more">•••</span></div>
+  </aside>
+
+  <section class="content">
+    <header class="topbar">
+      <div><p class="eyebrow">Monday, 07 September 2026</p><h1>Good morning, Amara <span>✦</span></h1></div>
+      <div class="top-actions"><div class="status"><i [class.online]="online"></i>{{ online ? 'API connected' : 'Demo data' }}</div><button class="icon-button" type="button">⌕</button><button class="icon-button" type="button">♧</button><div class="mini-avatar">AK</div></div>
+    </header>
+
+    <div class="hero-row"><div><span class="eyebrow accent">LIVE SNAPSHOT</span><h2>Everything in motion.</h2><p class="muted">A clear view of today&apos;s retail pulse across your network.</p></div><button class="primary-button" type="button">＋ Add product</button></div>
+
+    <section class="stats-grid">
+      <article class="stat-card"><span class="stat-icon mint">↗</span><div><p>Today&apos;s orders</p><strong>248</strong><small>↑ 12.8%</small></div><span class="trend">↗</span></article>
+      <article class="stat-card"><span class="stat-icon gold">₹</span><div><p>Gross sales</p><strong>₹1,84,620</strong><small>↑ 8.4%</small></div><span class="trend">↗</span></article>
+      <article class="stat-card"><span class="stat-icon blue">♙</span><div><p>Active customers</p><strong>12,840</strong><small>↑ 4.1%</small></div><span class="trend">↗</span></article>
+      <article class="stat-card"><span class="stat-icon rose">!</span><div><p>Low stock alerts</p><strong>18</strong><small class="warning">Needs attention</small></div><span class="trend">↗</span></article>
+    </section>
+
+    <div class="section-heading" id="catalog"><div><span class="eyebrow">CATALOG PULSE</span><h3>Products across your stores</h3></div><button class="quiet-button" type="button">View catalog <span>→</span></button></div>
+    <section class="catalog-layout">
+      <div class="panel product-panel">
+        <div class="toolbar"><div class="search"><span>⌕</span><input placeholder="Search products" [(ngModel)]="query" /></div><button class="filter-button" type="button">☷ Filter</button></div>
+        <div class="chips"><button class="chip" [class.selected]="selectedCategory === 'all'" type="button" (click)="selectedCategory = 'all'">All products</button>@for (category of categories; track category.id) {<button class="chip" [class.selected]="selectedCategory === category.id" type="button" (click)="selectedCategory = category.id">{{ category.name }}</button>}</div>
+        <div class="product-list">@for (product of visibleProducts; track product.id) {<div class="product-row"><img [src]="product.imageUrl" [alt]="product.name" /><div class="product-info"><strong>{{ product.name }}</strong><small>{{ product.sku }} · {{ product.unitOfMeasure }}</small></div><div class="price">₹{{ product.price }}</div><div class="stock"><span class="stock-dot"></span> In stock</div><button class="row-more" type="button">•••</button></div>}</div>
+      </div>
+      <aside class="panel stores-panel" id="stores"><div class="panel-heading"><div><span class="eyebrow">NETWORK</span><h3>Store coverage</h3></div><span class="count">{{ stores.length || 3 }}</span></div><div class="map"><div class="map-grid"></div><div class="pin pin-one">⌂</div><div class="pin pin-two">⌂</div><div class="pin pin-three">⌂</div><div class="map-label">MUMBAI</div></div><div class="store-summary"><div><strong>{{ stores.length || 3 }}</strong><span>active stores</span></div><div><strong>94.2%</strong><span>coverage rate</span></div></div></aside>
+    </section>
+
+    <section class="bottom-grid" id="orders">
+      <div class="panel activity-panel"><div class="panel-heading"><div><span class="eyebrow">ORDER FLOW</span><h3>Recent activity</h3></div><button class="quiet-button" type="button">See all →</button></div><div class="activity-row"><span class="activity-icon mint">✓</span><div><strong>Order #QC-10428 confirmed</strong><small>Harbor Point Dark Store · 2 mins ago</small></div><b>₹680</b></div><div class="activity-row"><span class="activity-icon blue">↗</span><div><strong>Order #QC-10427 out for delivery</strong><small>Cedar Market Hub · 8 mins ago</small></div><b>₹1,240</b></div><div class="activity-row"><span class="activity-icon gold">＋</span><div><strong>New customer joined</strong><small>Rohan Mehta · 14 mins ago</small></div><b class="muted">—</b></div></div>
+      <div class="panel insight-panel"><span class="eyebrow">FULFILLMENT HEALTH</span><h3>On-time delivery</h3><div class="score">96<span>%</span></div><div class="progress"><span></span></div><p>Up 2.6% from last week</p><div class="sparkline"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    </section>
+  </section>
+</main>

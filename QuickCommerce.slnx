@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QuickCommerce.Api/QuickCommerce.Api.csproj" />
+    <Project Path="src/QuickCommerce.Application/QuickCommerce.Application.csproj" />
+    <Project Path="src/QuickCommerce.Domain/QuickCommerce.Domain.csproj" />
+    <Project Path="src/QuickCommerce.Infrastructure/QuickCommerce.Infrastructure.csproj" />
+    <Project Path="src/QuickCommerce.Tests/QuickCommerce.Tests.csproj" />
+  </Folder>
+</Solution>

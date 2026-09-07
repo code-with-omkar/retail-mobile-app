@@ -1,0 +1,297 @@
+using Microsoft.EntityFrameworkCore;
+using QuickCommerce.Application.DTOs;
+using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Domain;
+
+namespace QuickCommerce.Infrastructure.Persistence;
+
+public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
+{
+    public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => await db.Categories.AsNoTracking().ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Product>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default)
+    {
+        var query = db.Products.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(product => product.Name.Contains(search) || product.Description.Contains(search));
+        }
+
+        if (categoryId.HasValue)
+        {
+            query = query.Where(product => product.CategoryId == categoryId.Value);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => db.Products.AsNoTracking().FirstOrDefaultAsync(product => product.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default) => await db.Stores.AsNoTracking().ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default) => await db.StoreInventory.AsNoTracking().ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => await db.Orders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Include(order => order.StatusHistory)
+        .ToListAsync(cancellationToken);
+
+    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Include(order => order.StatusHistory)
+        .FirstOrDefaultAsync(order => order.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Order>> GetCustomerOrdersAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken = default) => await db.Orders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Include(order => order.StatusHistory)
+        .Where(order => order.UserId == userId && db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId))
+        .ToListAsync(cancellationToken);
+
+    public Task<Order?> GetCustomerOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default) => db.Orders
+        .AsNoTracking()
+        .Include(order => order.Items)
+        .Include(order => order.StatusHistory)
+        .FirstOrDefaultAsync(order => order.Id == orderId && order.UserId == userId &&
+            db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId), cancellationToken);
+
+    public async Task<IReadOnlyList<Notification>> GetNotificationsAsync(Guid customerId, bool unreadOnly, CancellationToken cancellationToken = default)
+    {
+        var query = db.Notifications.AsNoTracking().Where(notification => notification.CustomerId == customerId);
+        if (unreadOnly)
+        {
+            query = query.Where(notification => !notification.IsRead);
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> SetNotificationReadAsync(Guid notificationId, Guid customerId, bool isRead, CancellationToken cancellationToken = default)
+    {
+        var notification = await db.Notifications.FirstOrDefaultAsync(item => item.Id == notificationId && item.CustomerId == customerId, cancellationToken);
+        if (notification is null)
+        {
+            return false;
+        }
+
+        notification.IsRead = isRead;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public Task<Customer?> GetCustomerByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => db.Customers
+        .AsNoTracking()
+        .FirstOrDefaultAsync(customer => customer.UserId == userId && customer.IsActive, cancellationToken);
+
+    public Task<Store?> GetStoreAsync(Guid id, CancellationToken cancellationToken = default) => db.Stores
+        .AsNoTracking()
+        .FirstOrDefaultAsync(store => store.Id == id, cancellationToken);
+
+    public Task<Cart?> GetCartAsync(Guid customerId, Guid storeId, CancellationToken cancellationToken = default) => db.Carts
+        .Include(cart => cart.Items)
+        .AsNoTracking()
+        .FirstOrDefaultAsync(cart => cart.CustomerId == customerId && cart.StoreId == storeId, cancellationToken);
+
+    public async Task AddCartAsync(Cart cart, CancellationToken cancellationToken = default)
+    {
+        db.Carts.Add(cart);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default)
+    {
+        db.Carts.Update(cart);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutRequest request, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var cart = await db.Carts
+                .Include(currentCart => currentCart.Items)
+                .SingleOrDefaultAsync(currentCart => currentCart.CustomerId == customerId && currentCart.StoreId == storeId, cancellationToken);
+            if (cart is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.CartNotFound);
+            }
+
+            if (cart.Items.Count == 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.CartEmpty);
+            }
+
+            var userId = await db.Customers
+                .Where(customer => customer.Id == customerId)
+                .Select(customer => customer.UserId)
+                .SingleAsync(cancellationToken);
+
+            var orderItems = new List<OrderItem>();
+            foreach (var cartItem in cart.Items)
+            {
+                var product = await db.Products.SingleOrDefaultAsync(item => item.Id == cartItem.ProductId, cancellationToken);
+                if (product is null || !product.IsActive)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable);
+                }
+
+                if (product.Price != cartItem.UnitPriceSnapshot)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged);
+                }
+
+                var inventory = await db.StoreInventory.SingleOrDefaultAsync(item => item.StoreId == storeId && item.ProductId == cartItem.ProductId, cancellationToken);
+                if (inventory is null || inventory.AvailableQuantity < cartItem.Quantity)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
+                }
+
+                inventory.AvailableQuantity -= cartItem.Quantity;
+                orderItems.Add(new OrderItem
+                {
+                    ProductId = product.Id,
+                    ProductNameSnapshot = product.Name,
+                    UnitPrice = product.Price,
+                    Quantity = cartItem.Quantity
+                });
+            }
+
+            var order = new Order
+            {
+                OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
+                UserId = userId,
+                StoreId = storeId,
+                DeliveryAddress = request.DeliveryAddress,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                Items = orderItems
+            };
+            order.TotalAmount = orderItems.Sum(item => item.TotalPrice);
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
+
+            db.Orders.Add(order);
+            await db.SaveChangesAsync(cancellationToken);
+
+            db.CartItems.RemoveRange(cart.Items);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
+        }
+        catch (DbUpdateException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
+        }
+    }
+
+    public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default)
+    {
+        var order = await db.Orders
+            .Include(currentOrder => currentOrder.Items)
+            .Include(currentOrder => currentOrder.StatusHistory)
+            .SingleOrDefaultAsync(currentOrder => currentOrder.Id == orderId &&
+                (!storeId.HasValue || currentOrder.StoreId == storeId.Value) &&
+                db.Stores.Any(store => store.Id == currentOrder.StoreId && store.OrganizationId == organizationId), cancellationToken);
+        if (order is null)
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.NotFound);
+        }
+
+        if (!OrderStatusTransitions.IsValid(order.Status, targetStatus))
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
+        }
+
+        order.Status = targetStatus;
+        order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
+        var customerId = await db.Customers
+            .Where(customer => customer.UserId == order.UserId)
+            .Select(customer => (Guid?)customer.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (customerId.HasValue)
+        {
+            db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, targetStatus));
+        }
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
+        }
+    }
+
+    public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => db.Users
+        .AsNoTracking()
+        .Where(user => user.ExternalSubject == externalSubject && user.IsActive)
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role))
+        .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var adjustment in inventoryAdjustments)
+            {
+                var inventory = await db.StoreInventory.SingleOrDefaultAsync(item => item.StoreId == adjustment.StoreId && item.ProductId == adjustment.ProductId, cancellationToken);
+                if (inventory is null || inventory.AvailableQuantity < adjustment.Quantity)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return false;
+                }
+
+                inventory.AvailableQuantity -= adjustment.Quantity;
+            }
+
+            db.Orders.Add(order);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+    }
+
+    private static OrderResponse MapOrder(Order order) => new(
+        order.Id,
+        order.OrderNumber,
+        order.UserId,
+        order.StoreId,
+        order.TotalAmount,
+        order.Status,
+        order.DeliveryAddress,
+        order.Latitude,
+        order.Longitude,
+        order.CreatedAt,
+        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+
+    private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
+    {
+        CustomerId = customerId,
+        OrderId = orderId,
+        Type = "OrderStatusChanged",
+        Title = "Order status updated",
+        Message = $"Your order is now {status}.",
+        IsRead = false
+    };
+}
