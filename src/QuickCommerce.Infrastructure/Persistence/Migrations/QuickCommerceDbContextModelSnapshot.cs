@@ -22,6 +22,291 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApprovalType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("RequestedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("OrganizationId", "StoreId", "Status", "CreatedAt");
+
+                    b.ToTable("ApprovalRequests");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AuthorizationPermission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("AuthorizationPermissions");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000001"),
+                            Code = "orders:read",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Read order data",
+                            IsActive = true,
+                            Name = "View orders"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000002"),
+                            Code = "orders:operate",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Accept and manage orders",
+                            IsActive = true,
+                            Name = "Operate on orders"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000003"),
+                            Code = "users:manage",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Create and edit users",
+                            IsActive = true,
+                            Name = "Manage users"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000004"),
+                            Code = "roles:manage",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Create and edit roles",
+                            IsActive = true,
+                            Name = "Manage roles"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000005"),
+                            Code = "permissions:manage",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Create and edit permissions",
+                            IsActive = true,
+                            Name = "Manage permissions"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000006"),
+                            Code = "Store.Read",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Read store data",
+                            IsActive = true,
+                            Name = "Read stores"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000007"),
+                            Code = "Customer.Read",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Read customer data",
+                            IsActive = true,
+                            Name = "Read customers"
+                        },
+                        new
+                        {
+                            Id = new Guid("71000000-0000-0000-0000-000000000008"),
+                            Code = "Delivery.Read",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Read future delivery data",
+                            IsActive = true,
+                            Name = "Read deliveries"
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AuthorizationRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("AuthorizationRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("70000000-0000-0000-0000-000000000001"),
+                            Code = "Customer",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Default customer role",
+                            IsActive = true,
+                            Name = "Customer"
+                        },
+                        new
+                        {
+                            Id = new Guid("70000000-0000-0000-0000-000000000002"),
+                            Code = "StoreStaff",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Store operations role",
+                            IsActive = true,
+                            Name = "Store Staff"
+                        },
+                        new
+                        {
+                            Id = new Guid("70000000-0000-0000-0000-000000000003"),
+                            Code = "ApplicationAdmin",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Organization-wide administration role",
+                            IsActive = true,
+                            Name = "Application Admin"
+                        },
+                        new
+                        {
+                            Id = new Guid("70000000-0000-0000-0000-000000000004"),
+                            Code = "DeliveryPartner",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            Description = "Future delivery operations role",
+                            IsActive = true,
+                            Name = "Delivery Partner"
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -158,6 +443,12 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                             Id = new Guid("50000000-0000-0000-0000-000000000001"),
                             IsActive = true,
                             UserId = new Guid("40000000-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("50000000-0000-0000-0000-000000000002"),
+                            IsActive = true,
+                            UserId = new Guid("40000000-0000-0000-0000-000000000004")
                         });
                 });
 
@@ -324,6 +615,17 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Code")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -332,7 +634,18 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -343,6 +656,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Code = "QUICKCART-DEMO",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
                             IsActive = true,
                             Name = "QuickCart Demo Retailer"
                         });
@@ -457,6 +773,147 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                             Price = 89m,
                             Sku = "GRO-RICE",
                             UnitOfMeasure = "1 kg"
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReplacedByTokenId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RevokedByIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "SessionId", "ExpiresAt");
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PermissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RoleId", "IsActive");
+
+                    b.ToTable("RolePermissions");
+
+                    b.HasData(
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000001"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000001"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000001"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000002"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000001"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000002"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000003"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000004"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000005"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000006"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000007"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000008"),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000004"),
+                            PermissionId = new Guid("71000000-0000-0000-0000-000000000008"),
+                            IsActive = true
                         });
                 });
 
@@ -679,8 +1136,19 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("Email")
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
@@ -689,8 +1157,16 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("FirstName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("LastName")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
@@ -700,10 +1176,23 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("StaffCategory")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Email");
 
                     b.HasIndex("ExternalSubject")
                         .IsUnique();
@@ -718,12 +1207,396 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = new Guid("40000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
                             DisplayName = "QuickCart Demo User",
                             ExternalSubject = "quickcart-demo-user",
                             IsActive = true,
                             OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
                             Role = "Customer"
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Administrator",
+                            Email = "admin@example.test",
+                            ExternalSubject = "admin",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Administrator",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "Admin"
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Store Staff",
+                            Email = "storestaff@example.test",
+                            ExternalSubject = "storestaff",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Store Staff",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "StoreStaff",
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000004"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Customer",
+                            Email = "customer@example.test",
+                            ExternalSubject = "customer",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Customer",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "Customer"
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000005"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Multi Store Staff",
+                            Email = "multistorestaff@example.test",
+                            ExternalSubject = "multistorestaff",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Multi Store Staff",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "StoreStaff",
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000006"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Delivery Partner",
+                            Email = "deliverypartner@example.test",
+                            ExternalSubject = "deliverypartner",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Delivery Partner",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "DeliveryPartner"
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000007"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Store Manager",
+                            Email = "storemanager@example.test",
+                            ExternalSubject = "storemanager",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Store Manager",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "StoreStaff",
+                            StaffCategory = "StoreManager",
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("40000000-0000-0000-0000-000000000008"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            DisplayName = "Demo Store Employee",
+                            Email = "storeemployee@example.test",
+                            ExternalSubject = "storeemployee",
+                            FirstName = "Demo",
+                            IsActive = true,
+                            LastName = "Store Employee",
+                            OrganizationId = new Guid("00000000-0000-0000-0000-000000000001"),
+                            Role = "StoreStaff",
+                            StaffCategory = "StoreEmployee",
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001")
                         });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.UserCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("HashVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LockedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PasswordChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserCredentials");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.UserRole", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId", "IsActive", "UserId");
+
+                    b.ToTable("UserRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000001"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000002"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000003"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000003"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000004"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000005"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000005"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000004"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000006"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000004"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000007"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000008"),
+                            RoleId = new Guid("70000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            IsActive = true
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.UserStoreAssignment", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("UserId", "StoreId");
+
+                    b.HasIndex("StoreId", "IsActive", "UserId");
+
+                    b.ToTable("UserStoreAssignments");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000003"),
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000007"),
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000008"),
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000005"),
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true
+                        },
+                        new
+                        {
+                            UserId = new Guid("40000000-0000-0000-0000-000000000005"),
+                            StoreId = new Guid("30000000-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedBy = "seed",
+                            EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("QuickCommerce.Domain.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.User", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Organization");
+
+                    b.Navigation("RequestedByUser");
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
@@ -841,6 +1714,36 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.RefreshToken", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.AuthorizationPermission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.AuthorizationRole", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Store", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Organization", "Organization")
@@ -885,6 +1788,67 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.UserCredential", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.User", "User")
+                        .WithOne("Credential")
+                        .HasForeignKey("QuickCommerce.Domain.UserCredential", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.UserRole", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.AuthorizationRole", "Role")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.User", "User")
+                        .WithMany("UserRoles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.UserStoreAssignment", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany("UserStoreAssignments")
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.User", "User")
+                        .WithMany("StoreAssignments")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AuthorizationPermission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AuthorizationRole", b =>
+                {
+                    b.Navigation("RolePermissions");
+
+                    b.Navigation("UserRoles");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Navigation("Items");
@@ -915,12 +1879,22 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("Carts");
 
+                    b.Navigation("UserStoreAssignments");
+
                     b.Navigation("Users");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.User", b =>
                 {
+                    b.Navigation("Credential");
+
                     b.Navigation("Customer");
+
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("StoreAssignments");
+
+                    b.Navigation("UserRoles");
                 });
 #pragma warning restore 612, 618
         }

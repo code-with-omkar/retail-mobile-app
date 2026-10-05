@@ -1,23 +1,41 @@
 # QuickCart Retail Platform
 
-A modular-monolith quick-commerce foundation for customer, store staff, and admin experiences.
+QuickCart is a modular-monolith quick-commerce platform with a customer mobile app, an operations/admin portal, and an ASP.NET Core API.
 
-## Projects
+## Project areas
 
-- `src/QuickCommerce.Domain`: catalog, store, inventory, and order domain models.
-- `src/QuickCommerce.Application`: nearest-serviceable-store business logic and distance calculation.
-- `src/QuickCommerce.Infrastructure`: seeded store/inventory gateway used for the runnable demo; replace with EF Core SQL Server persistence in the next slice.
-- `src/QuickCommerce.Api`: ASP.NET Core REST API with consistent `{ success, data }` responses.
-- `admin-portal`: Angular LTS + TypeScript responsive operations dashboard.
-- `mobile`: Flutter handoff contract and planned customer app boundaries.
+- `mobile`: Flutter customer-app prototype. The current app is a local-data home-screen slice, not yet an API-connected shopping app.
+- `admin-portal`: Angular 20 and TypeScript operations portal with authentication and management features.
+- `src/QuickCommerce.Api`: ASP.NET Core 10 REST API.
+- `src/QuickCommerce.Application`: application services, interfaces, request DTOs, and validation.
+- `src/QuickCommerce.Domain`: domain entities.
+- `src/QuickCommerce.Infrastructure`: EF Core SQL Server persistence, migrations, authentication, and optional Redis caching.
+- `src/QuickCommerce.Tests`: .NET unit and persistence tests.
+
+## Project documentation
+
+- [Project progress and pending work](docs/PROJECT_PROGRESS.md)
+- [Technical overview and development reference](docs/TECHNICAL_OVERVIEW.md)
+- [IIS deployment notes](deploy/iis/README.md)
+- [Admin portal notes](admin-portal/README.md)
+- [Mobile app notes](mobile/README.md)
 
 ## Run locally
 
+Configure a SQL Server connection string in the environment before starting the API. For example, using Windows integrated authentication:
+
 ```powershell
+$env:ConnectionStrings__QuickCommerceDb = "Server=localhost;Database=QuickCommerce;Trusted_Connection=True;TrustServerCertificate=True;"
 dotnet run --project src/QuickCommerce.Api --launch-profile http
 ```
 
-The API is available at `http://localhost:5067`. In another terminal:
+Apply migrations when creating or updating the local database:
+
+```powershell
+dotnet ef database update --project src/QuickCommerce.Infrastructure --startup-project src/QuickCommerce.Api
+```
+
+The API launch profile uses `http://localhost:5067`. Start the admin portal in another PowerShell session:
 
 ```powershell
 cd admin-portal
@@ -25,30 +43,27 @@ npm install
 npm run dev
 ```
 
-For local SQL Server development, provide the connection string through the environment so credentials remain outside source control:
+The admin portal's API URL is configurable; set it to match the API address for your environment.
+
+For the Flutter customer-app scaffold:
 
 ```powershell
-$env:ConnectionStrings__QuickCommerceDb = "Server=localhost;Database=retail-mobile-app;User Id=sa;Password=<local-secret>;TrustServerCertificate=True;"
-dotnet ef database update --project src/QuickCommerce.Infrastructure --startup-project src/QuickCommerce.Api
+cd mobile
+flutter pub get
+flutter run -d chrome
 ```
 
-Set `QUICKCOMMERCE_TEST_CONNECTION_STRING` separately to run the opt-in SQL Server integration test.
+## Validation
 
-The dashboard uses live API data when the API is available and falls back to demo catalog data otherwise.
+```powershell
+dotnet test
+```
 
-## API examples
+In `admin-portal`:
 
-- `GET /api/products?search=milk`
-- `GET /api/categories`
-- `GET /api/stores/nearest?latitude=19.076&longitude=72.8777&productIds={id}`
-- `POST /api/orders`
-- `GET /api/orders/{id}`
+```powershell
+npm run lint
+npm run build
+```
 
-Order creation locks the shared inventory store, validates every requested line, decrements store-specific stock, snapshots product names/prices, and appends initial status history. The next persistence slice should move this exact workflow into an EF Core transaction with row-version concurrency.
-
-## Roadmap
-
-1. Replace the demo gateway with EF Core SQL Server migrations and row-version concurrency.
-2. Add JWT identity, role policies, FluentValidation, and admin/store-staff authorization.
-3. Add cart and customer/mobile flows, then order status transitions and history.
-4. Add focused unit tests for distance, store selection, inventory conflicts, and price snapshots.
+Set `QUICKCOMMERCE_TEST_CONNECTION_STRING` separately to enable SQL Server integration tests. Do not commit connection strings, JWT signing keys, or other environment secrets.

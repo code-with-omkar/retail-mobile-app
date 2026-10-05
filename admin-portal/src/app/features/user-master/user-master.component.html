@@ -1,0 +1,181 @@
+<section class="user-master-page">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">USER MASTER</span>
+      <h2>Users</h2>
+    </div>
+
+    <app-button
+      label="＋ Add user"
+      variant="primary"
+      (onClick)="openCreateForm()"
+    ></app-button>
+  </header>
+
+  <div class="toolbar" *ngIf="!isFormVisible()">
+    <div class="search-box">
+      <label for="user-search">Search</label>
+      <input
+        id="user-search"
+        type="text"
+        placeholder="Search users or email"
+        [value]="searchTerm()"
+        (input)="searchTerm.set($any($event.target).value)"
+      />
+    </div>
+
+    <app-select
+      label="Organization"
+      placeholder="All organizations"
+      [options]="organizationOptions()"
+      [value]="organizationFilter()"
+      (onChange)="onOrganizationFilterChange($event)"
+    ></app-select>
+
+    <app-select
+      label="Role"
+      placeholder="All roles"
+      [options]="roleOptions()"
+      [value]="roleFilter()"
+      (onChange)="onRoleFilterChange($event)"
+    ></app-select>
+
+    <app-select
+      label="Status"
+      placeholder="All statuses"
+      [options]="statusOptions"
+      [value]="statusFilter()"
+      (onChange)="onStatusFilterChange($event)"
+    ></app-select>
+  </div>
+
+  <div class="api-banner" *ngIf="apiError()">
+    <strong>Backend status:</strong>
+    {{ apiError() }}
+  </div>
+
+  <div class="panel" *ngIf="isFormVisible()">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">{{ mode() === 'create' ? 'NEW USER' : mode() === 'edit' ? 'EDIT USER' : 'VIEW USER' }}</span>
+        <h3>{{ mode() === 'create' ? 'Add user' : selectedUser()?.fullName || 'User details' }}</h3>
+      </div>
+      <button class="close-btn" type="button" (click)="closeForm()">✕</button>
+    </div>
+
+    <form [formGroup]="form" class="user-form" (ngSubmit)="saveUser()">
+      <div class="form-grid">
+        <app-input
+          formControlName="firstName"
+          label="First name"
+          placeholder="First name"
+          [error]="getFieldError('firstName')"
+        ></app-input>
+
+        <app-input
+          formControlName="lastName"
+          label="Last name"
+          placeholder="Last name"
+          [error]="getFieldError('lastName')"
+        ></app-input>
+
+        <app-input
+          formControlName="email"
+          type="email"
+          label="Email"
+          placeholder="name@company.com"
+          [error]="getFieldError('email')"
+        ></app-input>
+
+        <app-select
+          formControlName="organizationId"
+          label="Organization"
+          placeholder="Select an organization"
+          [options]="organizationSelectOptions()"
+          [error]="getFieldError('organizationId')"
+          (onChange)="onOrganizationSelected($event)"
+        ></app-select>
+
+        <app-select
+          formControlName="storeId"
+          label="Primary store"
+          placeholder="Select a primary store"
+          [options]="storeSelectOptions()"
+          [error]="getFieldError('storeId')"
+        ></app-select>
+
+        <app-select
+          formControlName="role"
+          label="Role"
+          placeholder="Select role"
+          [options]="roleOptions()"
+          [error]="getFieldError('role')"
+        ></app-select>
+
+        <app-select
+          *ngIf="form.controls.role.value === 'StoreStaff'"
+          formControlName="staffCategory"
+          label="Staff category"
+          placeholder="Select staff category"
+          [options]="staffCategoryOptions"
+          [error]="getFieldError('staffCategory')"
+        ></app-select>
+
+        <app-select
+          formControlName="status"
+          label="Status"
+          placeholder="Select status"
+          [options]="nonAllStatusOptions()"
+          [error]="getFieldError('status')"
+        ></app-select>
+      </div>
+
+      <div class="assignment-box" *ngIf="form.controls.role.value === 'StoreStaff'">
+        <label class="field-label">Store assignments</label>
+        <div class="assignment-list" *ngIf="stores().length; else noStores">
+          <label class="assignment-item" *ngFor="let store of stores()">
+            <input type="checkbox" [checked]="isStoreSelected(store.id)" (change)="toggleStore(store.id)" />
+            <span>{{ store.name }}</span>
+          </label>
+        </div>
+        <ng-template #noStores><small class="muted">Select an organization to load stores.</small></ng-template>
+      </div>
+
+      <div class="permission-box">
+        <label class="field-label">Permissions</label>
+        <div class="permissions-list">
+          <label class="permission-item" *ngFor="let permission of effectiveRolePermissions()">
+            <input
+              type="checkbox"
+              [checked]="true"
+              disabled
+            />
+            <span>
+              <strong>{{ permission.name }}</strong>
+              <small>{{ permission.description }}</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions" *ngIf="mode() !== 'view'">
+        <app-button label="Cancel" variant="secondary" type="button" (onClick)="closeForm()"></app-button>
+        <app-button label="Save user" variant="primary" type="submit"></app-button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel" *ngIf="!isFormVisible()">
+    <app-table
+      [columns]="tableColumns()"
+      [rows]="paginatedUsers()"
+      [isLoading]="isLoading()"
+      [pagination]="{ total: filteredUsers().length, page: page(), pageSize: pageSize(), totalPages: totalPages() }"
+      emptyTitle="No users found"
+      emptyMessage="Try changing the search or filters"
+      [selectable]="false"
+      (sortChange)="onSortChange($event)"
+      (pageChange)="onPageChange($event)"
+    ></app-table>
+  </div>
+</section>

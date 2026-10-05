@@ -11,7 +11,7 @@ public sealed class PersistenceModelTests
     public void Model_contains_required_tables_and_inventory_concurrency_token()
     {
         var options = new DbContextOptionsBuilder<QuickCommerceDbContext>()
-            .UseSqlServer("Server=NCIT-08;Database=retail-mobile-app;Trusted_Connection=True;TrustServerCertificate=True")
+            .UseSqlServer("Server=NCIT-08;Database=retail-mobile-app;Trusted_Connection=True;User Id=sa;Password=Ncit@1234;TrustServerCertificate=True")
             .Options;
         using var db = new QuickCommerceDbContext(options);
 
@@ -32,6 +32,19 @@ public sealed class PersistenceModelTests
         Assert.NotNull(db.Model.FindEntityType(typeof(Order)));
         Assert.NotNull(db.Model.FindEntityType(typeof(OrderItem)));
         Assert.NotNull(db.Model.FindEntityType(typeof(OrderStatusHistory)));
+        Assert.NotNull(db.Model.FindEntityType(typeof(AuthorizationRole)));
+        Assert.NotNull(db.Model.FindEntityType(typeof(AuthorizationPermission)));
+        Assert.NotNull(db.Model.FindEntityType(typeof(RolePermission)));
+        var userRole = db.Model.FindEntityType(typeof(UserRole));
+        Assert.NotNull(userRole);
+        Assert.Equal(2, userRole!.FindPrimaryKey()!.Properties.Count);
+        Assert.NotNull(userRole.FindNavigation(nameof(UserRole.User)));
+        Assert.NotNull(userRole.FindNavigation(nameof(UserRole.Role)));
+        var assignment = db.Model.FindEntityType(typeof(UserStoreAssignment));
+        Assert.NotNull(assignment);
+        Assert.Equal(2, assignment!.FindPrimaryKey()!.Properties.Count);
+        Assert.NotNull(assignment.FindNavigation(nameof(UserStoreAssignment.User)));
+        Assert.NotNull(assignment.FindNavigation(nameof(UserStoreAssignment.Store)));
         Assert.True(db.Model.FindEntityType(typeof(StoreInventory))!.FindProperty(nameof(StoreInventory.RowVersion))!.IsConcurrencyToken);
         Assert.True(db.Model.FindEntityType(typeof(Order))!.FindProperty(nameof(Order.RowVersion))!.IsConcurrencyToken);
 
@@ -39,6 +52,14 @@ public sealed class PersistenceModelTests
         Assert.Contains("CREATE TABLE [StoreInventory]", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("decimal(18,2)", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("CREATE TABLE [Organizations]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE TABLE [AuthorizationRoles]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE TABLE [AuthorizationPermissions]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE TABLE [RolePermissions]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE TABLE [UserRoles]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CREATE TABLE [UserStoreAssignments]", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ApplicationAdmin", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DeliveryPartner", script, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("multistorestaff", script, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("OrganizationId", script, StringComparison.OrdinalIgnoreCase);
     }
 

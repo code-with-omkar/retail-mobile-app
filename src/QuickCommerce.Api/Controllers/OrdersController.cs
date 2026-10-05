@@ -12,7 +12,9 @@ namespace QuickCommerce.Api.Controllers;
 public sealed class OrdersController(
     IOrderService orderService,
     ICustomerOrderService customerOrderService,
-    ICurrentUserContextResolver currentUserContextResolver) : ControllerBase
+    ICurrentUserContextResolver currentUserContextResolver,
+    IAuthorizationScopeService scopeService,
+    ICommerceStore data) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Orders(CancellationToken cancellationToken)
@@ -24,7 +26,14 @@ public sealed class OrdersController(
             return customerOrders is null ? Forbid() : Ok(new { success = true, data = customerOrders });
         }
 
-        return Ok(new { success = true, data = await orderService.GetOrdersAsync(cancellationToken) });
+        var scope = await scopeService.ResolveAsync(cancellationToken);
+        if (scope is null)
+        {
+            return Forbid();
+        }
+
+        var orders = await data.GetScopedOrderSummariesAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        return Ok(new { success = true, data = orders });
     }
 
     [HttpPost]
@@ -47,11 +56,33 @@ public sealed class OrdersController(
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
         var order = context?.Role == QuickCommerce.Domain.Role.Customer
             ? await customerOrderService.GetDetailsAsync(id, cancellationToken)
-            : await orderService.GetOrderAsync(id, cancellationToken);
+            : await GetScopedOrderAsync(id, cancellationToken);
         return order is { }
             ? Ok(new { success = true, data = order })
             : NotFound(new { success = false, message = "Order not found", errors = Array.Empty<string>() });
     }
 
     private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };
+
+    private async Task<OrderResponse?> GetScopedOrderAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var scope = await scopeService.ResolveAsync(cancellationToken);
+        if (scope is null) return null;
+        var orders = await data.GetScopedOrdersAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        return orders.FirstOrDefault(order => order.Id == id) is { } order ? Map(order) : null;
+    }
+
+    private static OrderResponse Map(QuickCommerce.Domain.Order order) => new(
+        order.Id,
+        order.OrderNumber,
+        order.UserId,
+        order.StoreId,
+        order.TotalAmount,
+        order.Status,
+        order.DeliveryAddress,
+        order.Latitude,
+        order.Longitude,
+        order.CreatedAt,
+        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
 }

@@ -5,12 +5,16 @@ namespace QuickCommerce.Application.Interfaces;
 
 public interface ICommerceStore
 {
+    Task<AdminDashboardSnapshot> GetAdminDashboardAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Product>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default);
     Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
     Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetCustomerOrdersAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken = default);
     Task<Order?> GetCustomerOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default);

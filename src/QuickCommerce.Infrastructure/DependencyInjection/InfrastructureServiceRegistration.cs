@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Domain;
 using QuickCommerce.Infrastructure.Caching;
 using QuickCommerce.Infrastructure.Health;
 using QuickCommerce.Infrastructure.Persistence;
@@ -28,6 +30,12 @@ public static class InfrastructureServiceRegistration
             services.AddSingleton<ICacheService, DistributedCacheService>();
         }
         services.AddScoped<ICommerceStore, EfCommerceStore>();
+        services.AddScoped<IAuthorizationManagementService, AuthorizationManagementService>();
+        services.AddScoped<IApprovalService, ApprovalService>();
+        services.AddScoped<IAuthorizationScopeService, AuthorizationScopeService>();
+        services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+        services.AddHostedService<DevelopmentAuthenticationSeedService>();
         services.AddScoped<ICurrentUserContextResolver, CurrentUserContextResolver>();
         return services;
     }

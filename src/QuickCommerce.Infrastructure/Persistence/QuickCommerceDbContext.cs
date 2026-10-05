@@ -7,7 +7,15 @@ public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbConte
 {
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Organization> Organizations => Set<Organization>();
+    public DbSet<AuthorizationRole> AuthorizationRoles => Set<AuthorizationRole>();
+    public DbSet<AuthorizationPermission> AuthorizationPermissions => Set<AuthorizationPermission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<UserStoreAssignment> UserStoreAssignments => Set<UserStoreAssignment>();
+    public DbSet<UserCredential> UserCredentials => Set<UserCredential>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Product> Products => Set<Product>();

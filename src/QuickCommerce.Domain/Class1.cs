@@ -1,6 +1,8 @@
 ﻿namespace QuickCommerce.Domain;
 
-public enum Role { Customer, StoreStaff, Admin }
+public enum Role { Customer, StoreStaff, Admin, DeliveryPartner, ApplicationAdmin }
+public enum StaffCategory { StoreManager, StoreEmployee }
+public enum ApprovalStatus { Pending, Approved, Rejected, Cancelled }
 public enum OrderStatus
 {
 	Pending,
@@ -30,9 +32,80 @@ public sealed class Organization
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public required string Name { get; set; }
+	public string? Code { get; set; }
 	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
 	public List<Store> Stores { get; set; } = [];
 	public List<User> Users { get; set; } = [];
+}
+
+public sealed class AuthorizationRole
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public required string Name { get; set; }
+	public required string Code { get; set; }
+	public string? Description { get; set; }
+	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public List<UserRole> UserRoles { get; set; } = [];
+	public List<RolePermission> RolePermissions { get; set; } = [];
+}
+
+public sealed class AuthorizationPermission
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public required string Name { get; set; }
+	public required string Code { get; set; }
+	public string? Description { get; set; }
+	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public List<RolePermission> RolePermissions { get; set; } = [];
+}
+
+public sealed class RolePermission
+{
+	public Guid RoleId { get; set; }
+	public Guid PermissionId { get; set; }
+	public bool IsActive { get; set; } = true;
+	public AuthorizationRole Role { get; set; } = null!;
+	public AuthorizationPermission Permission { get; set; } = null!;
+}
+
+public sealed class UserRole
+{
+	public Guid UserId { get; set; }
+	public Guid RoleId { get; set; }
+	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public User User { get; set; } = null!;
+	public AuthorizationRole Role { get; set; } = null!;
+}
+
+public sealed class UserStoreAssignment
+{
+	public Guid UserId { get; set; }
+	public Guid StoreId { get; set; }
+	public bool IsActive { get; set; } = true;
+	public DateTime EffectiveFrom { get; set; } = DateTime.UtcNow;
+	public DateTime? EffectiveTo { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public User User { get; set; } = null!;
+	public Store Store { get; set; } = null!;
 }
 
 public sealed class User
@@ -40,13 +113,81 @@ public sealed class User
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public required string ExternalSubject { get; set; }
 	public required string DisplayName { get; set; }
+	public string? FirstName { get; set; }
+	public string? LastName { get; set; }
+	public string? Email { get; set; }
 	public Guid OrganizationId { get; set; }
 	public Guid? StoreId { get; set; }
 	public Role Role { get; set; } = Role.Customer;
+	public StaffCategory? StaffCategory { get; set; }
 	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
 	public Organization Organization { get; set; } = null!;
 	public Store? Store { get; set; }
 	public Customer? Customer { get; set; }
+	public List<UserRole> UserRoles { get; set; } = [];
+	public List<UserStoreAssignment> StoreAssignments { get; set; } = [];
+	public UserCredential? Credential { get; set; }
+	public List<RefreshToken> RefreshTokens { get; set; } = [];
+}
+
+public sealed class ApprovalRequest
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrganizationId { get; set; }
+	public Guid StoreId { get; set; }
+	public Guid RequestedByUserId { get; set; }
+	public required string EntityType { get; set; }
+	public Guid EntityId { get; set; }
+	public required string ApprovalType { get; set; }
+	public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
+	public Guid? ApprovedByUserId { get; set; }
+	public DateTime? ApprovedAt { get; set; }
+	public DateTime? RejectedAt { get; set; }
+	public string? RejectionReason { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public Organization Organization { get; set; } = null!;
+	public Store Store { get; set; } = null!;
+	public User RequestedByUser { get; set; } = null!;
+	public User? ApprovedByUser { get; set; }
+}
+
+public sealed class UserCredential
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid UserId { get; set; }
+	public required string PasswordHash { get; set; }
+	public string HashVersion { get; set; } = "ASP.NET Core Identity v3";
+	public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
+	public int FailedLoginCount { get; set; }
+	public DateTime? LockedUntil { get; set; }
+	public bool IsActive { get; set; } = true;
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+	public DateTime? UpdatedAt { get; set; }
+	public string? UpdatedBy { get; set; }
+	public User User { get; set; } = null!;
+}
+
+public sealed class RefreshToken
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid UserId { get; set; }
+	public Guid SessionId { get; set; }
+	public required string TokenHash { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime ExpiresAt { get; set; }
+	public DateTime? RevokedAt { get; set; }
+	public Guid? ReplacedByTokenId { get; set; }
+	public string? CreatedByIp { get; set; }
+	public string? RevokedByIp { get; set; }
+	public User User { get; set; } = null!;
 }
 
 public sealed class Customer
@@ -92,6 +233,7 @@ public sealed class Store
 	public bool IsActive { get; set; } = true;
 	public Organization Organization { get; set; } = null!;
 	public List<User> Users { get; set; } = [];
+	public List<UserStoreAssignment> UserStoreAssignments { get; set; } = [];
 	public List<Cart> Carts { get; set; } = [];
 }
 

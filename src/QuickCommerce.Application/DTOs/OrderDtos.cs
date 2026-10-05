@@ -27,6 +27,17 @@ public sealed record OrderResponse(
     IReadOnlyList<OrderItemResponse> Items,
     IReadOnlyList<OrderStatusHistoryResponse> StatusHistory);
 
+public sealed record AdminOrderResponse(
+    Guid Id,
+    string OrderNumber,
+    Guid UserId,
+    string Customer,
+    Guid StoreId,
+    string Store,
+    decimal TotalAmount,
+    OrderStatus Status,
+    DateTime CreatedAt);
+
 public sealed record OrderItemResponse(
     Guid ProductId,
     string ProductNameSnapshot,

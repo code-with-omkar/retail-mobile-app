@@ -1,0 +1,7 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ApiService } from '../../core/services/api.service';
+import { Store } from '../../core/models/domain.model';
+
+@Component({ selector: 'app-stores', standalone: true, imports: [CommonModule], template: `<section class="page"><h2>Stores</h2><p class="muted">Active locations in your authorized scope</p><p *ngIf="loading()">Loading stores...</p><p *ngIf="error()" class="error">{{ error() }}</p><p *ngIf="!loading() && !error() && stores().length === 0">No stores found.</p><div class="list"><article *ngFor="let store of stores"><strong>{{ store.name }}</strong><span>{{ store.address }}</span><small>{{ store.isActive ? 'Active' : 'Inactive' }}</small></article></div></section>`, styles: [`.page{max-width:900px}.muted,small{color:#82908b;font-size:12px}.list{display:grid;gap:10px}article{background:#fff;border:1px solid #e5ebe6;border-radius:8px;padding:16px;display:grid;gap:5px}span{color:#586963;font-size:12px}.error{color:#a64d3b}`] })
+export class StoresComponent implements OnInit { private api=inject(ApiService); readonly stores=signal<Store[]>([]); readonly loading=signal(false); readonly error=signal<string|null>(null); ngOnInit(){this.loading.set(true);this.api.get<Store[]>('/stores').subscribe({next:r=>{this.stores.set(r.data??[]);this.loading.set(false)},error:e=>{this.error.set(e.message??'Unable to load stores');this.loading.set(false)}})} }

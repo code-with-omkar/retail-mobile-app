@@ -31,6 +31,7 @@ public static class ApiServiceCollectionExtensions
                     context.User.IsInRole("Customer") ||
                     context.User.IsInRole("StoreStaff") ||
                     context.User.IsInRole("Admin") ||
+                    context.User.IsInRole("ApplicationAdmin") ||
                     context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "orders:read")));
             options.AddPolicy(SecurityPolicies.StoreOrderOperations, policy => policy
                 .RequireAuthenticatedUser()
@@ -38,6 +39,21 @@ public static class ApiServiceCollectionExtensions
                     context.User.IsInRole("StoreStaff") ||
                     context.User.IsInRole("Admin") ||
                     context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "orders:operate")));
+            options.AddPolicy(SecurityPolicies.AdminManagement, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context =>
+                    context.User.IsInRole("Admin") ||
+                    context.User.IsInRole("ApplicationAdmin") ||
+                    context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "users:manage") ||
+                    context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "roles:manage") ||
+                    context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "permissions:manage")));
+            options.AddPolicy(SecurityPolicies.AdminDataRead, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context =>
+                    context.User.IsInRole("ApplicationAdmin") ||
+                    context.User.IsInRole("Admin") ||
+                    context.User.IsInRole("StoreStaff") ||
+                    context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "Store.Read")));
         });
         services.AddSwaggerGen(options =>
         {

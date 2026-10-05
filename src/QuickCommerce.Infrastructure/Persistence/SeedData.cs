@@ -6,11 +6,20 @@ internal static class SeedData
 {
     private static readonly Guid OrganizationId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid DemoUserId = Guid.Parse("40000000-0000-0000-0000-000000000001");
+    private static readonly Guid AdminUserId = Guid.Parse("40000000-0000-0000-0000-000000000002");
+    private static readonly Guid StoreStaffUserId = Guid.Parse("40000000-0000-0000-0000-000000000003");
+    private static readonly Guid CustomerUserId = Guid.Parse("40000000-0000-0000-0000-000000000004");
+    private static readonly Guid MultiStoreStaffUserId = Guid.Parse("40000000-0000-0000-0000-000000000005");
+    private static readonly Guid DeliveryPartnerUserId = Guid.Parse("40000000-0000-0000-0000-000000000006");
+    private static readonly Guid StoreManagerUserId = Guid.Parse("40000000-0000-0000-0000-000000000007");
+    private static readonly Guid StoreEmployeeUserId = Guid.Parse("40000000-0000-0000-0000-000000000008");
     private static readonly Guid DemoCustomerId = Guid.Parse("50000000-0000-0000-0000-000000000001");
+    private static readonly Guid CustomerProfileId = Guid.Parse("50000000-0000-0000-0000-000000000002");
     private static readonly Guid GroceriesId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     private static readonly Guid VegetablesId = Guid.Parse("10000000-0000-0000-0000-000000000002");
     private static readonly Guid FruitsId = Guid.Parse("10000000-0000-0000-0000-000000000003");
     private static readonly Guid DairyId = Guid.Parse("10000000-0000-0000-0000-000000000004");
+    private static readonly DateTime SeedTimestamp = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
     private static readonly ProductSeed[] Products =
     [
@@ -30,6 +39,36 @@ internal static class SeedData
 
     public static void Configure(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Domain.AuthorizationRole>().HasData(
+            new { Id = Guid.Parse("70000000-0000-0000-0000-000000000001"), Name = "Customer", Code = "Customer", Description = "Default customer role", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("70000000-0000-0000-0000-000000000002"), Name = "Store Staff", Code = "StoreStaff", Description = "Store operations role", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("70000000-0000-0000-0000-000000000003"), Name = "Application Admin", Code = "ApplicationAdmin", Description = "Organization-wide administration role", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("70000000-0000-0000-0000-000000000004"), Name = "Delivery Partner", Code = "DeliveryPartner", Description = "Future delivery operations role", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" });
+
+        modelBuilder.Entity<Domain.AuthorizationPermission>().HasData(
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000001"), Name = "View orders", Code = "orders:read", Description = "Read order data", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000002"), Name = "Operate on orders", Code = "orders:operate", Description = "Accept and manage orders", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000003"), Name = "Manage users", Code = "users:manage", Description = "Create and edit users", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000004"), Name = "Manage roles", Code = "roles:manage", Description = "Create and edit roles", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000005"), Name = "Manage permissions", Code = "permissions:manage", Description = "Create and edit permissions", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000006"), Name = "Read stores", Code = "Store.Read", Description = "Read store data", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000007"), Name = "Read customers", Code = "Customer.Read", Description = "Read customer data", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { Id = Guid.Parse("71000000-0000-0000-0000-000000000008"), Name = "Read deliveries", Code = "Delivery.Read", Description = "Read future delivery data", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" });
+
+        modelBuilder.Entity<Domain.RolePermission>().HasData(
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000001"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000001"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000001"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000002"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000001"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000002"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000003"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000004"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000005"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000006"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000007"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000008"), IsActive = true },
+            new { RoleId = Guid.Parse("70000000-0000-0000-0000-000000000004"), PermissionId = Guid.Parse("71000000-0000-0000-0000-000000000008"), IsActive = true });
+
         modelBuilder.Entity<Domain.Category>().HasData(
             new { Id = GroceriesId, Name = "Groceries", ParentCategoryId = (Guid?)null, IsActive = true },
             new { Id = VegetablesId, Name = "Vegetables", ParentCategoryId = (Guid?)null, IsActive = true },
@@ -37,7 +76,7 @@ internal static class SeedData
             new { Id = DairyId, Name = "Dairy", ParentCategoryId = (Guid?)null, IsActive = true });
 
         modelBuilder.Entity<Domain.Organization>().HasData(
-            new { Id = OrganizationId, Name = "QuickCart Demo Retailer", IsActive = true });
+            new { Id = OrganizationId, Name = "QuickCart Demo Retailer", Code = "QUICKCART-DEMO", IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" });
 
         modelBuilder.Entity<Domain.Product>().HasData(Products.Select(product => new
         {
@@ -60,14 +99,147 @@ internal static class SeedData
                 OrganizationId,
                 StoreId = (Guid?)null,
                 Role = Domain.Role.Customer,
-                IsActive = true
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = AdminUserId,
+                ExternalSubject = "admin",
+                DisplayName = "Demo Administrator",
+                FirstName = "Demo",
+                LastName = "Administrator",
+                Email = "admin@example.test",
+                OrganizationId,
+                StoreId = (Guid?)null,
+                Role = Domain.Role.Admin,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = StoreStaffUserId,
+                ExternalSubject = "storestaff",
+                DisplayName = "Demo Store Staff",
+                FirstName = "Demo",
+                LastName = "Store Staff",
+                Email = "storestaff@example.test",
+                OrganizationId,
+                StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                Role = Domain.Role.StoreStaff,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = CustomerUserId,
+                ExternalSubject = "customer",
+                DisplayName = "Demo Customer",
+                FirstName = "Demo",
+                LastName = "Customer",
+                Email = "customer@example.test",
+                OrganizationId,
+                StoreId = (Guid?)null,
+                Role = Domain.Role.Customer,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = MultiStoreStaffUserId,
+                ExternalSubject = "multistorestaff",
+                DisplayName = "Demo Multi Store Staff",
+                FirstName = "Demo",
+                LastName = "Multi Store Staff",
+                Email = "multistorestaff@example.test",
+                OrganizationId,
+                StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                Role = Domain.Role.StoreStaff,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = DeliveryPartnerUserId,
+                ExternalSubject = "deliverypartner",
+                DisplayName = "Demo Delivery Partner",
+                FirstName = "Demo",
+                LastName = "Delivery Partner",
+                Email = "deliverypartner@example.test",
+                OrganizationId,
+                StoreId = (Guid?)null,
+                Role = Domain.Role.DeliveryPartner,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = StoreManagerUserId,
+                ExternalSubject = "storemanager",
+                DisplayName = "Demo Store Manager",
+                FirstName = "Demo",
+                LastName = "Store Manager",
+                Email = "storemanager@example.test",
+                OrganizationId,
+                StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                Role = Domain.Role.StoreStaff,
+                StaffCategory = Domain.StaffCategory.StoreManager,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
+            },
+            new
+            {
+                Id = StoreEmployeeUserId,
+                ExternalSubject = "storeemployee",
+                DisplayName = "Demo Store Employee",
+                FirstName = "Demo",
+                LastName = "Store Employee",
+                Email = "storeemployee@example.test",
+                OrganizationId,
+                StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                Role = Domain.Role.StoreStaff,
+                StaffCategory = Domain.StaffCategory.StoreEmployee,
+                IsActive = true,
+                CreatedAt = SeedTimestamp,
+                CreatedBy = "seed"
             });
+
+        modelBuilder.Entity<Domain.UserRole>().HasData(
+            new { UserId = DemoUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000001"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = AdminUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000003"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = StoreStaffUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = CustomerUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000001"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = MultiStoreStaffUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = MultiStoreStaffUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000004"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = DeliveryPartnerUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000004"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = StoreManagerUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = StoreEmployeeUserId, RoleId = Guid.Parse("70000000-0000-0000-0000-000000000002"), IsActive = true, CreatedAt = SeedTimestamp, CreatedBy = "seed" });
+
+        modelBuilder.Entity<Domain.UserStoreAssignment>().HasData(
+            new { UserId = StoreStaffUserId, StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"), IsActive = true, EffectiveFrom = SeedTimestamp, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = StoreManagerUserId, StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"), IsActive = true, EffectiveFrom = SeedTimestamp, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = StoreEmployeeUserId, StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"), IsActive = true, EffectiveFrom = SeedTimestamp, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = MultiStoreStaffUserId, StoreId = Guid.Parse("30000000-0000-0000-0000-000000000001"), IsActive = true, EffectiveFrom = SeedTimestamp, CreatedAt = SeedTimestamp, CreatedBy = "seed" },
+            new { UserId = MultiStoreStaffUserId, StoreId = Guid.Parse("30000000-0000-0000-0000-000000000002"), IsActive = true, EffectiveFrom = SeedTimestamp, CreatedAt = SeedTimestamp, CreatedBy = "seed" });
 
         modelBuilder.Entity<Domain.Customer>().HasData(
             new
             {
                 Id = DemoCustomerId,
                 UserId = DemoUserId,
+                IsActive = true
+            },
+            new
+            {
+                Id = CustomerProfileId,
+                UserId = CustomerUserId,
                 IsActive = true
             });
 

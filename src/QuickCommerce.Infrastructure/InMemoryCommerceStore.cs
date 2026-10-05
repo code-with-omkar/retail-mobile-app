@@ -18,6 +18,41 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     public List<Order> Orders { get; } = [];
     public object SyncRoot { get; } = new();
 
+    public Task<AdminDashboardSnapshot> GetAdminDashboardAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
+    {
+        var scopedStores = Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray();
+        var scopedStoreIds = scopedStores.Select(store => store.Id).ToHashSet();
+        var scopedOrders = Orders.Where(order => scopedStoreIds.Contains(order.StoreId)).OrderByDescending(order => order.CreatedAt).ToArray();
+        var today = DateTime.UtcNow.Date;
+        var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Confirmed, OrderStatus.OutForDelivery };
+        var activeOrders = scopedOrders.Where(order => activeStatuses.Contains(order.Status)).Select(order => new ActiveOrderSummary(
+            order.Id,
+            order.OrderNumber,
+            Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer",
+            Stores.First(store => store.Id == order.StoreId).Name,
+            order.Status,
+            order.CreatedAt,
+            order.TotalAmount,
+            null)).ToArray();
+        var completedOrders = scopedOrders.Where(order => order.Status == OrderStatus.Completed).ToArray();
+        var totalStores = Stores.Count(store => store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id)));
+        return Task.FromResult(new AdminDashboardSnapshot(
+            totalStores,
+            scopedStores.Length,
+            Products.Count,
+            Products.Count(product => product.IsActive),
+            Customers.Count(customer => customer.IsActive && Users.Any(user => user.Id == customer.UserId && user.OrganizationId == organizationId)),
+            scopedOrders.Length,
+            scopedOrders.Count(order => order.CreatedAt >= today),
+            activeOrders.Length,
+            completedOrders.Length,
+            scopedOrders.Count(order => order.Status == OrderStatus.Pending),
+            scopedOrders.Count(order => order.Status == OrderStatus.Cancelled),
+            completedOrders.Sum(order => order.TotalAmount),
+            completedOrders.Where(order => order.CreatedAt >= today).Sum(order => order.TotalAmount),
+            activeOrders));
+    }
+
     public Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Category>>(Categories.ToArray());
 
     public Task<IReadOnlyList<Product>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Product>>(Products
@@ -29,9 +64,15 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
     public Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.ToArray());
 
+    public Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray());
+
     public Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreInventory>>(Inventory.ToArray());
 
     public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.ToArray());
+
+    public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
+
+    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id));
 
@@ -59,8 +100,8 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     }
 
     public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => Task.FromResult<UserContext?>(Users
-        .Where(user => user.ExternalSubject == externalSubject && user.IsActive)
-        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role))
+        .Where(user => (user.ExternalSubject == externalSubject || user.Id.ToString() == externalSubject) && user.IsActive)
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
         .FirstOrDefault());
 
     public Task<Customer?> GetCustomerByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<Customer?>(Customers

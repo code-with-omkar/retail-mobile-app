@@ -31,6 +31,7 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
 
     public async Task<IReadOnlyList<ProductResponse>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default)
     {
+        Console.WriteLine($"GetProductsAsync called with search: {search}, categoryId: {categoryId}");
         var key = CatalogCacheKeys.Products(search, categoryId);
         var cached = await cache.GetAsync<ProductResponse[]>(key, cancellationToken);
         if (cached is not null)

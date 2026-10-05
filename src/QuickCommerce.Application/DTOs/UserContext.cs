@@ -6,4 +6,5 @@ public sealed record UserContext(
     Guid UserId,
     Guid OrganizationId,
     Guid? StoreId,
-    Role Role);
+    Role Role,
+    StaffCategory? StaffCategory = null);

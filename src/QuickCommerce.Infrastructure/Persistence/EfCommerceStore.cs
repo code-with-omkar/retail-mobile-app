@@ -7,6 +7,57 @@ namespace QuickCommerce.Infrastructure.Persistence;
 
 public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 {
+    public async Task<AdminDashboardSnapshot> GetAdminDashboardAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
+    {
+        var organizationStores = db.Stores.AsNoTracking().Where(store => store.OrganizationId == organizationId);
+        var scopedStoreQuery = organizationStores.Where(store => store.IsActive);
+        if (!isApplicationAdmin)
+        {
+            scopedStoreQuery = scopedStoreQuery.Where(store => storeIds.Contains(store.Id));
+        }
+
+        var scopedStoreIds = await scopedStoreQuery.Select(store => store.Id).ToArrayAsync(cancellationToken);
+        var totalStores = isApplicationAdmin
+            ? await organizationStores.CountAsync(cancellationToken)
+            : await organizationStores.CountAsync(store => storeIds.Contains(store.Id), cancellationToken);
+        var orders = db.Orders.AsNoTracking().Where(order => scopedStoreIds.Contains(order.StoreId));
+        var today = DateTime.UtcNow.Date;
+        var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Confirmed, OrderStatus.OutForDelivery };
+
+        var activeOrderRows = await orders.Where(order => activeStatuses.Contains(order.Status))
+            .Join(db.Users.AsNoTracking(), order => order.UserId, user => user.Id, (order, user) => new { order, customer = user.DisplayName })
+            .Join(db.Stores.AsNoTracking(), row => row.order.StoreId, store => store.Id, (row, store) => new
+            {
+                row.order.Id,
+                row.order.OrderNumber,
+                Customer = row.customer,
+                Store = store.Name,
+                row.order.Status,
+                OrderTime = row.order.CreatedAt,
+                Amount = row.order.TotalAmount
+            })
+            .OrderByDescending(row => row.OrderTime)
+            .ToArrayAsync(cancellationToken);
+
+        var activeOrders = activeOrderRows
+            .Select(row => new ActiveOrderSummary(row.Id, row.OrderNumber, row.Customer, row.Store, row.Status, row.OrderTime, row.Amount, null))
+            .ToArray();
+        return new AdminDashboardSnapshot(
+            totalStores,
+            scopedStoreIds.Length,
+            await db.Products.AsNoTracking().CountAsync(cancellationToken),
+            await db.Products.AsNoTracking().CountAsync(product => product.IsActive, cancellationToken),
+            await db.Customers.AsNoTracking().CountAsync(customer => customer.IsActive && db.Users.Any(user => user.Id == customer.UserId && user.OrganizationId == organizationId), cancellationToken),
+            await orders.CountAsync(cancellationToken),
+            await orders.CountAsync(order => order.CreatedAt >= today, cancellationToken),
+            activeOrders.Length,
+            await orders.CountAsync(order => order.Status == OrderStatus.Completed, cancellationToken),
+            await orders.CountAsync(order => order.Status == OrderStatus.Pending, cancellationToken),
+            await orders.CountAsync(order => order.Status == OrderStatus.Cancelled, cancellationToken),
+            await orders.Where(order => order.Status == OrderStatus.Completed).SumAsync(order => (decimal?)order.TotalAmount, cancellationToken) ?? 0,
+            await orders.Where(order => order.Status == OrderStatus.Completed && order.CreatedAt >= today).SumAsync(order => (decimal?)order.TotalAmount, cancellationToken) ?? 0,
+            activeOrders);
+    }
     public async Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default) => await db.Categories.AsNoTracking().ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Product>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default)
@@ -29,6 +80,17 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public async Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default) => await db.Stores.AsNoTracking().ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
+    {
+        var query = db.Stores.AsNoTracking().Where(store => store.OrganizationId == organizationId && store.IsActive);
+        if (!isApplicationAdmin)
+        {
+            query = query.Where(store => storeIds.Contains(store.Id));
+        }
+
+        return await query.OrderBy(store => store.Name).ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default) => await db.StoreInventory.AsNoTracking().ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => await db.Orders
@@ -36,6 +98,31 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         .Include(order => order.Items)
         .Include(order => order.StatusHistory)
         .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
+    {
+        var query = db.Orders.AsNoTracking()
+            .Where(order => db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
+        if (!isApplicationAdmin)
+        {
+            query = query.Where(order => storeIds.Contains(order.StoreId));
+        }
+
+        return await query.Include(order => order.Items).Include(order => order.StatusHistory).OrderByDescending(order => order.CreatedAt).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
+    {
+        var query = db.Orders.AsNoTracking()
+            .Join(db.Users.AsNoTracking(), order => order.UserId, user => user.Id, (order, user) => new { order, customer = user.DisplayName })
+            .Join(db.Stores.AsNoTracking().Where(store => store.OrganizationId == organizationId && store.IsActive), row => row.order.StoreId, store => store.Id, (row, store) => new { row.order, row.customer, store });
+        if (!isApplicationAdmin)
+        {
+            query = query.Where(row => storeIds.Contains(row.order.StoreId));
+        }
+
+        return await query.OrderByDescending(row => row.order.CreatedAt).Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt)).ToListAsync(cancellationToken);
+    }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
         .AsNoTracking()
@@ -238,8 +325,8 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => db.Users
         .AsNoTracking()
-        .Where(user => user.ExternalSubject == externalSubject && user.IsActive)
-        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role))
+        .Where(user => (user.ExternalSubject == externalSubject || user.Id.ToString() == externalSubject) && user.IsActive)
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
         .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default)
