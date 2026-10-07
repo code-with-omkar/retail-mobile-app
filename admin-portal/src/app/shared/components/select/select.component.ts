@@ -33,52 +33,15 @@ export interface SelectOption {
     </div>
   `,
   styles: [`
-    .select-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #172523;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .select-field {
-      padding: 10px 11px;
-      border: 1px solid #e2e8e3;
-      border-radius: 6px;
-      font-size: 11px;
-      background: #fff;
-      color: #172523;
-      cursor: pointer;
-      transition: border-color 0.2s;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23172523' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 10px center;
-      padding-right: 32px;
-    }
-
-    .select-field:focus {
-      outline: none;
-      border-color: #6c9d1e;
-      box-shadow: 0 0 0 2px rgba(108, 157, 30, 0.1);
-    }
-
-    .select-field:disabled {
-      background-color: #f6f8f6;
-      color: #94a19c;
-      cursor: not-allowed;
-    }
-
-    .error-text {
-      color: #cf7c4e;
-      font-size: 10px;
-    }
+    .select-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Inter',sans-serif}
+    label{font-size:11px;font-weight:700;color:#E9E4FF;text-transform:uppercase;letter-spacing:.5px}
+    .select-field{padding:12px 36px 12px 14px;border:2px solid #FFD400;border-radius:14px;font-size:12px;font-family:'Inter',sans-serif;background-color:#EAE4FF;color:#141118;cursor:pointer;transition:box-shadow .2s,border-color .2s;appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23141118' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 14px center}
+    .select-field option{background:#EAE4FF;color:#141118}
+    .select-field:focus{outline:none;box-shadow:0 0 0 3px rgba(255,212,0,.3)}
+    .select-field:disabled{background-color:#D9D3F5;border-color:#C9C2F0;color:#5E5A66;cursor:not-allowed}
+    .error-text{color:#FB1A8E;font-size:10px;font-weight:700}
   `],
   providers: [
     {

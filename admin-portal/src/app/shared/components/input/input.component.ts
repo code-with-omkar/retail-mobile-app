@@ -19,52 +19,21 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
         (input)="onInput($event)"
         (blur)="onBlur()"
         (change)="onChange.emit($event)"
-        class="input-field"
+        class="input-field" [class.invalid]="!!error"
       />
       <small *ngIf="error" class="error-text">{{ error }}</small>
     </div>
   `,
   styles: [`
-    .input-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #172523;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .input-field {
-      padding: 10px 11px;
-      border: 1px solid #e2e8e3;
-      border-radius: 6px;
-      font-size: 11px;
-      background: #fff;
-      color: #172523;
-      transition: border-color 0.2s;
-    }
-
-    .input-field:focus {
-      outline: none;
-      border-color: #6c9d1e;
-      box-shadow: 0 0 0 2px rgba(108, 157, 30, 0.1);
-    }
-
-    .input-field:disabled {
-      background: #f6f8f6;
-      color: #94a19c;
-      cursor: not-allowed;
-    }
-
-    .error-text {
-      color: #cf7c4e;
-      font-size: 10px;
-    }
+    .input-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Inter',sans-serif}
+    label{font-size:11px;font-weight:700;color:#E9E4FF;text-transform:uppercase;letter-spacing:.5px}
+    .input-field{padding:12px 14px;border:2px solid #FFD400;border-radius:14px;font-size:12px;font-family:'Inter',sans-serif;background:#EAE4FF;color:#141118;transition:box-shadow .2s,border-color .2s}
+    .input-field::placeholder{color:#5E5A66}
+    .input-field:focus{outline:none;box-shadow:0 0 0 3px rgba(255,212,0,.3)}
+    .input-field.invalid{border-color:#FB1A8E}
+    .input-field.invalid:focus{box-shadow:0 0 0 3px rgba(251,26,142,.3)}
+    .input-field:disabled{background:#D9D3F5;border-color:#C9C2F0;color:#5E5A66;cursor:not-allowed}
+    .error-text{color:#FB1A8E;font-size:10px;font-weight:700}
   `],
   providers: [
     {

@@ -1,7 +1,6 @@
-import { Component, Output, EventEmitter, Input, computed, inject } from '@angular/core';
+import { Component, Output, EventEmitter, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { AuthService } from '../../core/services/auth.service';
 
 export interface NavItem {
   label: string;
@@ -37,15 +36,6 @@ export interface NavItem {
           <span class="nav-label">{{ item.label }}</span>
         </a>
       </nav>
-
-      <div class="sidebar-footer">
-        <div class="avatar">{{ userInitials() }}</div>
-        <div>
-          <strong>{{ userName() }}</strong>
-          <small>{{ userRole() }}</small>
-        </div>
-        <button class="more-btn" (click)="onUserMenu.emit()" title="User menu">•••</button>
-      </div>
     </aside>
   `,
   styles: [`
@@ -55,16 +45,14 @@ export interface NavItem {
       position: sticky;
       top: 0;
       box-sizing: border-box;
-      background: #172523;
-      color: #d8e1dc;
+      background: transparent;
+      color: #E9E4FF;
       padding: 34px 20px 22px;
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
-      border-right: 1px solid #1a2b27;
       overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #34433f transparent;
+      scrollbar-width: none;
     }
 
     .brand {
@@ -72,37 +60,39 @@ export interface NavItem {
       align-items: center;
       gap: 10px;
       color: #fff;
-      font: 800 21px Manrope, sans-serif;
+      font: 800 21px 'Space Grotesk', sans-serif;
       letter-spacing: -0.8px;
-      padding: 0 12px 52px;
+      padding: 0 12px 44px;
     }
 
     .brand-mark {
       display: grid;
       place-items: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 9px;
-      background: #d8f16e;
-      color: #172523;
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: #FFD400;
+      color: #141118;
       font-size: 17px;
+      font-weight: 800;
     }
 
-    .brand-dot {
-      color: #d8f16e;
-    }
+    .brand-dot { color: #FFD400; }
 
     .workspace-label {
-      color: #899a94;
+      color: #E9E4FF;
+      opacity: .75;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
       padding: 0 14px 14px;
+      font-family: 'Inter', sans-serif;
     }
 
     nav {
       display: grid;
-      gap: 5px;
+      gap: 4px;
+      align-content: start;
       flex: 1;
     }
 
@@ -110,137 +100,50 @@ export interface NavItem {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 12px 14px;
-      border-radius: 8px;
+      padding: 12px 16px;
+      border-radius: 999px;
       text-decoration: none;
-      color: #9aaca6;
+      color: #fff;
       font-size: 13px;
-      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
     }
 
-    .nav-link:hover {
-      background: rgba(216, 241, 110, 0.1);
-      color: #b7c6c0;
-    }
+    .nav-link:hover { background: rgba(255,255,255,0.14); }
 
     .nav-link.active {
-      background: #d8f16e;
-      color: #172523;
-    }
-
-    .nav-link.active .nav-icon {
-      color: #172523;
+      background: #FFD400;
+      color: #141118;
+      font-weight: 800;
+      box-shadow: 0 12px 32px rgba(20,17,24,.18);
     }
 
     .nav-icon {
-      width: 18px;
+      width: 20px;
       font-size: 17px;
-      color: #b7c6c0;
-    }
-
-    .nav-label {
-      flex: 1;
-    }
-
-    .sidebar-footer {
-      border-top: 1px solid #34433f;
-      padding: 22px 8px 0;
-      margin-top: auto;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 11px;
-    }
-
-    .avatar {
-      display: grid;
-      place-items: center;
-      width: 31px;
-      height: 31px;
-      border-radius: 50%;
-      background: #f0c8ae;
-      color: #633a2b;
-      font-weight: 700;
-      font-size: 10px;
+      text-align: center;
+      color: inherit;
       flex-shrink: 0;
     }
 
-    .sidebar-footer strong,
-    .sidebar-footer small {
-      display: block;
-    }
-
-    .sidebar-footer strong {
-      color: #d8e1dc;
-    }
-
-    .sidebar-footer small {
-      color: #83938e;
-      margin-top: 3px;
-    }
-
-    .more-btn {
-      margin-left: auto;
-      background: none;
-      border: none;
-      color: #83938e;
-      cursor: pointer;
-      font-size: 14px;
-      letter-spacing: 1px;
-      transition: color 0.2s;
-    }
-
-    .more-btn:hover {
-      color: #d8e1dc;
-    }
+    .nav-label { flex: 1; }
 
     @media (max-width: 1000px) {
-      width: 70px;
-      padding: 24px 10px;
-
-      .brand {
-        padding: 0 11px 45px;
-      }
-
+      .sidebar { width: 76px; padding: 24px 10px; }
+      .brand { padding: 0 6px 36px; }
       .brand > span:last-child,
       .workspace-label,
-      .nav-label {
-        font-size: 0;
-      }
-
-      .brand-mark {
-        flex-shrink: 0;
-      }
-
-      .nav-link {
-        justify-content: center;
-        padding: 12px;
-      }
-
-      .nav-icon {
-        font-size: 17px;
-      }
-
-      .sidebar-footer {
-        display: none;
-      }
+      .nav-label { display: none; }
+      .nav-link { justify-content: center; padding: 12px; }
     }
 
     @media (max-width: 460px) {
-      display: none;
+      .sidebar { display: none; }
     }
   `],
 })
 export class SidebarComponent {
-  private authService = inject(AuthService);
-
   @Input() navItems: NavItem[] = [];
   @Output() onUserMenu = new EventEmitter<void>();
-
-  readonly userName = computed(() => this.authService.userContext()?.displayName || 'User');
-  readonly userRole = computed(() => this.authService.userContext()?.role || 'User');
-  readonly userInitials = computed(() => {
-    const name = this.authService.userContext()?.displayName;
-    return name ? name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AK';
-  });
 }

@@ -1,0 +1,639 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<title>QuickCart Flutter Screens</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Mukta:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --yellow: #FFD400; --yellow-l: #FFE14D; --yellow-d: #FFB800;
+    --pink: #FB1A8E; --green: #02F34C; --ink: #141118;
+    --muted: #3A3640; --magenta: #B0008A;
+    --page-a: #2A1BFF; --page-b: #6A11E8; --page-c: #B00699;
+    --card: #EAE4FF; --card-y: #FFF1A8; --card-p: #FFC6E2; --card-g: #B9FFCF;
+    --on-card: #141118; --on-card-m: #5E5A66;
+    --nav: #141118; --stepper: #141118;
+    --on-page: #fff; --on-page-m: #E9E4FF;
+    --bg: #1a1a2e; --fg: #ffffff;
+    --font-d: 'Bricolage Grotesque', sans-serif;
+    --font-b: 'Plus Jakarta Sans', sans-serif;
+    --font-mr: 'Mukta', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0a0720; --fg: #ffffff; color-scheme: dark;
+  }}
+  :root[data-theme="dark"] { --bg: #0a0720; --fg: #ffffff; color-scheme: dark; }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: var(--font-b); padding: 32px 20px 60px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-family: var(--font-d); font-size: 28px; font-weight: 800;
+    letter-spacing: -0.8px; text-align: center; margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--yellow-l), var(--yellow), var(--yellow-d));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    text-align: center; color: rgba(255,255,255,.5);
+    font-size: 13px; margin-bottom: 40px;
+    font-family: var(--font-b);
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+  .tab {
+    padding: 8px 20px; border-radius: 999px; cursor: pointer;
+    font-size: 13px; font-weight: 700; border: none; transition: all .18s;
+    font-family: var(--font-b);
+  }
+  .tab.active { background: var(--yellow); color: var(--ink); }
+  .tab:not(.active) { background: rgba(255,255,255,.08); color: rgba(255,255,255,.7); }
+
+  /* Phone frame */
+  .phone-row {
+    display: flex; gap: 24px; justify-content: center;
+    flex-wrap: wrap; align-items: flex-start;
+  }
+  .phone-frame {
+    width: 390px; max-width: 100%;
+    border-radius: 44px; overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    border: 3px solid rgba(255,255,255,.08);
+    position: relative; flex-shrink: 0;
+  }
+  .phone-inner {
+    background: linear-gradient(165deg, var(--page-a) 0%, var(--page-b) 45%, var(--page-c) 100%);
+    min-height: 844px; position: relative; overflow: hidden;
+    padding: 0 0 80px;
+  }
+
+  /* Phone label */
+  .phone-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .08em; color: rgba(255,255,255,.4);
+    text-align: center; margin-top: 10px; margin-bottom: 16px;
+    font-family: var(--font-b);
+  }
+
+  /* ── WELCOME ─────────────────────────── */
+  .welcome { padding: 48px 20px 32px; display: flex; flex-direction: column; gap: 0; }
+  .logo-badge {
+    width: 56px; height: 56px; background: var(--yellow);
+    border-radius: 16px; display: grid; place-items: center;
+    font-size: 26px; margin-bottom: 28px;
+  }
+  .lang-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .lang-chip {
+    padding: 7px 16px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    font-family: var(--font-b);
+  }
+  .lang-chip.active { background: var(--yellow); color: var(--ink); }
+  .lang-chip:not(.active) { background: var(--card); color: var(--ink); }
+
+  .bento { display: flex; gap: 10px; height: 220px; margin-bottom: 28px; }
+  .bento-left {
+    flex: 5; background: var(--yellow);
+    border-radius: 28px; padding: 14px; display: flex; flex-direction: column;
+  }
+  .bento-right { flex: 3; display: flex; flex-direction: column; gap: 10px; }
+  .bento-sm {
+    flex: 1; border-radius: 20px; padding: 12px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .bento-sm.green { background: var(--card-g); }
+  .bento-sm.pink  { background: var(--card-p); }
+  .bento-emoji { font-size: 22px; }
+  .bento-lbl { font-size: 11px; font-weight: 800; color: var(--ink); font-family: var(--font-b); line-height: 1.3; }
+  .eta-num {
+    font-family: var(--font-d); font-size: 52px; font-weight: 800;
+    letter-spacing: -2px; line-height: 1; color: var(--ink);
+  }
+  .eta-sub { font-size: 13px; font-weight: 700; color: var(--muted); font-family: var(--font-b); }
+  .w-headline {
+    font-family: var(--font-d); font-size: 28px; font-weight: 800;
+    letter-spacing: -0.8px; color: #fff; margin-bottom: 6px; line-height: 1.15;
+  }
+  .w-marathi {
+    font-family: var(--font-mr); font-size: 16px; color: var(--on-page-m);
+    margin-bottom: 32px;
+  }
+  .btn-yellow {
+    background: var(--yellow); color: var(--ink);
+    border-radius: 999px; padding: 16px 0; text-align: center;
+    font-weight: 800; font-size: 16px; font-family: var(--font-b);
+    border: none; cursor: pointer; width: 100%;
+    box-shadow: 0 8px 24px rgba(255,212,0,.25);
+  }
+
+  /* ── LOGIN ─────────────────────────── */
+  .login { padding: 72px 20px 32px; display: flex; flex-direction: column; }
+  .back-btn {
+    width: 44px; height: 44px; background: var(--card);
+    border-radius: 999px; display: grid; place-items: center;
+    font-size: 16px; color: var(--ink); margin-bottom: 28px;
+  }
+  .login-logo {
+    width: 48px; height: 48px; background: var(--yellow);
+    border-radius: 14px; display: grid; place-items: center;
+    font-size: 22px; margin-bottom: 20px;
+  }
+  .brand-name {
+    font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #fff;
+    margin-bottom: 6px;
+  }
+  .login-sub { font-size: 14px; color: var(--on-page-m); margin-bottom: 36px; line-height: 1.5; font-family: var(--font-b); }
+  .phone-input {
+    height: 56px; background: var(--ink);
+    border-radius: 999px; border: 2px solid var(--yellow);
+    display: flex; align-items: center; gap: 0; padding: 0 20px;
+    margin-bottom: 10px;
+  }
+  .phone-cc { color: var(--yellow); font-weight: 800; font-size: 15px; font-family: var(--font-b); }
+  .phone-divider { width: 1px; height: 26px; background: rgba(255,212,0,.35); margin: 0 12px; }
+  .phone-num { color: rgba(255,255,255,.35); font-size: 15px; font-family: var(--font-b); }
+  .input-hint { font-size: 12px; color: var(--on-page-m); margin-bottom: auto; font-family: var(--font-b); padding-left: 8px; }
+  .spacer { flex: 1; }
+
+  /* ── OTP ─────────────────────────── */
+  .otp { padding: 72px 20px 32px; display: flex; flex-direction: column; }
+  .otp-boxes { display: flex; gap: 8px; margin-bottom: 16px; }
+  .otp-box {
+    flex: 1; height: 56px; background: var(--ink);
+    border-radius: 14px; border: 2px solid var(--yellow);
+    display: grid; place-items: center;
+    font-size: 22px; font-weight: 800; color: #fff; font-family: var(--font-b);
+  }
+  .otp-box.filled { border-color: var(--yellow); }
+  .otp-box.empty { border-color: rgba(255,212,0,.3); }
+  .resend { font-size: 12px; font-family: var(--font-b); }
+  .resend span { color: var(--on-page-m); }
+  .resend a { color: var(--yellow); font-weight: 700; text-decoration: underline; }
+
+  /* ── HOME ─────────────────────────── */
+  .addr-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 56px 20px 16px;
+  }
+  .pin-circle {
+    width: 40px; height: 40px; background: var(--yellow);
+    border-radius: 999px; display: grid; place-items: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .addr-info { flex: 1; min-width: 0; }
+  .deliver-lbl {
+    font-size: 10px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--on-page-m); font-family: var(--font-b);
+  }
+  .addr-text {
+    font-size: 15px; font-weight: 800; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: var(--font-b);
+  }
+  .bell-btn {
+    width: 44px; height: 44px; background: var(--card);
+    border-radius: 999px; display: grid; place-items: center;
+    font-size: 20px; position: relative; flex-shrink: 0;
+  }
+  .bell-dot {
+    width: 10px; height: 10px; background: var(--pink);
+    border-radius: 50%; position: absolute; top: 2px; right: 2px;
+  }
+  .search-bar {
+    height: 52px; background: var(--card);
+    border-radius: 999px; display: flex; align-items: center;
+    padding: 0 6px 0 16px; margin: 0 20px 18px; gap: 10px;
+  }
+  .search-icon { font-size: 20px; opacity: .4; }
+  .search-ph { flex: 1; font-size: 14px; color: var(--on-card-m); font-family: var(--font-b); }
+  .mic-btn {
+    width: 40px; height: 40px; background: var(--yellow);
+    border-radius: 999px; display: grid; place-items: center; font-size: 18px;
+  }
+  .hero-bento { display: flex; gap: 10px; height: 210px; padding: 0 20px; margin-bottom: 22px; }
+  .hero-left {
+    flex: 5; background: linear-gradient(135deg, var(--yellow-l), var(--yellow), var(--yellow-d));
+    border-radius: 32px; padding: 18px; display: flex; flex-direction: column;
+  }
+  .hero-eta { font-family: var(--font-d); font-size: 52px; font-weight: 800; color: var(--ink); letter-spacing: -2px; line-height: 1; margin-top: auto; }
+  .hero-sub { font-size: 13px; font-weight: 700; color: var(--muted); font-family: var(--font-b); }
+  .hero-store {
+    display: inline-block; margin-top: 6px; padding: 4px 10px;
+    background: rgba(20,17,24,.12); border-radius: 999px;
+    font-size: 11px; font-weight: 700; color: var(--ink); font-family: var(--font-b);
+  }
+  .hero-right { flex: 3; display: flex; flex-direction: column; gap: 10px; }
+  .deal-tile {
+    flex: 1; background: var(--pink); border-radius: 24px; padding: 14px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .deal-lbl { font-size: 11px; font-weight: 700; color: var(--ink); font-family: var(--font-b); }
+  .deal-title { font-size: 16px; font-weight: 700; color: var(--ink); font-family: var(--font-d); }
+  .buy-tile {
+    flex: 1; background: var(--card-y); border-radius: 24px; padding: 14px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .sec-hdr { display: flex; justify-content: space-between; align-items: center; padding: 0 20px; margin-bottom: 12px; }
+  .sec-title { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #fff; }
+  .see-all { font-size: 12px; font-weight: 700; color: var(--yellow); font-family: var(--font-b); }
+  .cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; padding: 0 20px; margin-bottom: 22px; }
+  .cat-tile {
+    height: 88px; border-radius: 18px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+  }
+  .cat-emoji { font-size: 26px; }
+  .cat-lbl { font-size: 11px; font-weight: 800; color: var(--ink); font-family: var(--font-b); }
+  .product-row { display: flex; gap: 10px; padding: 0 20px; overflow-x: auto; padding-bottom: 8px; }
+  .product-row::-webkit-scrollbar { display: none; }
+  .prod-card {
+    width: 158px; flex-shrink: 0; background: var(--card);
+    border-radius: 24px; overflow: hidden;
+  }
+  .prod-img {
+    height: 96px; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .prod-img-ph { font-size: 11px; color: rgba(20,17,24,.3); font-family: var(--font-b); }
+  .sticker {
+    position: absolute; top: 8px; left: 10px;
+    background: var(--yellow); border-radius: 8px;
+    padding: 3px 7px; font-size: 10px; font-weight: 700; color: var(--ink);
+    font-family: var(--font-b); transform: rotate(-5deg);
+  }
+  .prod-body { padding: 10px; }
+  .prod-name { font-size: 14px; font-weight: 800; color: var(--on-card); font-family: var(--font-b); }
+  .prod-mr { font-family: var(--font-mr); font-size: 12px; color: var(--on-card-m); }
+  .prod-unit { font-size: 11px; color: var(--on-card-m); font-family: var(--font-b); margin-bottom: 8px; }
+  .prod-price-row { display: flex; align-items: center; justify-content: space-between; }
+  .prod-price { font-family: var(--font-d); font-size: 17px; font-weight: 800; color: var(--on-card); }
+  .prod-mrp { font-size: 11px; color: var(--on-card-m); text-decoration: line-through; font-family: var(--font-b); }
+  .add-btn {
+    width: 34px; height: 34px; background: var(--yellow);
+    border-radius: 999px; display: grid; place-items: center;
+    font-size: 20px; color: var(--ink); font-weight: 700;
+  }
+  .bottom-nav {
+    position: sticky; bottom: 0; padding: 0 16px 16px;
+    pointer-events: none;
+  }
+  .nav-capsule {
+    height: 60px; background: var(--nav); border-radius: 999px;
+    display: flex; align-items: center; padding: 6px;
+    box-shadow: 0 12px 32px rgba(20,17,24,.25);
+    pointer-events: all;
+  }
+  .nav-item { flex: 1; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .nav-item.active { background: var(--yellow); }
+  .nav-icon { font-size: 20px; }
+  .nav-lbl { font-size: 11px; font-weight: 800; color: var(--ink); font-family: var(--font-b); }
+
+  /* ── PRODUCT DETAIL ─────────────────────────── */
+  .pd-img {
+    height: 360px; border-radius: 0 0 40px 40px; display: flex;
+    align-items: center; justify-content: center; position: relative;
+  }
+  .pd-img-ph { font-size: 14px; color: rgba(20,17,24,.3); font-family: var(--font-b); }
+  .pd-top-btns {
+    position: absolute; top: 56px; left: 0; right: 0;
+    display: flex; justify-content: space-between; padding: 0 20px;
+  }
+  .pd-btn {
+    width: 44px; height: 44px; background: var(--card);
+    border-radius: 999px; display: grid; place-items: center;
+    font-size: 18px; color: var(--ink);
+  }
+  .pd-content { padding: 20px 20px 0; }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--ink); border-radius: 999px; padding: 6px 12px;
+    margin-bottom: 16px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .status-lbl { font-size: 12px; font-weight: 700; color: var(--green); font-family: var(--font-b); }
+  .pd-name { font-family: var(--font-d); font-size: 28px; font-weight: 800; color: #fff; letter-spacing: -.8px; }
+  .pd-marathi { font-family: var(--font-mr); font-size: 18px; color: var(--on-page-m); margin-bottom: 20px; }
+  .pd-price { font-family: var(--font-d); font-size: 40px; font-weight: 800; color: #fff; letter-spacing: -1px; display: inline; }
+  .pd-mrp { font-size: 18px; color: var(--on-page-m); text-decoration: line-through; vertical-align: baseline; margin-left: 10px; font-family: var(--font-b); }
+  .pd-save { font-size: 14px; font-weight: 700; color: var(--green); margin: 4px 0 24px; font-family: var(--font-b); }
+  .pack-hdr { font-family: var(--font-d); font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+  .pack-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
+  .pack-chip {
+    padding: 10px 18px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; font-family: var(--font-b);
+    border: 2px solid;
+  }
+  .pack-chip.sel { background: var(--yellow); color: var(--ink); border-color: var(--yellow); }
+  .pack-chip:not(.sel) { background: var(--card); color: var(--on-card); border-color: var(--card); }
+  .pd-sticky {
+    position: sticky; bottom: 0; padding: 12px 20px 28px;
+    background: linear-gradient(to top, rgba(176,6,153,.9) 0%, transparent 100%);
+    display: flex; gap: 12px;
+  }
+  .qty-box {
+    height: 56px; background: var(--stepper); border-radius: 999px;
+    display: flex; align-items: center; padding: 4px;
+    gap: 0;
+  }
+  .qty-minus {
+    width: 40px; height: 40px; border-radius: 999px;
+    background: rgba(234,228,255,.15); display: grid; place-items: center;
+    font-size: 18px; color: #fff;
+  }
+  .qty-num {
+    width: 36px; text-align: center; font-size: 18px; font-weight: 800;
+    color: #fff; font-family: var(--font-b);
+  }
+  .qty-plus {
+    width: 40px; height: 40px; border-radius: 999px;
+    background: var(--yellow); display: grid; place-items: center;
+    font-size: 18px; color: var(--ink);
+  }
+  .add-full {
+    flex: 1; background: var(--yellow); color: var(--ink);
+    border-radius: 999px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; font-family: var(--font-b);
+    box-shadow: 0 8px 24px rgba(255,212,0,.3);
+  }
+
+  /* Section visibility */
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+
+<h1>QuickCart Flutter Screens</h1>
+<p class="subtitle">Electric Yellow design system · Light theme · Phase 3a + 3b</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="show('welcome',this)">Welcome</button>
+  <button class="tab" onclick="show('login',this)">Login</button>
+  <button class="tab" onclick="show('otp',this)">OTP</button>
+  <button class="tab" onclick="show('home',this)">Home</button>
+  <button class="tab" onclick="show('detail',this)">Product Detail</button>
+</div>
+
+<div class="phone-row">
+
+  <!-- WELCOME -->
+  <div id="screen-welcome" class="screen active">
+    <div class="phone-label">Welcome Screen</div>
+    <div class="phone-frame">
+      <div class="phone-inner">
+        <div class="welcome">
+          <div class="logo-badge">🛍</div>
+          <div class="lang-row">
+            <div class="lang-chip active">EN</div>
+            <div class="lang-chip">मराठी</div>
+          </div>
+          <div class="bento">
+            <div class="bento-left">
+              <div style="margin-top:auto">
+                <div class="eta-num">⚡</div>
+                <div style="font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--ink)">Express<br>Delivery</div>
+              </div>
+            </div>
+            <div class="bento-right">
+              <div class="bento-sm green">
+                <div class="bento-emoji">🥦</div>
+                <div class="bento-lbl">Fresh<br>Veggies</div>
+              </div>
+              <div class="bento-sm pink">
+                <div class="bento-emoji">🎁</div>
+                <div class="bento-lbl">Daily<br>Deals</div>
+              </div>
+            </div>
+          </div>
+          <div class="w-headline">Your local shop,<br>now in your hand.</div>
+          <div class="w-marathi">तुमचं दुकान, आता मुठीत.</div>
+          <button class="btn-yellow">Get Started</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="screen">
+    <div class="phone-label">Login Screen</div>
+    <div class="phone-frame">
+      <div class="phone-inner">
+        <div class="login">
+          <div class="back-btn">‹</div>
+          <div class="login-logo">🛍</div>
+          <div class="brand-name">[BRAND NAME]</div>
+          <div class="login-sub">Enter your phone number<br>to get started</div>
+          <div class="phone-input">
+            <span class="phone-cc">+91</span>
+            <div class="phone-divider"></div>
+            <span class="phone-num">98765 43210</span>
+          </div>
+          <div class="input-hint" style="margin-bottom:24px">We'll send a 6-digit OTP to this number</div>
+          <div class="spacer"></div>
+          <button class="btn-yellow">Get OTP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OTP -->
+  <div id="screen-otp" class="screen">
+    <div class="phone-label">OTP Screen</div>
+    <div class="phone-frame">
+      <div class="phone-inner">
+        <div class="otp">
+          <div class="back-btn">‹</div>
+          <div style="font-family:var(--font-d);font-size:28px;font-weight:800;color:#fff;letter-spacing:-.8px;margin-bottom:8px">Verify OTP</div>
+          <div style="font-size:14px;color:var(--on-page-m);margin-bottom:40px;font-family:var(--font-b)">
+            Sent to <strong style="color:#fff">+91 98765XXXXX</strong>
+          </div>
+          <div class="otp-boxes">
+            <div class="otp-box filled">3</div>
+            <div class="otp-box filled">7</div>
+            <div class="otp-box filled">2</div>
+            <div class="otp-box filled">1</div>
+            <div class="otp-box empty"></div>
+            <div class="otp-box empty"></div>
+          </div>
+          <div class="resend" style="margin-bottom:auto">
+            <span>Didn't receive it? </span>
+            <a>Resend OTP</a>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn-yellow" style="opacity:.5">Verify &amp; Continue</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div id="screen-home" class="screen">
+    <div class="phone-label">Home Screen</div>
+    <div class="phone-frame">
+      <div class="phone-inner">
+        <div class="addr-row">
+          <div class="pin-circle">📍</div>
+          <div class="addr-info">
+            <div class="deliver-lbl">DELIVER TO</div>
+            <div class="addr-text">Shop 4, MG Road, Pune</div>
+          </div>
+          <div class="bell-btn">🔔<div class="bell-dot"></div></div>
+        </div>
+        <div class="search-bar">
+          <div class="search-icon">🔍</div>
+          <div class="search-ph">Search for vegetables, fruits…</div>
+          <div class="mic-btn">🎙</div>
+        </div>
+        <div class="hero-bento">
+          <div class="hero-left">
+            <div class="hero-eta">15</div>
+            <div class="hero-sub">min delivery</div>
+            <div class="hero-store">MG Road Store</div>
+          </div>
+          <div class="hero-right">
+            <div class="deal-tile">
+              <div class="deal-lbl">Today's</div>
+              <div class="deal-title">Deals 🔥</div>
+            </div>
+            <div class="buy-tile">
+              <div class="deal-lbl" style="color:var(--on-card)">Buy</div>
+              <div class="deal-title" style="color:var(--on-card)">Again 🔄</div>
+            </div>
+          </div>
+        </div>
+        <div class="sec-hdr">
+          <div class="sec-title">Categories</div>
+          <div class="see-all">See all</div>
+        </div>
+        <div class="cat-grid">
+          <div class="cat-tile" style="background:var(--card-g)"><div class="cat-emoji">🥦</div><div class="cat-lbl">Veggies</div></div>
+          <div class="cat-tile" style="background:var(--card-p)"><div class="cat-emoji">🍎</div><div class="cat-lbl">Fruits</div></div>
+          <div class="cat-tile" style="background:var(--card-y)"><div class="cat-emoji">🥛</div><div class="cat-lbl">Dairy</div></div>
+          <div class="cat-tile" style="background:var(--card)"><div class="cat-emoji">🛒</div><div class="cat-lbl">Grocery</div></div>
+        </div>
+        <div class="sec-hdr">
+          <div class="sec-title">Fresh Today</div>
+          <div class="see-all">See all</div>
+        </div>
+        <div class="product-row">
+          <div class="prod-card">
+            <div class="prod-img" style="background:var(--card-p)">
+              <div class="prod-img-ph">[PHOTO]</div>
+              <div class="sticker">SAVE ₹8</div>
+            </div>
+            <div class="prod-body">
+              <div class="prod-name">Tomato</div>
+              <div class="prod-mr">टोमॅटो</div>
+              <div class="prod-unit">1 kg</div>
+              <div class="prod-price-row">
+                <div><div class="prod-price">₹28</div><div class="prod-mrp">₹36</div></div>
+                <div class="add-btn">+</div>
+              </div>
+            </div>
+          </div>
+          <div class="prod-card">
+            <div class="prod-img" style="background:var(--card-y)">
+              <div class="prod-img-ph">[PHOTO]</div>
+              <div class="sticker">SAVE ₹8</div>
+            </div>
+            <div class="prod-body">
+              <div class="prod-name">Onion</div>
+              <div class="prod-mr">कांदा</div>
+              <div class="prod-unit">1 kg</div>
+              <div class="prod-price-row">
+                <div><div class="prod-price">₹22</div><div class="prod-mrp">₹30</div></div>
+                <div class="add-btn">+</div>
+              </div>
+            </div>
+          </div>
+          <div class="prod-card">
+            <div class="prod-img" style="background:var(--card-g)">
+              <div class="prod-img-ph">[PHOTO]</div>
+            </div>
+            <div class="prod-body">
+              <div class="prod-name">Spinach</div>
+              <div class="prod-mr">पालक</div>
+              <div class="prod-unit">500 g</div>
+              <div class="prod-price-row">
+                <div><div class="prod-price">₹18</div><div class="prod-mrp">₹24</div></div>
+                <div class="add-btn">+</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="height:80px"></div>
+        <div class="bottom-nav">
+          <div class="nav-capsule">
+            <div class="nav-item active"><span class="nav-icon">🏠</span><span class="nav-lbl">Home</span></div>
+            <div class="nav-item"><span class="nav-icon" style="opacity:.4">⊞</span></div>
+            <div class="nav-item"><span class="nav-icon" style="opacity:.4">📋</span></div>
+            <div class="nav-item"><span class="nav-icon" style="opacity:.4">👤</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCT DETAIL -->
+  <div id="screen-detail" class="screen">
+    <div class="phone-label">Product Detail</div>
+    <div class="phone-frame">
+      <div class="phone-inner" style="padding-bottom:0">
+        <div class="pd-img" style="background:var(--card-p)">
+          <div class="pd-img-ph">[PRODUCT PHOTO]</div>
+          <div class="pd-top-btns">
+            <div class="pd-btn">‹</div>
+            <div class="pd-btn" style="color:var(--magenta)">♥</div>
+          </div>
+        </div>
+        <div class="pd-content">
+          <div class="status-chip">
+            <div class="status-dot"></div>
+            <div class="status-lbl">In stock</div>
+          </div>
+          <div class="pd-name">Tomato</div>
+          <div class="pd-marathi">टोमॅटो</div>
+          <div>
+            <span class="pd-price">₹28</span>
+            <span class="pd-mrp">₹36</span>
+          </div>
+          <div class="pd-save">You save ₹8</div>
+          <div class="pack-hdr">Pack size</div>
+          <div class="pack-row">
+            <div class="pack-chip">250 g</div>
+            <div class="pack-chip sel">500 g</div>
+            <div class="pack-chip">1 kg</div>
+            <div class="pack-chip">2 kg</div>
+          </div>
+          <div style="font-family:var(--font-d);font-size:20px;font-weight:700;color:#fff;margin-bottom:10px">About</div>
+          <div style="font-size:14px;color:var(--on-page-m);line-height:1.6;font-family:var(--font-b);margin-bottom:16px">
+            Farm-fresh tomatoes sourced directly from local farms.
+            Rich in Vitamin C and antioxidants. Perfect for curries, salads, and chutneys.
+          </div>
+        </div>
+        <div class="pd-sticky">
+          <div class="qty-box">
+            <div class="qty-minus">−</div>
+            <div class="qty-num">1</div>
+            <div class="qty-plus">+</div>
+          </div>
+          <div class="add-full">Add · ₹28</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function show(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+</body></html>

@@ -3,6 +3,7 @@
     <div>
       <span class="eyebrow">USER MASTER</span>
       <h2>Users</h2>
+      <p class="subtitle">Invite people, assign roles and keep access under control.</p>
     </div>
 
     <app-button
@@ -12,170 +13,233 @@
     ></app-button>
   </header>
 
-  <div class="toolbar" *ngIf="!isFormVisible()">
-    <div class="search-box">
-      <label for="user-search">Search</label>
-      <input
-        id="user-search"
-        type="text"
-        placeholder="Search users or email"
-        [value]="searchTerm()"
-        (input)="searchTerm.set($any($event.target).value)"
-      />
-    </div>
-
-    <app-select
-      label="Organization"
-      placeholder="All organizations"
-      [options]="organizationOptions()"
-      [value]="organizationFilter()"
-      (onChange)="onOrganizationFilterChange($event)"
-    ></app-select>
-
-    <app-select
-      label="Role"
-      placeholder="All roles"
-      [options]="roleOptions()"
-      [value]="roleFilter()"
-      (onChange)="onRoleFilterChange($event)"
-    ></app-select>
-
-    <app-select
-      label="Status"
-      placeholder="All statuses"
-      [options]="statusOptions"
-      [value]="statusFilter()"
-      (onChange)="onStatusFilterChange($event)"
-    ></app-select>
-  </div>
-
   <div class="api-banner" *ngIf="apiError()">
     <strong>Backend status:</strong>
     {{ apiError() }}
   </div>
 
-  <div class="panel" *ngIf="isFormVisible()">
-    <div class="panel-header">
-      <div>
-        <span class="eyebrow">{{ mode() === 'create' ? 'NEW USER' : mode() === 'edit' ? 'EDIT USER' : 'VIEW USER' }}</span>
-        <h3>{{ mode() === 'create' ? 'Add user' : selectedUser()?.fullName || 'User details' }}</h3>
-      </div>
-      <button class="close-btn" type="button" (click)="closeForm()">✕</button>
+  <ng-container *ngIf="!isFormVisible()">
+    <!-- KPI tiles -->
+    <div class="stats">
+      <article class="stat yellow"><span class="stat-icon">◎</span><div><p>Total users</p><strong>{{ users().length }}</strong></div></article>
+      <article class="stat green"><span class="stat-icon">✓</span><div><p>Active</p><strong>{{ activeCount() }}</strong></div></article>
+      <article class="stat lavender"><span class="stat-icon">⏻</span><div><p>Inactive</p><strong>{{ inactiveCount() }}</strong></div></article>
+      <article class="stat pink"><span class="stat-icon">◇</span><div><p>Roles in use</p><strong>{{ roleCount() }}</strong></div></article>
     </div>
 
-    <form [formGroup]="form" class="user-form" (ngSubmit)="saveUser()">
-      <div class="form-grid">
-        <app-input
-          formControlName="firstName"
-          label="First name"
-          placeholder="First name"
-          [error]="getFieldError('firstName')"
-        ></app-input>
-
-        <app-input
-          formControlName="lastName"
-          label="Last name"
-          placeholder="Last name"
-          [error]="getFieldError('lastName')"
-        ></app-input>
-
-        <app-input
-          formControlName="email"
-          type="email"
-          label="Email"
-          placeholder="name@company.com"
-          [error]="getFieldError('email')"
-        ></app-input>
-
-        <app-select
-          formControlName="organizationId"
-          label="Organization"
-          placeholder="Select an organization"
-          [options]="organizationSelectOptions()"
-          [error]="getFieldError('organizationId')"
-          (onChange)="onOrganizationSelected($event)"
-        ></app-select>
-
-        <app-select
-          formControlName="storeId"
-          label="Primary store"
-          placeholder="Select a primary store"
-          [options]="storeSelectOptions()"
-          [error]="getFieldError('storeId')"
-        ></app-select>
-
-        <app-select
-          formControlName="role"
-          label="Role"
-          placeholder="Select role"
-          [options]="roleOptions()"
-          [error]="getFieldError('role')"
-        ></app-select>
-
-        <app-select
-          *ngIf="form.controls.role.value === 'StoreStaff'"
-          formControlName="staffCategory"
-          label="Staff category"
-          placeholder="Select staff category"
-          [options]="staffCategoryOptions"
-          [error]="getFieldError('staffCategory')"
-        ></app-select>
-
-        <app-select
-          formControlName="status"
-          label="Status"
-          placeholder="Select status"
-          [options]="nonAllStatusOptions()"
-          [error]="getFieldError('status')"
-        ></app-select>
+    <!-- Filters -->
+    <div class="toolbar">
+      <div class="search-box">
+        <label for="user-search">Search</label>
+        <div class="search-field">
+          <span aria-hidden="true">⌕</span>
+          <input
+            id="user-search"
+            type="text"
+            placeholder="Search name, email or role"
+            [value]="searchTerm()"
+            (input)="searchTerm.set($any($event.target).value); page.set(1)"
+          />
+        </div>
       </div>
 
-      <div class="assignment-box" *ngIf="form.controls.role.value === 'StoreStaff'">
-        <label class="field-label">Store assignments</label>
+      <app-select
+        label="Organization"
+        placeholder="All organizations"
+        [options]="organizationOptions()"
+        [value]="organizationFilter()"
+        (onChange)="onOrganizationFilterChange($event)"
+      ></app-select>
+
+      <app-select
+        label="Role"
+        placeholder="All roles"
+        [options]="roleOptions()"
+        [value]="roleFilter()"
+        (onChange)="onRoleFilterChange($event)"
+      ></app-select>
+
+      <app-select
+        label="Status"
+        placeholder="All statuses"
+        [options]="statusOptions"
+        [value]="statusFilter()"
+        (onChange)="onStatusFilterChange($event)"
+      ></app-select>
+    </div>
+
+    <!-- Directory -->
+    <div class="directory">
+      <app-loading *ngIf="isLoading()" message="Loading users..."></app-loading>
+
+      <div class="scroll" *ngIf="!isLoading() && paginatedUsers().length">
+        <div class="row head">
+          <button type="button" class="sort" (click)="sortHeader('fullName')">User <i>{{ sortMark('fullName') }}</i></button>
+          <span>Organization</span>
+          <button type="button" class="sort" (click)="sortHeader('role')">Role <i>{{ sortMark('role') }}</i></button>
+          <button type="button" class="sort" (click)="sortHeader('status')">Status <i>{{ sortMark('status') }}</i></button>
+          <span class="end">Actions</span>
+        </div>
+
+        <div class="row" *ngFor="let user of paginatedUsers()">
+          <div class="who">
+            <span class="avatar" [style.background]="avatarAccent(user).solid">{{ initials(user) }}</span>
+            <div>
+              <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+              <small>{{ user.email }}</small>
+            </div>
+          </div>
+          <div class="org">
+            <strong>{{ getOrganizationName(user.organizationId) }}</strong>
+            <small>{{ getStoreName(user.storeId) }}</small>
+          </div>
+          <div>
+            <span class="chip" [style.background]="roleAccent(user.role).solid">{{ roleLabel(user.role) }}</span>
+          </div>
+          <div>
+            <span class="chip" [class.on]="isActive(user)" [class.off]="!isActive(user)">
+              <i class="dot"></i>{{ user.status }}
+            </span>
+          </div>
+          <div class="actions">
+            <button type="button" class="act view" (click)="openViewForm(user)">View</button>
+            <button type="button" class="act edit" (click)="openEditForm(user)">Edit</button>
+            <button type="button" class="act toggle" [class.deactivate]="isActive(user)" (click)="toggleUserStatus(user)">
+              {{ isActive(user) ? 'Deactivate' : 'Activate' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="pager">
+          <button type="button" [disabled]="page() === 1" (click)="onPageChange(page() - 1)">← Previous</button>
+          <span>Page {{ page() }} of {{ totalPages() }} · {{ filteredUsers().length }} users</span>
+          <button type="button" [disabled]="page() === totalPages()" (click)="onPageChange(page() + 1)">Next →</button>
+        </div>
+      </div>
+
+      <div class="empty" *ngIf="!isLoading() && !paginatedUsers().length">
+        <strong>No users found</strong>
+        <span>Try changing the search or filters.</span>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Form -->
+  <div class="form-shell" *ngIf="isFormVisible()">
+    <div class="form-top">
+      <div>
+        <span class="mode-chip" [class.create]="mode() === 'create'" [class.edit]="mode() === 'edit'" [class.view]="mode() === 'view'">
+          {{ mode() === 'create' ? 'NEW USER' : mode() === 'edit' ? 'EDIT USER' : 'VIEW USER' }}
+        </span>
+        <h3>{{ mode() === 'create' ? 'Add user' : selectedUser()?.fullName || 'User details' }}</h3>
+      </div>
+      <button class="close-btn" type="button" (click)="closeForm()" aria-label="Close form">✕</button>
+    </div>
+
+    <form [formGroup]="form" class="user-form" [class.readonly]="mode() === 'view'" (ngSubmit)="saveUser()">
+      <section class="section">
+        <h4 class="section-head yellow"><span class="num">1</span>Identity</h4>
+        <div class="form-grid">
+          <app-input
+            formControlName="firstName"
+            label="First name"
+            placeholder="First name"
+            [error]="getFieldError('firstName')"
+          ></app-input>
+
+          <app-input
+            formControlName="lastName"
+            label="Last name"
+            placeholder="Last name"
+            [error]="getFieldError('lastName')"
+          ></app-input>
+
+          <app-input
+            formControlName="email"
+            type="email"
+            label="Email"
+            placeholder="name@company.com"
+            [error]="getFieldError('email')"
+          ></app-input>
+        </div>
+      </section>
+
+      <section class="section">
+        <h4 class="section-head pink"><span class="num">2</span>Organization &amp; access</h4>
+        <div class="form-grid">
+          <app-select
+            formControlName="organizationId"
+            label="Organization"
+            placeholder="Select an organization"
+            [options]="organizationSelectOptions()"
+            [error]="getFieldError('organizationId')"
+            (onChange)="onOrganizationSelected($event)"
+          ></app-select>
+
+          <app-select
+            formControlName="storeId"
+            label="Primary store"
+            placeholder="Select a primary store"
+            [options]="storeSelectOptions()"
+            [error]="getFieldError('storeId')"
+          ></app-select>
+
+          <app-select
+            formControlName="role"
+            label="Role"
+            placeholder="Select role"
+            [options]="roleOptions()"
+            [error]="getFieldError('role')"
+          ></app-select>
+
+          <app-select
+            *ngIf="form.controls.role.value === 'StoreStaff'"
+            formControlName="staffCategory"
+            label="Staff category"
+            placeholder="Select staff category"
+            [options]="staffCategoryOptions"
+            [error]="getFieldError('staffCategory')"
+          ></app-select>
+
+          <app-select
+            formControlName="status"
+            label="Status"
+            placeholder="Select status"
+            [options]="nonAllStatusOptions()"
+            [error]="getFieldError('status')"
+          ></app-select>
+        </div>
+      </section>
+
+      <section class="section" *ngIf="form.controls.role.value === 'StoreStaff'">
+        <h4 class="section-head green"><span class="num">3</span>Store assignments</h4>
         <div class="assignment-list" *ngIf="stores().length; else noStores">
-          <label class="assignment-item" *ngFor="let store of stores()">
+          <label class="assignment-item" *ngFor="let store of stores()" [class.selected]="isStoreSelected(store.id)">
             <input type="checkbox" [checked]="isStoreSelected(store.id)" (change)="toggleStore(store.id)" />
             <span>{{ store.name }}</span>
           </label>
         </div>
         <ng-template #noStores><small class="muted">Select an organization to load stores.</small></ng-template>
-      </div>
+      </section>
 
-      <div class="permission-box">
-        <label class="field-label">Permissions</label>
-        <div class="permissions-list">
-          <label class="permission-item" *ngFor="let permission of effectiveRolePermissions()">
-            <input
-              type="checkbox"
-              [checked]="true"
-              disabled
-            />
+      <section class="section">
+        <h4 class="section-head lavender"><span class="num">{{ form.controls.role.value === 'StoreStaff' ? 4 : 3 }}</span>Permissions from role <em>{{ effectiveRolePermissions().length }}</em></h4>
+        <div class="permissions-list" *ngIf="effectiveRolePermissions().length; else noPerms">
+          <div class="permission-item" *ngFor="let permission of effectiveRolePermissions()" [style.background]="permAccent(permission).tint">
+            <span class="tick" [style.background]="permAccent(permission).solid">✓</span>
             <span>
               <strong>{{ permission.name }}</strong>
               <small>{{ permission.description }}</small>
             </span>
-          </label>
+          </div>
         </div>
-      </div>
+        <ng-template #noPerms><small class="muted">The selected role has no permissions yet.</small></ng-template>
+      </section>
 
       <div class="form-actions" *ngIf="mode() !== 'view'">
         <app-button label="Cancel" variant="secondary" type="button" (onClick)="closeForm()"></app-button>
-        <app-button label="Save user" variant="primary" type="submit"></app-button>
+        <app-button label="Save user" variant="primary" type="submit" [loading]="isLoading()"></app-button>
       </div>
     </form>
-  </div>
-
-  <div class="panel" *ngIf="!isFormVisible()">
-    <app-table
-      [columns]="tableColumns()"
-      [rows]="paginatedUsers()"
-      [isLoading]="isLoading()"
-      [pagination]="{ total: filteredUsers().length, page: page(), pageSize: pageSize(), totalPages: totalPages() }"
-      emptyTitle="No users found"
-      emptyMessage="Try changing the search or filters"
-      [selectable]="false"
-      (sortChange)="onSortChange($event)"
-      (pageChange)="onPageChange($event)"
-    ></app-table>
   </div>
 </section>

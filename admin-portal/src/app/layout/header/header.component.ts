@@ -40,139 +40,107 @@ import { AuthService } from '../../core/services/auth.service';
       margin-bottom: 38px;
     }
 
-    .header-left {
-      flex: 1;
-    }
+    .header-left { flex: 1; }
 
     .eyebrow {
       margin: 0 0 7px;
-      color: #899a94;
+      color: #E9E4FF;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
+      font-family: 'Inter', sans-serif;
+      text-transform: uppercase;
     }
 
     h1 {
       margin: 0;
       font-size: 25px;
       letter-spacing: -0.8px;
-      font-family: Manrope, sans-serif;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      color: #fff;
     }
 
-    h1 span {
-      color: #9bb844;
-      font-size: 20px;
-    }
+    h1 span { color: #FFD400; font-size: 20px; }
 
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-    }
+    .top-actions { display: flex; align-items: center; gap: 11px; }
 
     .status {
-      color: #71817b;
-      background: #fff;
-      border: 1px solid #e3eae5;
-      border-radius: 30px;
-      padding: 8px 12px;
+      color: #141118;
+      background: #02F34C;
+      border-radius: 999px;
+      padding: 8px 14px;
       font-size: 11px;
+      font-weight: 700;
       display: flex;
       align-items: center;
       gap: 7px;
+      font-family: 'Inter', sans-serif;
     }
 
-    .status i {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      background: #d19a45;
-      border-radius: 50%;
-    }
-
-    .status i.online {
-      background: #73bf52;
-    }
+    .status i { display: inline-block; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+    .status i.online { background: #fff; }
+    .status:not(.online) { background: #FFD400; }
 
     .icon-button {
-      border: 1px solid #e1e8e3;
-      background: #fff;
-      color: #66756f;
+      border: 0;
+      background: #EAE4FF;
+      color: #141118;
       cursor: pointer;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      transition: all 0.2s;
+      font-size: 15px;
+      transition: background .2s;
     }
 
-    .icon-button:hover {
-      background: #eff2ef;
-      border-color: #d1dcd6;
-    }
+    .icon-button:hover { background: #FFF1A8; }
 
     .logout-button {
-      border: 1px solid #e1e8e3;
-      background: #fff;
-      color: #66756f;
+      border: 0;
+      background: #EAE4FF;
+      color: #141118;
       cursor: pointer;
-      min-height: 32px;
-      padding: 0 12px;
-      border-radius: 7px;
+      min-height: 36px;
+      padding: 0 16px;
+      border-radius: 999px;
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 800;
+      font-family: 'Inter', sans-serif;
+      transition: background .2s;
     }
 
-    .logout-button:hover {
-      background: #fff3ed;
-      border-color: #e6b89d;
-      color: #9b4d2d;
-    }
+    .logout-button:hover { background: #FB1A8E; }
 
     .mini-avatar {
       display: grid;
       place-items: center;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      background: #f0c8ae;
-      color: #633a2b;
-      font-weight: 700;
-      font-size: 10px;
+      background: #FFD400;
+      color: #141118;
+      font-weight: 800;
+      font-size: 11px;
       cursor: pointer;
-      transition: opacity 0.2s;
+      transition: transform .2s;
+      font-family: 'Inter', sans-serif;
     }
 
-    .mini-avatar:hover {
-      opacity: 0.8;
-    }
+    .mini-avatar:hover { transform: scale(1.06); }
 
     @media (max-width: 1000px) {
-      .status {
-        display: none;
-      }
-
-      h1 {
-        font-size: 20px;
-      }
+      .status { display: none; }
+      h1 { font-size: 20px; }
     }
 
     @media (max-width: 720px) {
-      .topbar {
-        gap: 15px;
-      }
-
-      h1 {
-        font-size: 18px;
-      }
-
-      .icon-button {
-        width: 28px;
-        height: 28px;
-      }
+      .topbar { gap: 15px; }
+      h1 { font-size: 18px; }
+      .icon-button { width: 32px; height: 32px; }
     }
   `],
 })
