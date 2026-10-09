@@ -22,6 +22,10 @@ public sealed class AuthenticationService(
 {
     private const string GenericFailure = "Invalid username or password.";
 
+    // Verified when no real hash can be checked, so an unknown email takes about as long as a wrong password.
+    private static readonly User TimingUser = new() { ExternalSubject = "", DisplayName = "" };
+    private static readonly string TimingHash = new PasswordHasher<User>().HashPassword(TimingUser, "timing-equalizer-not-a-real-password");
+
     public async Task<AuthenticationResult> LoginAsync(LoginRequest request, string? ipAddress, CancellationToken cancellationToken = default)
     {
         var normalizedUsername = request.Username.Trim().ToLowerInvariant();
@@ -29,6 +33,7 @@ public sealed class AuthenticationService(
             .SingleOrDefaultAsync(item => item.Email != null && item.Email.ToLower() == normalizedUsername || item.ExternalSubject == normalizedUsername, cancellationToken);
         if (user is null || !user.IsActive || user.Credential is null || !user.Credential.IsActive || user.Credential.LockedUntil > DateTime.UtcNow)
         {
+            _ = passwordHasher.VerifyHashedPassword(TimingUser, TimingHash, request.Password);
             return AuthenticationResult.Failure(GenericFailure);
         }
 

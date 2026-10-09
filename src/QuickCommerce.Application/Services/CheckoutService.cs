@@ -31,6 +31,12 @@ public sealed class CheckoutService(
             return CheckoutOperationResult.Unauthorized("The authenticated user cannot checkout from this store");
         }
 
+        // The store must actually deliver to the address. Checked here, on the server, before anything in the cart or stock changes.
+        if (!ServiceabilityRules.StoreCovers(store, request.Latitude, request.Longitude))
+        {
+            return CheckoutOperationResult.Conflict("This store does not deliver to the delivery address.", ServiceabilityReasons.OutsideServiceArea);
+        }
+
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, request, cancellationToken);
         return result.Status switch
         {

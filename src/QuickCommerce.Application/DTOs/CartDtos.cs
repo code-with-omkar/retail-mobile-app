@@ -1,6 +1,7 @@
 namespace QuickCommerce.Application.DTOs;
 
-public sealed record AddCartItemRequest(Guid ProductId, int Quantity);
+/// <param name="VariantId">The pack size. Omitted means the product's default variant, so clients written before variants keep working.</param>
+public sealed record AddCartItemRequest(Guid ProductId, int Quantity, Guid? VariantId = null);
 
 public sealed record UpdateCartItemRequest(int Quantity);
 
@@ -18,7 +19,9 @@ public sealed record CartItemResponse(
     string ProductNameSnapshot,
     decimal UnitPriceSnapshot,
     int Quantity,
-    decimal TotalPrice);
+    decimal TotalPrice,
+    Guid? VariantId = null,
+    string? VariantLabel = null);
 
 public enum CartOperationStatus
 {

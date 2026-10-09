@@ -29,11 +29,12 @@ public enum CheckoutOperationStatus
 public sealed record CheckoutOperationResult(
     CheckoutOperationStatus Status,
     OrderResponse? Order = null,
-    string? Message = null)
+    string? Message = null,
+    string? Reason = null)
 {
     public static CheckoutOperationResult Succeeded(OrderResponse order) => new(CheckoutOperationStatus.Succeeded, order);
     public static CheckoutOperationResult Invalid(string message) => new(CheckoutOperationStatus.InvalidRequest, Message: message);
     public static CheckoutOperationResult Unauthorized(string message) => new(CheckoutOperationStatus.Unauthorized, Message: message);
     public static CheckoutOperationResult NotFound(string message) => new(CheckoutOperationStatus.NotFound, Message: message);
-    public static CheckoutOperationResult Conflict(string message) => new(CheckoutOperationStatus.Conflict, Message: message);
+    public static CheckoutOperationResult Conflict(string message, string? reason = null) => new(CheckoutOperationStatus.Conflict, Message: message, Reason: reason);
 }

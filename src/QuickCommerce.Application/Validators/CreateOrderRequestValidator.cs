@@ -22,6 +22,7 @@ public sealed class CreateOrderRequestValidator : AbstractValidator<CreateOrderR
             .ChildRules(item =>
             {
                 item.RuleFor(line => line.ProductId).NotEmpty();
+                item.RuleFor(line => line.VariantId).NotEqual(Guid.Empty).When(line => line.VariantId.HasValue).WithMessage("VariantId is not valid.");
                 item.RuleFor(line => line.Quantity).GreaterThan(0);
             });
     }

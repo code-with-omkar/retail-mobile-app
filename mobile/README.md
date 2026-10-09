@@ -1,6 +1,6 @@
 # QuickCart Customer Mobile App
 
-Flutter customer app scaffolded with Flutter 3.47.2. The first usable slice includes a branded home screen, delivery location header, search, category rail, product cards, responsive cart quantity controls, and bottom navigation.
+Flutter customer app using the "Electric Yellow" design system (references in `docs/design`, light and dark). Screens: Welcome (phone + OTP, Google/Apple, email), Home, Categories, Category, Product detail (pack sizes), Cart, Checkout, Order success/tracking, Orders, Profile (language + theme), Address picker. English and Marathi (`lib/core/strings_mr.dart`); theme follows the system with a manual override. Design tokens: `lib/core/theme.dart`; shared widgets: `lib/core/widgets.dart`. Data is local seed data; auth, OTP, Maps and payments are UI-only.
 
 Run from this directory:
 

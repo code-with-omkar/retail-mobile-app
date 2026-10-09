@@ -20,13 +20,14 @@ public sealed class CartController(ICartService cartService) : ControllerBase
     public async Task<IActionResult> Add(Guid storeId, AddCartItemRequest request, CancellationToken cancellationToken) => Respond(
         await cartService.AddItemAsync(storeId, request, cancellationToken));
 
+    /// <summary>Optional <c>variantId</c> names the pack size; without it the product's only line (or its default variant's) is meant.</summary>
     [HttpPut("{storeId:guid}/items/{productId:guid}")]
-    public async Task<IActionResult> Update(Guid storeId, Guid productId, UpdateCartItemRequest request, CancellationToken cancellationToken) => Respond(
-        await cartService.UpdateItemAsync(storeId, productId, request, cancellationToken));
+    public async Task<IActionResult> Update(Guid storeId, Guid productId, UpdateCartItemRequest request, [FromQuery] Guid? variantId, CancellationToken cancellationToken) => Respond(
+        await cartService.UpdateItemAsync(storeId, productId, request, variantId, cancellationToken));
 
     [HttpDelete("{storeId:guid}/items/{productId:guid}")]
-    public async Task<IActionResult> Remove(Guid storeId, Guid productId, CancellationToken cancellationToken) => Respond(
-        await cartService.RemoveItemAsync(storeId, productId, cancellationToken));
+    public async Task<IActionResult> Remove(Guid storeId, Guid productId, [FromQuery] Guid? variantId, CancellationToken cancellationToken) => Respond(
+        await cartService.RemoveItemAsync(storeId, productId, variantId, cancellationToken));
 
     private IActionResult Respond(CartOperationResult result) => result.Status switch
     {

@@ -7,6 +7,7 @@ using Microsoft.OpenApi;
 using QuickCommerce.Api.Hosting;
 using QuickCommerce.Api.Security;
 using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Application.Services;
 
 namespace QuickCommerce.Api.Extensions;
 
@@ -15,6 +16,26 @@ public static class ApiServiceCollectionExtensions
     public static IServiceCollection AddApiServices(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddControllers();
+        var delivery = configuration.GetSection(DeliverySettings.SectionName).Get<DeliverySettings>() ?? new DeliverySettings();
+        delivery.Validate();
+        services.AddSingleton(delivery);
+        services.AddSingleton<IDeliveryEstimator, DeliveryEstimator>();
+        var addresses = configuration.GetSection(AddressSettings.SectionName).Get<AddressSettings>() ?? new AddressSettings();
+        addresses.Validate();
+        services.AddSingleton(addresses);
+        var account = configuration.GetSection(AccountSettings.SectionName).Get<AccountSettings>() ?? new AccountSettings();
+        account.Validate();
+        services.AddSingleton(account);
+        services.AddSingleton(configuration.GetSection(RegistrationSettings.SectionName).Get<RegistrationSettings>() ?? new RegistrationSettings());
+        var email = configuration.GetSection(EmailSettings.SectionName).Get<EmailSettings>() ?? new EmailSettings();
+        if (!environment.IsDevelopment())
+        {
+            email.ValidateForNonDevelopment();
+        }
+
+        services.AddSingleton(email);
+        services.AddAuthRateLimiting(configuration);
+        services.AddTrustedProxies(configuration);
         ValidateProductionConfiguration(configuration, environment);
         services.AddHealthChecks();
         services.AddHostedService<ShutdownLoggingHostedService>();

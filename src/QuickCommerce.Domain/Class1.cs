@@ -116,6 +116,9 @@ public sealed class User
 	public string? FirstName { get; set; }
 	public string? LastName { get; set; }
 	public string? Email { get; set; }
+
+	/// <summary>Contact number entered by the customer. Not verified; verification arrives with phone sign-in.</summary>
+	public string? PhoneNumber { get; set; }
 	public Guid OrganizationId { get; set; }
 	public Guid? StoreId { get; set; }
 	public Role Role { get; set; } = Role.Customer;
@@ -215,10 +218,45 @@ public sealed class Product
 	public required string Name { get; set; }
 	public required string Description { get; set; }
 	public decimal Price { get; set; }
+
+	/// <summary>Optional maximum retail price. Null means no separate MRP (no discount).</summary>
+	public decimal? Mrp { get; set; }
 	public required string UnitOfMeasure { get; set; }
 	public Guid CategoryId { get; set; }
 	public string? ImageUrl { get; set; }
 	public bool IsActive { get; set; } = true;
+}
+
+/// <summary>A password reset code. Only a keyed hash of the code is stored, never the code itself.</summary>
+public sealed class PasswordResetCode
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid UserId { get; set; }
+	public required string CodeHash { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime ExpiresAt { get; set; }
+	public int FailedAttempts { get; set; }
+	public DateTime? UsedAt { get; set; }
+	public string? RequestedFromIp { get; set; }
+}
+
+/// <summary>Translated product text. English stays in <see cref="Product.Name"/> and <see cref="Product.Description"/>.</summary>
+public sealed class ProductTranslation
+{
+	public Guid ProductId { get; set; }
+
+	/// <summary>Lowercase language code, for example "mr".</summary>
+	public required string Locale { get; set; }
+	public required string Name { get; set; }
+	public string? Description { get; set; }
+}
+
+/// <summary>Translated category name. English stays in <see cref="Category.Name"/>.</summary>
+public sealed class CategoryTranslation
+{
+	public Guid CategoryId { get; set; }
+	public required string Locale { get; set; }
+	public required string Name { get; set; }
 }
 
 public sealed class Store
@@ -237,6 +275,38 @@ public sealed class Store
 	public List<Cart> Carts { get; set; } = [];
 }
 
+/// <summary>
+/// A sellable pack of a product (for example 500 g). Every product has exactly one default variant; price, MRP and stock
+/// live on the variant. The product's own price columns remain for the admin API until product editing is rebuilt.
+/// </summary>
+public sealed class ProductVariant
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid ProductId { get; set; }
+	public required string Sku { get; set; }
+
+	/// <summary>Shown to customers, for example "500 g".</summary>
+	public required string Label { get; set; }
+	public decimal Price { get; set; }
+
+	/// <summary>Optional maximum retail price. Null means no separate MRP (no discount).</summary>
+	public decimal? Mrp { get; set; }
+	public int SortOrder { get; set; }
+	public bool IsDefault { get; set; }
+	public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Stock of one variant in one store. A row means the store carries the variant, whatever the quantity.</summary>
+public sealed class StoreVariantInventory
+{
+	public Guid StoreId { get; set; }
+	public Guid VariantId { get; set; }
+	public int AvailableQuantity { get; set; }
+	public int ReorderThreshold { get; set; } = 5;
+	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>Stock per product. Superseded by <see cref="StoreVariantInventory"/> (phase P3) and no longer read or written by the application; the table is kept as the rollback copy until a later cleanup.</summary>
 public sealed class StoreInventory
 {
 	public Guid StoreId { get; set; }
@@ -244,6 +314,32 @@ public sealed class StoreInventory
 	public int AvailableQuantity { get; set; }
 	public int ReorderThreshold { get; set; } = 5;
 	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A delivery address saved by a customer. Personal data: only its owner may read or change it.</summary>
+public sealed class CustomerAddress
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CustomerId { get; set; }
+
+	/// <summary>Home, Work or a name the customer chose.</summary>
+	public required string Label { get; set; }
+
+	/// <summary>The formatted address from the map or search.</summary>
+	public required string Line { get; set; }
+	public string FlatOrBuilding { get; set; } = string.Empty;
+	public string Landmark { get; set; } = string.Empty;
+	public double Latitude { get; set; }
+	public double Longitude { get; set; }
+
+	/// <summary>Who receives the delivery, and how to reach them.</summary>
+	public required string ReceiverName { get; set; }
+	public required string ReceiverPhone { get; set; }
+
+	/// <summary>Exactly one address per customer is the default (enforced by a filtered unique index).</summary>
+	public bool IsDefault { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class Cart
@@ -262,7 +358,9 @@ public sealed class CartItem
 {
 	public Guid CartId { get; set; }
 	public Guid ProductId { get; set; }
+	public Guid VariantId { get; set; }
 	public string ProductNameSnapshot { get; set; } = string.Empty;
+	public string VariantLabelSnapshot { get; set; } = string.Empty;
 	public decimal UnitPriceSnapshot { get; set; }
 	public int Quantity { get; set; }
 	public DateTime AddedAt { get; set; } = DateTime.UtcNow;
@@ -304,8 +402,17 @@ public sealed class Notification
 public sealed class OrderItem
 {
 	public Guid ProductId { get; set; }
+
+	/// <summary>Null on orders placed before variants existed.</summary>
+	public Guid? VariantId { get; set; }
 	public required string ProductNameSnapshot { get; set; }
+
+	/// <summary>The pack label at the time of the order, for example "500 g". Null on orders placed before variants existed.</summary>
+	public string? VariantLabelSnapshot { get; set; }
 	public decimal UnitPrice { get; set; }
+
+	/// <summary>The variant's MRP at the time of the order, when it had one.</summary>
+	public decimal? UnitMrpSnapshot { get; set; }
 	public int Quantity { get; set; }
 	public decimal TotalPrice => UnitPrice * Quantity;
 }

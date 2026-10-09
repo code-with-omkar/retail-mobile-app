@@ -14,6 +14,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.FirstName).HasMaxLength(80);
         builder.Property(user => user.LastName).HasMaxLength(80);
         builder.Property(user => user.Email).HasMaxLength(160);
+        builder.Property(user => user.PhoneNumber).HasMaxLength(20);
         builder.Property(user => user.CreatedBy).HasMaxLength(200);
         builder.Property(user => user.UpdatedBy).HasMaxLength(200);
         builder.Property(user => user.Role).HasConversion<string>().HasMaxLength(32).IsRequired();

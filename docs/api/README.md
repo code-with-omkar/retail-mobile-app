@@ -1,0 +1,145 @@
+# API contract notes (for clients)
+
+- Machine-readable contract: [openapi.json](./openapi.json), re-exported **2026-10-07** after the P2 account work from a running Development API (`/swagger/v1/swagger.json`, OpenAPI 3.0, 45 paths). Re-export after any API change:
+
+  ```powershell
+  dotnet run --project src/QuickCommerce.Api --launch-profile http
+  curl http://localhost:5067/swagger/v1/swagger.json -o docs/api/openapi.json
+  ```
+
+- Local base URL: `http://localhost:5067` (Android emulator: `http://10.0.2.2:5067`).
+
+## Response envelope
+
+```jsonc
+// success
+{ "success": true, "data": { } }
+// failure
+{ "success": false, "message": "Order not found", "errors": [ ] }
+```
+
+`errors` is a list of strings. Default ASP.NET model-validation failures may instead return `{ "errors": { "Field": ["message"] } }`; the mobile client accepts both.
+
+| Status | Mobile exception |
+| --- | --- |
+| 400 / 422 | `ValidationException` |
+| 401 | `UnauthorizedException` |
+| 403 | `ForbiddenException` |
+| 404 | `NotFoundException` |
+| 409 | `ConflictException` |
+| 429 | `TooManyRequestsException` |
+| 5xx | `ServerException` |
+
+## Headers
+
+- `X-Correlation-ID`: send one per request; the API echoes it and logs it. The mobile client always sends one.
+- `Authorization: Bearer <access token>` for protected routes. Login: `POST /api/auth/login` with `{ "username", "password" }`.
+- JSON property names are camelCase; ids are GUID strings.
+
+## Health
+
+`GET /health/live` (process up) and `GET /health/ready` (database reachable) return plain text (`Healthy`) and status 200 / 503.
+
+## What customers can call today (verified 2026-10-07)
+
+| Route | Anonymous | Notes |
+| --- | --- | --- |
+| `GET /api/categories` | yes | |
+| `GET /api/products/{id}` | yes | no MRP, Marathi name or availability yet |
+| `GET /api/stores/nearest?latitude&longitude[&productIds]` | yes | |
+| `GET /api/catalog/categories` | yes | **New (task 1.4).** Active categories with `translations`. |
+| `GET /api/catalog/products?page&pageSize&search&categoryId` | yes | Task 1.1, extended by 1.3 and 1.4. Active products only, paged (default 20, max 50), search max 100 chars (also matches translated names), ordered by name. Returns `{ items, page, pageSize, totalCount, hasMore }`. Item fields: `id, name, description, price, mrp, discountPercent, unitOfMeasure, categoryId, imageUrl, translations`. Invalid paging returns 400. |
+| `GET /api/catalog/products/{id}` | yes | **New (task 1.3/1.4).** Same item shape; 404 for unknown or inactive products. |
+| `GET /api/catalog/stores?latitude&longitude` | yes | **New (task 1.13).** Stores that deliver to the point, nearest first: `[{ id, name, address, distanceKm, estimatedMinutes, serviceRadiusKm }]`. Empty list (200) when none does, 400 for out-of-range coordinates. A store that carries no active product is not listed. |
+| `GET /api/catalog/stores/nearest?latitude&longitude` | yes | **New (task 1.10).** Nearest serviceable store: `{ id, name, distanceKm, estimatedMinutes, serviceRadiusKm }`. 404 when none serves the point, 400 for out-of-range coordinates. |
+| `GET /api/products` | **no (401)** | admin-read policy; unchanged, for the admin portal |
+| `GET /api/stores` | no | admin-read policy |
+| `/api/customer/profile` | no | **New (task 2.5).** GET and PUT the signed-in customer's own profile `{ id, fullName, email, phoneNumber }`; email is read-only. |
+| `/api/carts/*`, `/api/checkout/*`, `/api/orders`, `/api/customer/*` | no | customer token (`Orders` policy) |
+
+`mobile/test/integration/api_smoke_test.dart` checks this against a running API (opt-in, see the file header).
+
+## MRP, discount and translations (tasks 1.3, 1.4)
+
+- `mrp` is always present: the stored MRP when it is above the price, otherwise the price. `discountPercent` is `round((mrp - price) / mrp * 100)` and 0 when there is no discount.
+- `translations` is a map keyed by lowercase language code, for example `{ "mr": { "name": "...", "description": "..." } }`. Only languages that have a translation appear. A null or missing `description` means: use the English description. English stays in `name` and `description`.
+- Categories use the same idea: `translations: { "mr": { "name": "..." } }`.
+- Until the admin editor exists (plan task 1.12), values are set with `docs/sql/dev-seed-mrp-translations.sql` (development only).
+
+## Store catalogue (task 1.13)
+
+- `catalog/products?storeId=...&carriedOnly=true` returns only the products that store carries (it has an inventory row, whatever the quantity), with `totalCount` and paging for that set and the usual `inStock` / `lowStock` flags. `carriedOnly` without a `storeId` is a 400; an unknown or inactive store is 404. Without `carriedOnly` nothing changed: the whole catalogue, with stock flags when a `storeId` is given.
+- `catalog/categories?storeId=...` returns only categories that have at least one product the store carries (a carried sub-category keeps its parent). Unknown store: 404.
+- Store-filtered product pages are not cached (a primary-key lookup on the inventory table), so a catalogue change shows at once.
+- The app sends `carriedOnly` whenever a store is selected and falls back to the whole catalogue when no store can be resolved.
+
+## Stock and delivery estimate (tasks 1.2, 1.6, 1.10)
+
+- `catalog/products` and `catalog/products/{id}` accept an optional `storeId`. With it, each product carries `inStock` and `lowStock` for that store (`lowStock` = in stock but at or below the reorder threshold). **Exact quantities are never returned.** Without `storeId` both fields are `null` (unknown). An unknown or inactive store returns 404; an empty GUID returns 400.
+- Stock is added fresh on every request (the cached product page never contains it). It is display-only: checkout re-checks stock and remains the authority.
+- `estimatedMinutes = BasePrepMinutes + ceil(distanceKm x MinutesPerKm)`, from the `Delivery` section of `appsettings.json` (`BasePrepMinutes: 8`, `MinutesPerKm: 2`). Invalid values stop the API at startup.
+- Clients should round coordinates (the app uses 3 decimals, about 110 m) before calling `catalog/stores/nearest`.
+
+## Customer accounts (P2, tasks 2.1 to 2.5 and 2.11)
+
+All of these answer with the usual envelope. Passwords are 8 to 128 characters, must not equal the email and must not be a very common password.
+
+| Route | Auth | Success | Failures |
+| --- | --- | --- | --- |
+| `POST /api/auth/register` `{ fullName, email, password, phoneNumber? }` | anonymous | 200, same body as login (tokens + user) | 400 validation (per-field messages in `errors`), 409 email already registered, 429 |
+| `POST /api/auth/forgot-password` `{ email }` | anonymous | 200 `data: null`, **always** for a well-formed email so it cannot be used to find out who has an account | 400 malformed email, 429 |
+| `POST /api/auth/reset-password` `{ email, code, newPassword }` | anonymous | 200; the code is single use and every session of the account is signed out | 400 "Invalid or expired code." (wrong, used, expired or too many attempts), 429 |
+| `POST /api/auth/change-password` `{ currentPassword, newPassword, refreshToken? }` | customer token | 200; other sessions are signed out, the one named by `refreshToken` stays | 400 wrong current password or weak new one, 401, 429 |
+
+- The reset code is 8 characters (shown as `XXXX-XXXX`), valid 30 minutes, 5 wrong attempts kill it, at most 3 codes per hour per account. Only a keyed hash is stored.
+- 429 responses carry `Retry-After`. Defaults per client IP: login 10 per minute, register 5 per hour, forgot 5 per hour, reset 10 per hour, change 10 per hour (`RateLimits:Auth`). Counters are per API instance.
+- 503 with a generic message means the feature is not configured (for example no reset-code key).
+
+### Settings added
+
+| Setting | Notes |
+| --- | --- |
+| `Account:ResetCodeKey` | **Required outside Development**, at least 32 characters. Supply through an environment variable or secret store, never source control. Development has a throwaway key in `appsettings.Development.json`. |
+| `Account:CodeLifetimeMinutes`, `MaxCodeAttempts`, `MaxCodeRequestsPerHour` | Defaults 30, 5, 3. |
+| `Registration:OrganizationId` | Optional. Without it new customers join the only active organization; with several active and none configured, registration answers 503. |
+| `Email:Mode` | `Log` (Development only: writes mails to `%TEMP%quickcart-dev-outbox` and the log) or `Smtp`. Outside Development the API refuses to start without `Smtp`, `Host` and `From`. Credentials via environment variables. The provider is still an open decision (D23). |
+| `Proxy:KnownProxies` | Addresses of the load balancers in front of IIS. Needed so rate limits see the real client IP; a warning is logged when empty. |
+| `RateLimits:Auth:*` | See above. |
+
+Applied to the dev database on 2026-10-07 as migration `20261007131144_AddCustomerAccountSupport` (adds `Users.PhoneNumber` and `PasswordResetCodes`), after a verified backup.
+
+## Product variants (P3, tasks 3.2 to 3.4)
+
+Every product has one or more **variants** (pack sizes such as 250 g, 500 g, 1 kg), each with its own price, MRP and stock per store. Every product has exactly one **default** variant. Everything below is additive: clients written before variants keep working unchanged.
+
+- **Catalogue** (`catalog/products`, `catalog/products/{id}`): each product gains `variants: [{ id, label, price, mrp, discountPercent, isDefault, inStock, lowStock }]`, active variants only, ordered by sort order. The product's own `price`, `mrp`, `discountPercent`, `unitOfMeasure`, `inStock` and `lowStock` describe its **default variant**. `inStock` / `lowStock` (product and variant) are `null` without a `storeId` and are never quantities. A product "carried" by a store (`carriedOnly`) is one for which the store has a stock row on at least one active variant.
+- **Cart:** `POST api/carts/{storeId}/items` takes an optional `variantId` next to `productId`; omitted means the default variant. A cart line is one per variant (the same product in two pack sizes is two lines). `PUT` and `DELETE api/carts/{storeId}/items/{productId}` take an optional `?variantId=`; omitted, they act on the product's only line, or its default variant's line when there are several. Cart items now also return `variantId` and `variantLabel`. A variant that does not belong to the product, or is inactive, is 404; an empty GUID is 400.
+- **Checkout and orders:** the variant's price is re-checked against the cart's price snapshot (409 on a change) and its stock is taken in a transaction with the existing concurrency check. A concurrent purchase of the same stock row is retried a few times before a stock conflict is reported, so a customer is not turned away while stock remains. Order lines (`OrderItemResponse`) carry `variantId` and `variantLabel`; the order keeps the pack label, price and MRP as they were at purchase, so later price edits never change it. Orders placed before variants existed have these as `null`.
+- **Admin order creation** (`OrderLineRequest`): optional `variantId`, default variant otherwise; the store chosen must stock every named variant.
+- **Not changed:** `GET api/products` (admin) still shows the product's own price columns; variant management in the admin portal comes with product editing (task 1.12).
+
+Database: migration `AddProductVariants` adds `ProductVariants` and `StoreVariantInventory`, backfills a default variant per product and a stock row per existing stock row, and keeps the old `StoreInventory` table untouched as the rollback copy. See `docs/plans/P3-product-variants.md`, `docs/sql/dev-seed-variants.sql` (dev packs) and `docs/sql/p3-reverse-sync-inventory.sql` (code-only rollback).
+
+## Addresses and serviceability (P4, tasks 4.1, 4.2, 4.8, 4.9)
+
+**Saved addresses** (`api/customer/addresses`, customer token, `Orders` policy). The customer comes from the token, never from the request. An address that belongs to someone else is **404, exactly like one that does not exist**, so its existence is not revealed.
+
+| Route | Does |
+| --- | --- |
+| `GET` | The caller's addresses, default first, then most recently changed. Each carries `serviceable` and `serviceabilityReason`, computed from today's stores. |
+| `POST` | Creates one (201). The first address becomes the default. Over the limit: 409. |
+| `PUT {id}` | Updates the fields; the id and the default flag are kept. |
+| `POST {id}/default` | Makes it the default and clears the previous default in one transaction. |
+| `DELETE {id}` | Deletes it. Deleting the default promotes the most recently changed remaining address. |
+
+Body of `POST` and `PUT`: `{ label, line, flatOrBuilding?, landmark?, latitude, longitude, receiverName, receiverPhone }`. `label` 1 to 40 characters, `line` up to 300, flat and landmark up to 120, receiver name up to 120, phone 10 to 15 digits (stored normalized, as for accounts), coordinates in range and not 0,0. Validation failures are 400 with a message per problem. The limit is `Addresses:MaxPerCustomer` (default 10, 1 to 50). Changes to one customer's addresses run one after another (a short database lock), so parallel requests cannot exceed the limit or leave two defaults; the table also enforces one default per customer.
+
+Receiver name and phone are personal data: returned only to the owner, never logged, and not visible to staff through this API.
+
+**Serviceability** (`GET api/catalog/serviceability?latitude&longitude`, anonymous, for guests and the picker): `{ serviceable, reason, nearestDistanceKm }`. `reason` is `Serviceable`, `OutsideServiceArea` (no active store's delivery radius covers the point) or `NoStoreAvailable` (a radius covers it but no covering store carries any active product). `nearestDistanceKm` is the distance to the nearest store that serves the point, or to the nearest store at all when none does; null when there are no stores. Out-of-range coordinates are 400. The same rule drives the `serviceable` flag on saved addresses and the checkout check.
+
+**Checkout** (`POST api/checkout/{storeId}`): the store must actually deliver to the delivery coordinates, checked on the server before anything in the cart or stock changes. Otherwise **409** with the usual `message` plus `"reason": "OutsideServiceArea"`. Radius is inclusive: a point exactly at the radius is served.
+
+Database: migration `AddCustomerAddresses` adds the `CustomerAddresses` table only (cascade from the customer, one default per customer, coordinate checks). Its Down drops that table. See `docs/plans/P4-addresses-and-serviceability.md`.
+
+**Secrets:** the Google Maps and Places API key is never committed. It lives in the untracked `mobile/android/secrets.properties` and `mobile/config/local.json`, both git-ignored, and a test (`ApiKeyGuardTests`) fails the build if a Google key appears anywhere in the repository.

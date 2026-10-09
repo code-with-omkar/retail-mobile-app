@@ -9,9 +9,26 @@ public interface ICommerceStore
     Task<IReadOnlyList<Category>> GetCategoriesAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Product>> GetProductsAsync(string? search, Guid? categoryId, CancellationToken cancellationToken = default);
     Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Translations for the given products in a single query.</summary>
+    /// <summary>Stock rows of one store for the given variants, in a single query.</summary>
+    Task<IReadOnlyList<StoreVariantInventory>> GetStoreVariantInventoryAsync(Guid storeId, IReadOnlyCollection<Guid> variantIds, CancellationToken cancellationToken = default);
+    /// <summary>Every variant (active or not) of the given products, in a single query, ordered by sort order.</summary>
+    Task<IReadOnlyList<ProductVariant>> GetVariantsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default);
+    Task<ProductVariant?> GetVariantAsync(Guid variantId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProductTranslation>> GetProductTranslationsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CategoryTranslation>> GetCategoryTranslationsAsync(CancellationToken cancellationToken = default);
+    /// <summary>Active products only, filtered and paged in the data store, ordered by name then id so pages are stable.</summary>
+    Task<(IReadOnlyList<Product> Items, int TotalCount)> GetActiveProductPageAsync(string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default);
+    /// <summary>Like <see cref="GetActiveProductPageAsync"/> but only products the store carries (has a stock row for any variant of), whatever the quantity.</summary>
+    Task<(IReadOnlyList<Product> Items, int TotalCount)> GetStoreProductPageAsync(Guid storeId, string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default);
+    /// <summary>Category ids of the active products a store carries.</summary>
+    Task<IReadOnlyList<Guid>> GetCarriedCategoryIdsAsync(Guid storeId, CancellationToken cancellationToken = default);
+    /// <summary>Ids of the stores that carry at least one active product.</summary>
+    Task<IReadOnlyList<Guid>> GetStoreIdsCarryingProductsAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default);
+    /// <summary>All variant stock rows. Used where a store must be chosen for a whole order.</summary>
+    Task<IReadOnlyList<StoreVariantInventory>> GetVariantInventoryAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default);

@@ -12,8 +12,11 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     public List<Customer> Customers { get; } = [];
     public List<Notification> Notifications { get; } = [];
     public List<Product> Products { get; } = [];
+    public List<ProductTranslation> ProductTranslations { get; } = [];
+    public List<CategoryTranslation> CategoryTranslations { get; } = [];
     public List<Store> Stores { get; } = [];
-    public List<StoreInventory> Inventory { get; } = [];
+    public List<ProductVariant> Variants { get; } = [];
+    public List<StoreVariantInventory> Inventory { get; } = [];
     public List<Cart> Carts { get; } = [];
     public List<Order> Orders { get; } = [];
     public object SyncRoot { get; } = new();
@@ -60,13 +63,87 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
         .ToArray());
 
+    public Task<(IReadOnlyList<Product> Items, int TotalCount)> GetActiveProductPageAsync(string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var query = Products
+            .Where(product => product.IsActive)
+            .Where(product => string.IsNullOrWhiteSpace(search)
+                || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || ProductTranslations.Any(translation => translation.ProductId == product.Id
+                    && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .ToArray();
+        var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
+        return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));
+    }
+
+    public Task<(IReadOnlyList<Product> Items, int TotalCount)> GetStoreProductPageAsync(Guid storeId, string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var carried = CarriedProductIds(storeId);
+        var query = Products
+            .Where(product => product.IsActive && carried.Contains(product.Id))
+            .Where(product => string.IsNullOrWhiteSpace(search)
+                || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || ProductTranslations.Any(translation => translation.ProductId == product.Id
+                    && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .ToArray();
+        var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
+        return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));
+    }
+
+    public Task<IReadOnlyList<Guid>> GetCarriedCategoryIdsAsync(Guid storeId, CancellationToken cancellationToken = default)
+    {
+        var carried = CarriedProductIds(storeId);
+        return Task.FromResult<IReadOnlyList<Guid>>(Products.Where(product => product.IsActive && carried.Contains(product.Id)).Select(product => product.CategoryId).Distinct().ToArray());
+    }
+
+    public Task<IReadOnlyList<Guid>> GetStoreIdsCarryingProductsAsync(CancellationToken cancellationToken = default)
+    {
+        var activeVariants = Variants.Where(variant => variant.IsActive && Products.Any(product => product.Id == variant.ProductId && product.IsActive)).Select(variant => variant.Id).ToHashSet();
+        return Task.FromResult<IReadOnlyList<Guid>>(Inventory.Where(row => activeVariants.Contains(row.VariantId)).Select(row => row.StoreId).Distinct().ToArray());
+    }
+
+    /// <summary>Products for which the store has a stock row on at least one active variant.</summary>
+    private HashSet<Guid> CarriedProductIds(Guid storeId)
+    {
+        var stocked = Inventory.Where(row => row.StoreId == storeId).Select(row => row.VariantId).ToHashSet();
+        return Variants.Where(variant => variant.IsActive && stocked.Contains(variant.Id)).Select(variant => variant.ProductId).ToHashSet();
+    }
+
+    /// <summary>The default variant of a product (test and seeding helper).</summary>
+    public ProductVariant DefaultVariantOf(Product product) => Variants.Single(variant => variant.ProductId == product.Id && variant.IsDefault);
+
+    /// <summary>The stock row of a product's default variant in a store (test and seeding helper).</summary>
+    public StoreVariantInventory StockOf(Store store, Product product)
+    {
+        var variantId = DefaultVariantOf(product).Id;
+        return Inventory.Single(row => row.StoreId == store.Id && row.VariantId == variantId);
+    }
+
+    public Task<IReadOnlyList<StoreVariantInventory>> GetStoreVariantInventoryAsync(Guid storeId, IReadOnlyCollection<Guid> variantIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StoreVariantInventory>>(Inventory.Where(row => row.StoreId == storeId && variantIds.Contains(row.VariantId)).ToArray());
+
+    public Task<IReadOnlyList<ProductVariant>> GetVariantsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProductVariant>>(Variants.Where(variant => productIds.Contains(variant.ProductId)).OrderBy(variant => variant.SortOrder).ThenBy(variant => variant.Price).ToArray());
+
+    public Task<ProductVariant?> GetVariantAsync(Guid variantId, CancellationToken cancellationToken = default) => Task.FromResult(Variants.FirstOrDefault(variant => variant.Id == variantId));
+
+    public Task<IReadOnlyList<ProductTranslation>> GetProductTranslationsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProductTranslation>>(ProductTranslations.Where(translation => productIds.Contains(translation.ProductId)).ToArray());
+
+    public Task<IReadOnlyList<CategoryTranslation>> GetCategoryTranslationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CategoryTranslation>>(CategoryTranslations.ToArray());
+
     public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Products.FirstOrDefault(product => product.Id == id));
 
     public Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.ToArray());
 
     public Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray());
 
-    public Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreInventory>>(Inventory.ToArray());
+    public Task<IReadOnlyList<StoreVariantInventory>> GetVariantInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreVariantInventory>>(Inventory.ToArray());
 
     public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.ToArray());
 
@@ -140,17 +217,18 @@ public sealed class InMemoryCommerceStore : ICommerceStore
             foreach (var cartItem in cart.Items)
             {
                 var product = Products.FirstOrDefault(item => item.Id == cartItem.ProductId);
-                if (product is null || !product.IsActive)
+                var variant = Variants.FirstOrDefault(item => item.Id == cartItem.VariantId && item.ProductId == cartItem.ProductId);
+                if (product is null || !product.IsActive || variant is null || !variant.IsActive)
                 {
                     return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable));
                 }
 
-                if (product.Price != cartItem.UnitPriceSnapshot)
+                if (variant.Price != cartItem.UnitPriceSnapshot)
                 {
                     return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged));
                 }
 
-                var inventory = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.ProductId == cartItem.ProductId);
+                var inventory = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId);
                 if (inventory is null || inventory.AvailableQuantity < cartItem.Quantity)
                 {
                     return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict));
@@ -159,15 +237,18 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 orderItems.Add(new OrderItem
                 {
                     ProductId = product.Id,
+                    VariantId = variant.Id,
                     ProductNameSnapshot = product.Name,
-                    UnitPrice = product.Price,
+                    VariantLabelSnapshot = variant.Label,
+                    UnitPrice = variant.Price,
+                    UnitMrpSnapshot = variant.Mrp,
                     Quantity = cartItem.Quantity
                 });
             }
 
             foreach (var cartItem in cart.Items)
             {
-                Inventory.Single(item => item.StoreId == storeId && item.ProductId == cartItem.ProductId).AvailableQuantity -= cartItem.Quantity;
+                Inventory.Single(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId).AvailableQuantity -= cartItem.Quantity;
             }
 
             var order = new Order
@@ -225,7 +306,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         {
             foreach (var adjustment in inventoryAdjustments)
             {
-                var stock = Inventory.FirstOrDefault(item => item.StoreId == adjustment.StoreId && item.ProductId == adjustment.ProductId);
+                var stock = Inventory.FirstOrDefault(item => item.StoreId == adjustment.StoreId && item.VariantId == adjustment.VariantId);
                 if (stock is null || stock.AvailableQuantity < adjustment.Quantity)
                 {
                     return Task.FromResult(false);
@@ -234,7 +315,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
             foreach (var adjustment in inventoryAdjustments)
             {
-                Inventory.First(item => item.StoreId == adjustment.StoreId && item.ProductId == adjustment.ProductId).AvailableQuantity -= adjustment.Quantity;
+                Inventory.First(item => item.StoreId == adjustment.StoreId && item.VariantId == adjustment.VariantId).AvailableQuantity -= adjustment.Quantity;
             }
 
             Orders.Add(order);
@@ -253,7 +334,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         order.Latitude,
         order.Longitude,
         order.CreatedAt,
-        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
+        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
         order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
 
     private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
@@ -304,12 +385,18 @@ public sealed class InMemoryCommerceStore : ICommerceStore
             new Store { Name = "North Star Fulfillment", Address = "8 Station Road", Latitude = 19.045, Longitude = 72.899, ServiceRadiusKm = 9, OrganizationId = organization.Id, Organization = organization }
         ]);
 
+        // Every product has exactly one default variant, copying its own price, MRP and unit.
+        foreach (var product in products)
+        {
+            store.Variants.Add(new ProductVariant { ProductId = product.Id, Sku = product.Sku, Label = product.UnitOfMeasure, Price = product.Price, Mrp = product.Mrp, SortOrder = 0, IsDefault = true });
+        }
+
         var quantities = new[] { 24, 8, 0, 16, 5 };
         foreach (var currentStore in store.Stores)
         {
             for (var index = 0; index < products.Length; index++)
             {
-                store.Inventory.Add(new StoreInventory { StoreId = currentStore.Id, ProductId = products[index].Id, AvailableQuantity = Math.Max(0, quantities[index] + store.Stores.IndexOf(currentStore) * 4) });
+                store.Inventory.Add(new StoreVariantInventory { StoreId = currentStore.Id, VariantId = store.DefaultVariantOf(products[index]).Id, AvailableQuantity = Math.Max(0, quantities[index] + store.Stores.IndexOf(currentStore) * 4) });
             }
         }
 

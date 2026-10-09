@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for the app to reach the API in release builds (Flutter only adds it for debug/profile). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Approximate location is enough to find the stores; the customer confirms the address. Asked only when they tap "Use my current location". -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="quickcart_customer"
         android:name="${applicationName}"

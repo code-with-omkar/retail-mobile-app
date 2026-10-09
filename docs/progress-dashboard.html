@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickCart Mobile · Progress</title>
+<style>
+:root{
+  --bg:#f4f2ff; --card:#ffffff; --ink:#141118; --muted:#5b5575; --line:#e3ddf7; --soft:#efeaff;
+  --yellow:#ffd400; --pink:#fb1a8e; --green:#0a9f45; --blue:#2a1bff; --amber:#b86e00; --red:#c2185b;
+  --hero1:#2a1bff; --hero2:#6a11e8; --hero3:#b00699; --focus:#2a1bff;
+  --s-todo:#8a84a3; --s-doing:#2a6df4; --s-blocked:#c2185b; --s-done:#0a9f45;
+}
+:root[data-theme="dark"]{
+  --bg:#0e0a3a; --card:#1e1846; --ink:#f4f1ff; --muted:#c7bdf0; --line:#332a73; --soft:#2a2260;
+  --green:#02f34c; --amber:#ffb300; --red:#ff5fae; --focus:#ffd400;
+  --s-todo:#a59fc4; --s-doing:#6fa3ff; --s-blocked:#ff5fae; --s-done:#02f34c;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+header{background:linear-gradient(135deg,var(--hero1),var(--hero2) 55%,var(--hero3));color:#fff;padding:24px 20px 20px}
+.wrap{max-width:1200px;margin:0 auto}
+.head{display:flex;gap:20px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+h1{margin:0;font-size:26px;font-weight:900;letter-spacing:-.01em}
+.sub{opacity:.85;margin:2px 0 0}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;align-items:stretch}
+.stat{background:rgba(255,255,255,.14);border-radius:16px;padding:10px 14px;min-width:96px}
+.stat b{display:block;font-size:22px;line-height:1.1}
+.stat span{font-size:12px;opacity:.85}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{transform:rotate(-90deg)}
+.ring .pct{position:absolute;inset:0;display:grid;place-items:center;font-weight:900;font-size:22px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:999px;padding:9px 16px;font-weight:800;cursor:pointer;background:var(--yellow);color:#141118}
+.btn.ghost{background:rgba(255,255,255,.18);color:#fff}
+.btn.sm{padding:6px 12px;font-size:13px}
+.btn.line{background:transparent;border:1px solid var(--line);color:var(--ink)}
+nav.tabs{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;padding:0 12px}
+nav.tabs button{background:none;border:0;padding:14px 14px;font-weight:800;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--yellow)}
+main{padding:20px}
+.grid{display:grid;gap:14px}
+.cols-3{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px}
+.card h3{margin:0 0 6px;font-size:16px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.chip{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;background:var(--soft);color:var(--ink);white-space:nowrap}
+.chip.l-M{background:#ffe9a6;color:#4a3800}.chip.l-A{background:#c9e6ff;color:#06355c}.chip.l-D{background:#ffd0e6;color:#5c0634}
+.chip.l-W{background:#d8d2ff;color:#25126b}.chip.l-I{background:#c8f7d8;color:#064d1f}.chip.l-Q{background:#ffe0c2;color:#5b2a00}.chip.l-X{background:#e4e4ea;color:#2b2b33}
+.chip.st{color:#fff}.st-todo{background:var(--s-todo)}.st-doing{background:var(--s-doing)}.st-blocked{background:var(--s-blocked)}.st-done{background:var(--s-done);color:#04210f}
+:root[data-theme="dark"] .chip.l-M,:root[data-theme="dark"] .chip.l-A,:root[data-theme="dark"] .chip.l-D,:root[data-theme="dark"] .chip.l-W,:root[data-theme="dark"] .chip.l-I,:root[data-theme="dark"] .chip.l-Q,:root[data-theme="dark"] .chip.l-X{filter:brightness(.95)}
+.bar{height:10px;border-radius:999px;background:var(--soft);overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--yellow),#ffb800);border-radius:999px;transition:width .3s}
+.bar.done>i{background:var(--s-done)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+.phase{margin-bottom:14px;padding:0;overflow:hidden}
+.phase>.ph{width:100%;text-align:left;background:none;border:0;padding:16px;cursor:pointer;display:block}
+.phase .body{padding:0 16px 16px;border-top:1px solid var(--line)}
+.task{border:1px solid var(--line);border-radius:14px;margin-top:10px;background:var(--card)}
+.task>.th{display:flex;gap:10px;align-items:center;padding:10px 12px;flex-wrap:wrap}
+.task .title{flex:1;min-width:200px;font-weight:700;background:none;border:0;text-align:left;cursor:pointer;padding:2px 0}
+.task .detail{padding:4px 14px 14px;border-top:1px dashed var(--line)}
+.task.done .title{text-decoration:line-through;opacity:.65}
+select.status{border-radius:999px;border:1px solid var(--line);background:var(--card);padding:5px 8px;font-weight:800;font-size:13px}
+.ac{display:flex;gap:8px;align-items:flex-start;margin:4px 0}
+.ac input{margin-top:4px;width:18px;height:18px;accent-color:var(--s-done)}
+textarea,input[type=search],input[type=number],input[type=text]{width:100%;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--card)}
+textarea{min-height:64px;resize:vertical}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.filters input[type=search]{max-width:260px}
+.layerbtn{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 10px;font-weight:800;font-size:12px;cursor:pointer}
+.layerbtn[aria-pressed="true"]{background:var(--yellow);color:#141118;border-color:var(--yellow)}
+.board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:12px;overflow-x:auto}
+.col{background:var(--soft);border-radius:18px;padding:10px;min-height:200px}
+.col.over{outline:3px dashed var(--yellow)}
+.col h4{margin:4px 6px 10px;display:flex;justify-content:space-between}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px;cursor:grab}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.sev-H{color:var(--red);font-weight:900}.sev-M{color:var(--amber);font-weight:900}.sev-L{color:var(--green);font-weight:900}
+.api-missing{color:var(--red);font-weight:800}.api-partial{color:var(--amber);font-weight:800}.api-ready{color:var(--green);font-weight:800}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#141118;color:#fff;padding:10px 18px;border-radius:999px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.tableWrap{overflow-x:auto}
+ul.clean{margin:6px 0 0;padding-left:20px}
+.kbd{font-family:ui-monospace,Consolas,monospace;font-size:12px;background:var(--soft);padding:1px 6px;border-radius:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>QuickCart Mobile · Development Progress</h1>
+        <p class="sub" id="subtitle"></p>
+      </div>
+      <div class="actions">
+        <button class="btn ghost sm" id="btnTheme" aria-label="Toggle light and dark theme">Theme</button>
+        <button class="btn ghost sm" id="btnSummary">Copy summary</button>
+        <button class="btn ghost sm" id="btnExport">Export progress</button>
+        <button class="btn ghost sm" id="btnImport">Import</button>
+        <button class="btn sm" id="btnReset">Reset to file</button>
+        <input type="file" id="fileImport" accept="application/json" hidden>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+<nav class="tabs" aria-label="Sections"><div class="wrap" id="tabs" role="tablist"></div></nav>
+<main><div class="wrap" id="app"></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="plan-data">
+{
+"meta":{"title":"QuickCart customer mobile app","updated":"2026-10-07","version":1,
+ "note":"Task status below is the baseline in this file. Changes you make in the browser are saved locally; use Export to share them, and ask Claude to fold an exported file back into this baseline."},
+"layers":{"M":"Mobile (Flutter)","A":"API (.NET)","D":"Database (EF/SQL)","W":"Admin portal (Angular)","I":"Infra / DevOps","Q":"QA / testing","X":"Decision / process"},
+"phases":[
+{"id":"UI","name":"Design and UI prototype","goal":"Electric Yellow design system and every customer screen built as UI on seed data.","deps":[],"exit":["All reference screens implemented in light and dark","EN/Marathi UI strings and theme toggle working","flutter analyze clean and widget tests passing"],
+ "tasks":[
+ {"id":"UI.1","t":"Electric Yellow design system (tokens, light + dark, gradient scaffold)","l":["M"],"s":"M","d":"Palette extension, pill buttons, cards, nav and cart pill.","ac":["Tokens live in lib/core/theme.dart","Light and dark match docs/design boards"],"a":["mobile/lib/core"],"dep":[],"st":"done"},
+ {"id":"UI.2","t":"Core screens: Welcome, Home, Categories, Product, Cart, Checkout, Orders, Profile","l":["M"],"s":"L","d":"Built on local seed data with Riverpod and go_router.","ac":["Navigation works end to end on seed data","Pack-size selector and weight pricing in UI"],"a":["mobile/lib/features"],"dep":["UI.1"],"st":"done"},
+ {"id":"UI.3","t":"Auth and address UI: login, register, forgot, OTP, address picker (map placeholder)","l":["M"],"s":"M","d":"UI only; sign-in buttons use a demo user.","ac":["Validation messages shown","Map is a placeholder widget"],"a":["mobile/lib/features/auth","mobile/lib/features/address"],"dep":["UI.1"],"st":"done"},
+ {"id":"UI.4","t":"English + Marathi localization and persisted theme/language","l":["M"],"s":"M","d":"Key-as-English strings with Marathi map; shared_preferences for choices.","ac":["Language toggle switches whole app","Missing-translation test passes"],"a":["mobile/lib/core/l10n.dart","mobile/lib/core/strings_mr.dart"],"dep":["UI.1"],"st":"done"},
+ {"id":"UI.5","t":"Widget tests for main journeys","l":["Q"],"s":"S","d":"10 tests incl. checkout, OTP, language, dark theme.","ac":["flutter test passes"],"a":["mobile/test"],"dep":["UI.2"],"st":"done"}
+ ]},
+
+{"id":"P0","name":"Foundations and contracts","goal":"Run the real stack locally and give the app a clean data layer, so later phases only add features.","deps":["UI"],"exit":["Android emulator app calls local API health and catalog endpoints","Data-layer structure agreed and documented","analyze + test gate scripted"],
+ "tasks":[
+ {"id":"0.1","t":"Run API + SQL Server locally with migrations and seed data","l":["A","I"],"s":"S","d":"Follow docs/TECHNICAL_OVERVIEW.md. Connection string only via environment variable.","ac":["dotnet ef database update succeeds","/health/ready is healthy","Swagger lists categories, products, stores"],"a":["src/QuickCommerce.Api","docs/TECHNICAL_OVERVIEW.md"],"dep":[],"st":"done"},
+ {"id":"0.2","t":"Freeze the consumed API contract (OpenAPI export + response envelope notes)","l":["A","X"],"s":"S","d":"Save swagger.json and document the {success,data} envelope and error shapes the app will parse.","ac":["swagger.json stored under docs/","Envelope and error cases documented"],"a":["docs"],"dep":["0.1"],"st":"done"},
+ {"id":"0.3","t":"Environment config for the app (dev / staging / prod)","l":["M"],"s":"S","d":"Base URL via --dart-define or flavors. Android emulator reaches host at 10.0.2.2:5067. No secrets in source.","ac":["Three environments selectable at build time","No URLs or keys hardcoded in widgets"],"a":["mobile/lib/core","mobile/android"],"dep":[],"st":"done"},
+ {"id":"0.4","t":"HTTP client: Dio, envelope parsing, typed errors, correlation id","l":["M"],"s":"M","d":"Single client; maps 400/401/403/404/409/5xx and network failures to typed errors the UI can show.","ac":["Typed error model with user-safe messages","Request/response logging off in release","Unit tests with a mock adapter"],"a":["mobile/lib/data/api"],"dep":["0.3"],"st":"done"},
+ {"id":"0.5","t":"Data layer structure: DTOs, repositories, Riverpod providers","l":["M"],"s":"M","d":"DTOs separate from widgets; one repository per module; seed repository kept as a fake for tests and offline dev. Decide codegen vs hand-written DTOs (package rule: justify new deps).","ac":["Repository interfaces for catalog, cart, orders, auth, address","Decision on DTO approach recorded","Screens depend on repositories, not seed data"],"a":["mobile/lib/data","mobile/lib/features"],"dep":["0.4"],"st":"doing"},
+ {"id":"0.6","t":"Android toolchain and device run","l":["I","M"],"s":"S","d":"Android Studio + SDK, emulator and one physical device.","ac":["flutter doctor clean for Android","App runs on emulator and device"],"a":["mobile/android"],"dep":[],"st":"doing"},
+ {"id":"0.7","t":"Test infrastructure and quality gate","l":["Q"],"s":"S","d":"Fake repositories, mock Dio adapter, script that runs flutter analyze + flutter test.","ac":["One command runs the gate","Fakes reusable across features"],"a":["mobile/test","mobile/tool"],"dep":["0.5"],"st":"done"},
+ {"id":"0.8","t":"Change protocol for backend work","l":["X"],"s":"S","d":"Per docs/copilot-instructions.md: mini-plan before edits, additive DB migrations, backward-compatible API, summary after.","ac":["Mini-plan template saved","Admin-portal impact checklist for API changes"],"a":["docs"],"dep":[],"st":"done"},
+{"id":"0.9","t":"Confirm the database engine (SQL Server or PostgreSQL) and record ADR-002","l":["X"],"s":"S","d":"Rules treat replacing the database as a stop-and-confirm change. Answer the three questions in ADR-002, choose A (stay) or B (move now, before P1 adds migrations).","ac":["ADR-002 status set to Accepted","Rules and docs updated to match the decision"],"a":["docs/adr/ADR-002-database-engine-postgresql.md","docs/copilot-instructions.md"],"dep":[],"st":"done"},
+{"id":"0.14","t":"Remove hardcoded database credentials from tests and rotate the password","l":["A","Q","X"],"s":"S","d":"Removed the literal SQL login and password from PersistenceModelTests.cs and added NoSecretsInSourceTests, which fails if a connection string with an inline password or sa login is committed under src/ or deploy/. The old value is in 2 commits that were pushed to GitHub (origin/main, origin/mobile-app), so it must be treated as compromised: rotate it on every server that used it.","ac":["No credentials in source (done, guarded by a test)","Password rotated by the owner","Consider disabling the sa login or using Windows authentication only"],"a":["src/QuickCommerce.Tests/PersistenceModelTests.cs"],"dep":[],"st":"blocked","bk":"Source is clean and guarded by a test. OWNER ACTION: rotate the SQL sa password. The old value is in git history and already pushed to origin/main and origin/mobile-app."}
+ ]},
+
+{"id":"P1","name":"Public catalog and store discovery","goal":"Home, categories, search and product detail run on real data for anonymous users.","deps":["P0"],"exit":["Anonymous user browses real catalog on device","Marathi names, MRP/discount and availability come from the API","Loading, empty and error states on every list"],
+ "tasks":[
+ {"id":"1.1","t":"API: customer-readable product listing with paging, search, category","l":["A"],"s":"M","d":"GET /api/products currently requires the admin-read policy, so customers cannot list products. Added GET /api/catalog/products (anonymous, customer DTO, paged) without touching the admin route. Decision D8.","ac":["Anonymous request returns paged results","Admin portal still works unchanged","API tests cover paging and filters"],"a":["QuickCommerce.Api/Controllers/CatalogController.cs","Application/Services/CatalogService.cs"],"dep":["0.2"],"st":"done"},
+ {"id":"1.2","t":"API: per-store availability (in stock) on product responses","l":["A"],"s":"M","d":"Optional storeId on customer product routes returns inStock and lowStock flags (never quantities), overlaid fresh on every request; no N+1. No database change. See docs/plans/P1-store-availability-and-eta.md.","ac":["Response includes inStock for a storeId","No N+1 in query plan"],"a":["Application/Services","Infrastructure/Persistence"],"dep":["1.1"],"st":"done"},
+ {"id":"1.3","t":"DB + API: MRP / discount fields","l":["D","A"],"s":"M","d":"Migration AddProductMrp: nullable Mrp (NULL = no discount, no backfill) with CHECK Mrp >= Price. API returns mrp and discountPercent on the customer routes. See docs/plans/P1-mrp-and-translations.md.","ac":["Additive migration reviewed (Up and Down)","Existing orders and admin views unaffected","Product DTO adds mrp and discountPercent"],"a":["Infrastructure/Persistence/Migrations","Application/DTOs/CatalogDtos.cs"],"dep":["1.1"],"st":"done"},
+ {"id":"1.4","t":"DB + API: Marathi names (translations)","l":["D","A"],"s":"M","d":"Migration AddCatalogTranslations: ProductTranslations and CategoryTranslations (locale, name, description). Customer routes return a translations map (D14); English stays in the base columns; search matches translated names. See docs/plans/P1-mrp-and-translations.md.","ac":["Marathi returned when requested","English fallback when missing","Admin portal can still read products"],"a":["Domain","Infrastructure/Persistence","Application/DTOs"],"dep":["1.1"],"st":"done"},
+ {"id":"1.5","t":"Product images: upload, storage, serving","l":["A","W"],"s":"M","d":"Admin uploads an image per product; served from IIS static path; ImageUrl is absolute. The app already shows a generated icon when no image exists.","ac":["Upload with size/type validation","ImageUrl resolves from the device","Admin portal has an upload control"],"a":["Api","admin-portal/src/app/features/products"],"dep":["1.1"],"st":"todo"},
+ {"id":"1.6","t":"API: store ETA from configuration (no hardcoded minutes)","l":["A","D"],"s":"S","d":"Estimate = BasePrepMinutes + ceil(distanceKm x MinutesPerKm) from validated configuration (Delivery section). No database change; per-store override comes with 1.12. See docs/plans/P1-store-availability-and-eta.md.","ac":["ETA returned with nearest store","Value comes from configuration or store settings"],"a":["Application/StoreSelectionService.cs"],"dep":["1.1"],"st":"done"},
+ {"id":"1.7","t":"Mobile: CatalogRepository + providers; categories and Home from API","l":["M"],"s":"L","d":"Home, Categories, Category and Product screens load through CatalogRepository with loading, error+retry and Load more paging. Until 1.3/1.4/1.2 land, MRP/discount, Marathi names and availability use neutral defaults. Seed data remains for tests, offline mode (USE_SEED_DATA) and the demo order.","ac":["Home popular and deals from API","Category screen paginates","Seed data only used in tests"],"a":["mobile/lib/features/home","mobile/lib/data"],"dep":["0.5","1.1","1.3","1.4"],"st":"done"},
+ {"id":"1.8","t":"Mobile: server-side search with debounce","l":["M"],"s":"S","d":"Search is server-side with a 350 ms debounce; a superseded search pager ignores late results.","ac":["Typing does not spam the API","Empty and error states shown"],"a":["mobile/lib/features/home"],"dep":["1.7"],"st":"done"},
+ {"id":"1.9","t":"Mobile: product detail from API with image fallback and states","l":["M"],"s":"M","d":"Uses /api/products/{id}; network image with icon fallback; shared loading/empty/error widgets with retry.","ac":["Retry works after a failure","Icon shown when image missing or failed"],"a":["mobile/lib/features/product","mobile/lib/core/widgets.dart"],"dep":["1.7"],"st":"done"},
+ {"id":"1.10","t":"Mobile: nearest store, distance and ETA on Home; Sold by","l":["M","A"],"s":"M","d":"New public route GET /api/catalog/stores/nearest; Home and product page show the real store, distance and ETA using an interim demo location from app config (real location in P4). See docs/plans/P1-store-availability-and-eta.md.","ac":["Store name, km and minutes from API","Falls back gracefully if no store covers the location"],"a":["mobile/lib/features/home"],"dep":["1.6","1.7"],"st":"done"},
+ {"id":"1.11","t":"Tests: catalog API and mobile repositories","l":["Q"],"s":"M","d":"Backend: 99 unit tests plus an opt-in SQL Server integration test (CatalogEfIntegrationTests) that checks paging, translated search, stock lookups and the MRP constraint on a disposable database. Mobile: DTO, repository, pager, screen and product-page state tests plus 11 live smoke tests.","ac":["dotnet test green","flutter test green"],"a":["src/QuickCommerce.Tests","mobile/test"],"dep":["1.7"],"st":"done"},
+{"id":"1.13","t":"API: stores that deliver to a location, store catalogue and categories","l":["A"],"s":"M","d":"GET /api/catalog/stores (nearest first, empty list when none), carriedOnly on catalog/products, storeId on catalog/categories. Additive, no migration; stores that carry nothing are not offered. See docs/plans/P1-store-selection.md (D24, D25).","ac":["Existing routes unchanged","Tested on a throwaway SQL Server database"],"a":["Api","Application","Infrastructure"],"dep":["1.10"],"st":"done"},
+ {"id":"1.14","t":"Mobile: choose a store; every catalogue screen follows it","l":["M"],"s":"L","d":"Choose a store screen from the Home card, saved choice with nearest fallback, per-store categories, Home, search and category lists, out-of-stock items greyed, cart shows its store, switching store with items asks and empties the cart (D26).","ac":["Choice survives restart","Cart switch asks first"],"a":["mobile/lib/features/stores","mobile/lib/data"],"dep":["1.13"],"st":"done"},
+ {"id":"1.15","t":"Fixes: cut-off field labels, Home store card overflow, Track Order back button","l":["M"],"s":"S","d":"Labels now sit above fields (LabeledField); the Home delivery card scales its content; Back falls back to Orders and Track order keeps Orders underneath. Regression tests added.","ac":["No overflow at 320 px with large text","Back works on Track order"],"a":["mobile/lib/core","mobile/lib/features"],"dep":["1.14"],"st":"done"},
+  {"id":"1.16","t":"Mobile: store visibility redesign (store bar, stores rail, switch sheet, store list, pinned store on browsing)","l":["M"],"s":"L","d":"Home shows a Shopping from bar and a Stores that deliver to you rail; Change opens a sheet with the cart warning and a button that says what happens; the full list has Nearest, Fastest and A to Z, the delivery-range bar and a Shop from button; browsing screens keep the store pinned with its item count; out-of-stock product pages offer Check other stores. Design reviewed and approved as an artboard canvas first.","ac":["Store visible on Home and while browsing","Switch needs one clear confirmation","No overflow at 320 px with large text"],"a":["mobile/lib/features/stores","mobile/lib/features/home"],"dep":["1.14"],"st":"done"},
+{"id":"1.12","t":"Admin editing of price, MRP, translations and images","l":["A","W"],"s":"L","d":"No product write endpoint exists and the admin Products page is a placeholder. Add authorized update endpoints (permission and store scope checked on the server) and portal screens. Pairs with image upload (1.5). Decision D16.","ac":["Staff can set MRP and Marathi text without SQL","Server-side permission checks and validators","Tests for authorization and validation"],"a":["Api/Controllers","admin-portal/src/app/features/products"],"dep":["1.3","1.4"],"st":"todo"}
+ ]},
+
+{"id":"P2","name":"Customer accounts (email / password)","goal":"Customers can register, log in, recover a password and stay signed in, on the existing JWT design.","deps":["P0"],"exit":["Register, login, logout and reset work on device","Tokens stored securely and refreshed automatically","Guest browsing still works; sign-in required at checkout"],
+ "tasks":[
+ {"id":"2.1","t":"API: POST /api/auth/register for customers","l":["A"],"s":"M","d":"POST /api/auth/register creates User + Customer + credential + Customer role in the configured organization (D22) and returns tokens. Password policy 8-128, no composition rules, common-password list. Duplicate email returns 409. Existing login/refresh/logout/me unchanged. See docs/plans/P2-customer-accounts.md.","ac":["Customer created with hashed password","Duplicate email/phone rejected cleanly","Validator and service tests"],"a":["Api/Controllers/AuthenticationController.cs","Application/Validators"],"dep":["0.2"],"st":"done"},
+ {"id":"2.2","t":"DB: customer phone and contact fields (verify what exists first)","l":["D"],"s":"S","d":"Migration AddCustomerAccountSupport: Users.PhoneNumber (nullable, unverified) and PasswordResetCodes table. Additive; reviewed, tested on a throwaway database, then applied with a backup.","ac":["Schema inspection recorded","Migration only if needed"],"a":["Infrastructure/Persistence"],"dep":["2.1"],"st":"done"},
+ {"id":"2.3","t":"API: forgot / reset password","l":["A"],"s":"M","d":"POST forgot-password (always 200) and reset-password using an emailed 8-character code (D20): HMAC-SHA256 keyed hash, 30 min, 5 attempts, 3 requests per account per hour, revokes all refresh tokens on success. IEmailSender with Log (Development only) and Smtp implementations. Staff accounts are not eligible.","ac":["Token expires and is single use","No account enumeration","Email provider configured outside source control"],"a":["Application","Infrastructure"],"dep":["2.1"],"st":"done"},
+ {"id":"2.4","t":"API: rate limiting and lockout review for auth endpoints","l":["A"],"s":"S","d":"Built-in ASP.NET rate limiter on anonymous auth routes (429 + Retry-After), forwarded headers with a trusted-proxy list for IIS behind a load balancer, dummy hash check for unknown emails. Per-instance counters; per-account limits live in SQL.","ac":["Limits documented and tested"],"a":["Api"],"dep":["2.1"],"st":"done"},
+ {"id":"2.5","t":"API: customer profile read/update","l":["A"],"s":"S","d":"GET/PUT /api/customer/profile (name, phone; email read-only) scoped to the signed-in customer on the server.","ac":["User can only access own profile"],"a":["Api","Application"],"dep":["2.1"],"st":"done"},
+ {"id":"2.6","t":"Mobile: AuthRepository, secure token storage, refresh-once interceptor","l":["M"],"s":"M","d":"Refresh token in flutter_secure_storage (new package, Android Keystore), access token in memory; on 401 refresh once, single-flight when several requests fail together; logout revokes server-side.","ac":["Tokens never logged","Refresh failure signs the user out"],"a":["mobile/lib/features/auth","mobile/lib/data/api"],"dep":["0.4","2.1"],"st":"done"},
+ {"id":"2.7","t":"Mobile: wire Login, Register, Forgot screens to the API","l":["M"],"s":"M","d":"Show server validation per field and lockout messages in EN/Marathi.","ac":["Field-level errors displayed","New strings translated"],"a":["mobile/lib/features/auth"],"dep":["2.6","2.3"],"st":"done"},
+ {"id":"2.8","t":"Mobile: session restore, guest browsing, auth gate at checkout","l":["M"],"s":"M","d":"go_router redirect for protected routes; return to the intended screen after sign-in.","ac":["App reopens signed in","Checkout and Orders require sign-in"],"a":["mobile/lib/app.dart"],"dep":["2.6"],"st":"done"},
+ {"id":"2.9","t":"Mobile: remove demo sign-in stubs; interim phone-first Welcome","l":["M"],"s":"S","d":"Done: Welcome offers Log in, Create account and Browse as guest; the phone/OTP field and Google/Apple buttons are hidden until decision D7, and the OTP screen is parked (not routed). Mobile P2 is verified by 94 unit/widget tests and a live smoke test; it has not yet been run on an Android device (0.5/0.6).","ac":["No 'Demo User' path in release code"],"a":["mobile/lib/features/auth"],"dep":["2.7"],"st":"done"},
+ {"id":"2.10","t":"Tests: auth API and mobile auth flow","l":["Q"],"s":"M","d":"Registration validation, duplicates, lockout, refresh, logout.","ac":["Security-relevant paths covered"],"a":["src/QuickCommerce.Tests","mobile/test"],"dep":["2.8"],"st":"done"},
+{"id":"2.11","t":"API: change password for a signed-in customer","l":["A"],"s":"S","d":"POST /api/auth/change-password with current and new password; wrong current password is rejected; other sessions are revoked.","ac":["Wrong current password rejected","Other sessions revoked"],"a":["Api/Controllers/AuthenticationController.cs","Application"],"dep":["2.1"],"st":"done"}
+ ]},
+
+{"id":"P3","name":"Product variants (pack sizes)","goal":"Support 250 g / 500 g / 1 kg style sellable variants end to end without breaking existing carts, orders or inventory.","deps":["P1"],"exit":["Cart, checkout and orders operate on variants","Existing products keep working through a default variant","Inventory concurrency tests pass per variant"],
+ "tasks":[
+ {"id":"3.1","t":"Write the mini-plan and get approval","l":["X"],"s":"S","d":"ProductVariant (Sku, label, quantity/unit, price, mrp, default flag); inventory and price at variant level; migration and rollback plan; impact on admin portal, cart, orders. Structural DB change needs explicit sign-off.","ac":["Plan reviewed and approved","Impact list for API consumers"],"a":["docs"],"dep":[],"st":"done"},
+ {"id":"3.2","t":"DB: ProductVariant migration with backfill","l":["D"],"s":"L","d":"Additive tables/columns; one default variant per product; inventory moves to variant level in safe steps; keep StoreInventory RowVersion concurrency.","ac":["Migration reviewed (Up and Down)","Backfill verified on a copy of data","No data dropped"],"a":["Domain","Infrastructure/Persistence/Migrations"],"dep":["3.1"],"st":"done"},
+ {"id":"3.3","t":"API: catalog returns variants; cart accepts variantId","l":["A"],"s":"L","d":"Existing productId routes keep working via the default variant.","ac":["Old clients unaffected","New cart routes accept variantId"],"a":["CatalogController","CartController","Application/Services"],"dep":["3.2"],"st":"done"},
+ {"id":"3.4","t":"API: order lines snapshot variant label and price","l":["A"],"s":"M","d":"Historical orders must not change when prices change (price snapshot rule).","ac":["Snapshot fields persisted","Tests prove later price edits do not alter old orders"],"a":["Application/Services/OrderService.cs"],"dep":["3.3"],"st":"done"},
+ {"id":"3.5","t":"Admin portal: manage variants on products","l":["W"],"s":"M","d":"Use existing shared components and theme.","ac":["Add/edit/deactivate variants","Layout unchanged elsewhere"],"a":["admin-portal/src/app/features/products"],"dep":["3.3"],"st":"todo"},
+ {"id":"3.6","t":"Mobile: pack-size selector bound to API variants; cart keyed by variantId","l":["M"],"s":"M","d":"Done: the selector is built from the API variants (default pack chosen, out-of-stock packs dimmed and not selectable); cart lines are keyed by pack (variant) id so two sizes of one product are two lines; seed data has packs too. Not yet checked on a phone.","ac":["Selector options come from the API","Cart lines distinguish variants"],"a":["mobile/lib/features/product","mobile/lib/features/cart"],"dep":["3.3"],"st":"done"},
+ {"id":"3.7","t":"Tests: concurrency, snapshot, backward compatibility","l":["Q"],"s":"L","d":"Parallel orders on the last unit of a variant; default-variant compatibility.","ac":["No overselling under concurrent checkout","Compatibility test for old routes"],"a":["src/QuickCommerce.Tests"],"dep":["3.4"],"st":"done"}
+ ]},
+
+{"id":"P4","name":"Addresses and serviceability","goal":"Customers pick or save a delivery address on a real map and only see stores that can serve it.","deps":["P2"],"exit":["Address chosen with Google Maps and saved to the account","Unserviceable areas handled clearly","Selected address drives store selection and Home header"],
+ "tasks":[
+ {"id":"4.1","t":"DB + API: saved addresses CRUD","l":["D","A"],"s":"M","d":"Label, line, flat, landmark, lat/lng, default flag; scoped to the authenticated customer on the server.","ac":["Customer cannot read another customer's addresses","Additive migration"],"a":["Domain","Api","Application"],"dep":["2.1"],"st":"done"},
+ {"id":"4.2","t":"API: serviceability check (store covers lat/lng, with reason)","l":["A"],"s":"S","d":"Reuse nearest-store/service-radius logic.","ac":["Returns serviceable flag and reason"],"a":["Application/StoreSelectionService.cs"],"dep":[],"st":"done"},
+ {"id":"4.3","t":"Mobile: location permission and current location","l":["M"],"s":"M","d":"Handle denied/permanently denied states with an explanation and manual fallback.","ac":["Works on Android 12+ permission model"],"a":["mobile/lib/features/address","mobile/android"],"dep":[],"st":"done"},
+ {"id":"4.4","t":"Google Maps SDK + Places autocomplete in the picker","l":["M","I"],"s":"L","d":"Replace the placeholder map. Needs a Google Cloud project, billing, and an Android-restricted API key stored outside source control.","ac":["Draggable pin and search work","Key restricted to the app and not in git"],"a":["mobile/lib/features/address","mobile/android"],"dep":["4.3"],"st":"todo"},
+ {"id":"4.5","t":"Mobile: address CRUD wired; selected address drives store lookup","l":["M"],"s":"M","d":"Home header, checkout and orders use the chosen address.","ac":["Default address pre-selected","Switching address refreshes store and ETA"],"a":["mobile/lib/features/address"],"dep":["4.1","4.4"],"st":"done"},
+ {"id":"4.6","t":"Mobile: not-serviceable state and messaging (EN/Marathi)","l":["M"],"s":"S","d":"Explain and offer another address.","ac":["Checkout blocked with a clear message"],"a":["mobile/lib/features"],"dep":["4.2"],"st":"done"},
+ {"id":"4.7","t":"Tests: address scope and serviceability","l":["Q"],"s":"S","d":"Authorization and boundary coordinates.","ac":["Scope tests pass"],"a":["src/QuickCommerce.Tests"],"dep":["4.1"],"st":"done"},
+ {"id":"4.8","t":"Guard: no Google API key in the repository","l":["Q"],"s":"S","d":"ApiKeyGuardTests fails the build if a Google key appears in source, config or documents; the local secret files are git-ignored. Done with the backend.","ac":["Fails on a key-shaped string","Local secret files ignored"],"a":["src/QuickCommerce.Tests",".gitignore"],"dep":[],"st":"done"},
+ {"id":"4.9","t":"Checkout refuses an address the store does not deliver to","l":["A"],"s":"S","d":"Server-side rule shared with serviceability: 409 with reason OutsideServiceArea before the cart or stock change; radius inclusive. Found as a gap while planning P4.","ac":["Out-of-range checkout is rejected and changes nothing","Boundary tests"],"a":["Application/Services/CheckoutService.cs"],"dep":["4.2"],"st":"done"}
+ ]},
+
+{"id":"P5","name":"Cart and checkout (cash on delivery path)","goal":"Real store-aware cart and order placement with every failure path handled.","deps":["P2","P3","P4"],"exit":["Signed-in customer places a real COD order from the phone","PriceChanged, InventoryConflict and ProductUnavailable have dedicated UX","Fees come from the server"],
+ "tasks":[
+ {"id":"5.1","t":"Mobile: CartRepository synced with /api/carts/{storeId}","l":["M"],"s":"L","d":"Store-aware; warn when switching store; optimistic updates with rollback.","ac":["Cart survives app restart for signed-in users","Store switch is explicit"],"a":["mobile/lib/features/cart"],"dep":["3.6","2.8","4.5"],"st":"todo"},
+ {"id":"5.2","t":"Mobile: guest cart merged on sign-in","l":["M"],"s":"M","d":"Local cart before login; merge without duplicates.","ac":["No lines lost or duplicated"],"a":["mobile/lib/features/cart"],"dep":["5.1"],"st":"todo"},
+ {"id":"5.3","t":"API + mobile: pricing breakdown from the server","l":["A","M"],"s":"M","d":"Delivery fee, handling fee and free-delivery threshold come from configuration, not app constants.","ac":["App shows server totals","Constants removed from seed"],"a":["Application","mobile/lib/features/cart"],"dep":["5.1"],"st":"todo"},
+ {"id":"5.4","t":"Mobile: checkout via POST /api/checkout/{storeId} with failure handling","l":["M"],"s":"L","d":"Map CheckoutCommitStatus values (CartEmpty, ProductUnavailable, PriceChanged, InventoryConflict) to specific screens or banners.","ac":["Each status has tested UX","User can fix and retry"],"a":["mobile/lib/features/checkout"],"dep":["5.1"],"st":"todo"},
+ {"id":"5.5","t":"API: idempotency key on checkout","l":["A"],"s":"M","d":"Retries or double taps must not create duplicate orders.","ac":["Same key returns the same order","Test for double submit"],"a":["CheckoutController","Application"],"dep":[],"st":"todo"},
+ {"id":"5.6","t":"Mobile: order success from the real order; clear cart","l":["M"],"s":"S","d":"Uses the returned order id and ETA.","ac":["Success screen shows real order id"],"a":["mobile/lib/features/orders"],"dep":["5.4"],"st":"todo"},
+ {"id":"5.7","t":"Tests: checkout conflict paths (API integration + widget tests)","l":["Q"],"s":"M","d":"Use the opt-in SQL integration test connection for API paths.","ac":["Conflict and price-change paths covered"],"a":["src/QuickCommerce.Tests","mobile/test"],"dep":["5.4"],"st":"todo"}
+ ]},
+
+{"id":"P6","name":"Orders, tracking and notifications","goal":"Customers see accurate order history and live status, and get notified of changes.","deps":["P5"],"exit":["Orders list and detail from the API with snapshot prices","Status updates visible within seconds while the app is open","Notification list and bell badge work"],
+ "tasks":[
+ {"id":"6.1","t":"Mobile: orders list and detail from /api/customer/orders","l":["M"],"s":"M","d":"Show snapshot prices and the status-history timeline.","ac":["Old orders unchanged after price edits"],"a":["mobile/lib/features/orders"],"dep":["5.6"],"st":"todo"},
+ {"id":"6.2","t":"API: confirm order detail has status history, ETA, store and line snapshots","l":["A"],"s":"S","d":"Inspect the DTO; add only what is missing, backward compatibly.","ac":["Gap list resolved or confirmed none"],"a":["Application/DTOs/OrderDtos.cs"],"dep":[],"st":"todo"},
+ {"id":"6.3","t":"Mobile: live status via polling","l":["M"],"s":"M","d":"Foreground polling with backoff and stop on terminal states. SignalR is out of scope unless approved.","ac":["No polling when app is backgrounded","Stops at delivered or cancelled"],"a":["mobile/lib/features/orders"],"dep":["6.1"],"st":"todo"},
+ {"id":"6.4","t":"Mobile: notifications list, mark read, bell badge","l":["M"],"s":"M","d":"Uses /api/customer/notifications and the read endpoint.","ac":["Unread count on the bell","Mark read persists"],"a":["mobile/lib/features/home"],"dep":["2.8"],"st":"todo"},
+ {"id":"6.5","t":"Push notifications (FCM): optional, needs approval","l":["A","M","I"],"s":"L","d":"Device token registration, send on status change. New external service, so confirm first (decision D10).","ac":["Decision recorded","If approved: delivered on a real device"],"a":["Api","mobile"],"dep":["6.4"],"st":"todo"},
+ {"id":"6.6","t":"Mobile: Reorder and Buy again from real orders (variants)","l":["M"],"s":"S","d":"Skip unavailable items and tell the user.","ac":["Unavailable items reported"],"a":["mobile/lib/features/orders"],"dep":["6.1","3.6"],"st":"todo"},
+ {"id":"6.7","t":"End-to-end check with the admin portal status changes","l":["Q"],"s":"M","d":"Staff changes status in the portal; the app reflects it.","ac":["Verified for every status transition"],"a":["admin-portal","mobile"],"dep":["6.3"],"st":"todo"},
+ {"id":"6.8","t":"Decide cancellation and refund rules","l":["X"],"s":"S","d":"Who can cancel, until which status, and what happens to stock and payment.","ac":["Rules documented"],"a":["docs"],"dep":[],"st":"todo"}
+ ]},
+
+{"id":"P7","name":"Online payments (UPI / card)","goal":"Customers can pay online safely; the server owns amounts and payment truth.","deps":["P5"],"exit":["Successful, failed and abandoned payments all end in a consistent order state","Webhooks are signed, idempotent and reconciled","No card data touches the app or API"],
+ "tasks":[
+ {"id":"7.1","t":"Choose provider and open test accounts","l":["X"],"s":"S","d":"Compare fees, UPI support, KYC time, Flutter SDK, webhooks. Decision D9. Blocks the rest of this phase.","ac":["Provider chosen","Test keys available"],"a":["docs"],"dep":[],"st":"todo"},
+ {"id":"7.2","t":"DB + API: Payment entity and order payment status","l":["D","A"],"s":"L","d":"Order id, provider, provider reference, amount, status, attempts. Additive.","ac":["Additive migration","Order shows payment status"],"a":["Domain","Infrastructure","Application"],"dep":["7.1"],"st":"todo"},
+ {"id":"7.3","t":"API: create payment session; amount computed server-side","l":["A"],"s":"L","d":"Never trust a client amount; verify the provider signature on completion.","ac":["Tampered amount rejected","Signature verification tested"],"a":["Api","Application"],"dep":["7.2"],"st":"todo"},
+ {"id":"7.4","t":"API: webhook endpoint (signed, idempotent) and reconciliation","l":["A"],"s":"L","d":"Replay-safe; works across multiple IIS instances (no in-memory state).","ac":["Duplicate webhook is harmless","Reconciliation job lists mismatches"],"a":["Api","Infrastructure"],"dep":["7.3"],"st":"todo"},
+ {"id":"7.5","t":"Order states and inventory reservation for pending payment","l":["A","D"],"s":"L","d":"Reserve stock while payment is pending; release on failure or timeout; keep concurrency safety.","ac":["Stock released on failure","No overselling while pending"],"a":["Application/Services","Infrastructure"],"dep":["7.2","3.7"],"st":"todo"},
+ {"id":"7.6","t":"Mobile: provider SDK / hosted checkout, UPI intent, retry UX","l":["M"],"s":"L","d":"Replace the payment placeholder; clear success, failure and pending screens in EN/Marathi.","ac":["Test payments succeed and fail correctly","Back-navigation during payment is safe"],"a":["mobile/lib/features/checkout"],"dep":["7.3"],"st":"todo"},
+ {"id":"7.7","t":"Refund and cancellation handling; admin visibility","l":["A","W"],"s":"M","d":"Basic refund flow and a payments view for staff.","ac":["Refund recorded and visible in portal"],"a":["Api","admin-portal"],"dep":["7.4","6.8"],"st":"todo"},
+ {"id":"7.8","t":"Security review: PCI scope, secrets, log redaction","l":["X","Q"],"s":"M","d":"Use provider-hosted UI so card data never reaches us; secrets in server configuration.","ac":["Written scope statement","No payment secrets in git or logs"],"a":["docs"],"dep":["7.6"],"st":"todo"},
+ {"id":"7.9","t":"Tests: webhook idempotency, amount tampering, double submit","l":["Q"],"s":"M","d":"Automated coverage for the money paths.","ac":["All three covered"],"a":["src/QuickCommerce.Tests"],"dep":["7.4"],"st":"todo"}
+ ]},
+
+{"id":"P8","name":"Phone OTP and social sign-in","goal":"Deliver the phone-first Welcome from the design plus Google and Apple sign-in.","deps":["P2"],"exit":["Get OTP sends and verifies a real code","Google and Apple sign-in create or link accounts securely","OTP state works across multiple servers"],
+ "tasks":[
+ {"id":"8.1","t":"Approve the auth-architecture extension and pick providers","l":["X"],"s":"S","d":"copilot-instructions.md requires confirmation before changing authentication. Choose an SMS provider; create Google and Apple developer setup. Decision D7. Blocks this phase.","ac":["Written approval","Provider accounts ready"],"a":["docs"],"dep":[],"st":"todo"},
+ {"id":"8.2","t":"DB + API: OTP challenge store in SQL","l":["D","A"],"s":"M","d":"Hashed code, expiry, attempts. Must be in the database, not server memory, so any IIS instance can verify.","ac":["Works behind a load balancer","Codes hashed at rest"],"a":["Domain","Infrastructure"],"dep":["8.1"],"st":"todo"},
+ {"id":"8.3","t":"API: OTP request and verify returning JWT","l":["A"],"s":"L","d":"Rate limit per phone and IP; SMS sender abstraction; no code in logs.","ac":["Limits enforced","Lockout after repeated failures"],"a":["Api","Application"],"dep":["8.2"],"st":"todo"},
+ {"id":"8.4","t":"API: Google and Apple token validation, account linking","l":["A"],"s":"L","d":"Validate provider tokens server-side; link by verified email; never trust client-supplied identity.","ac":["Invalid tokens rejected","Linking rules documented"],"a":["Api","Application"],"dep":["8.1"],"st":"todo"},
+ {"id":"8.5","t":"Mobile: real Get OTP and OTP screen (resend, lockout, SMS autofill)","l":["M"],"s":"M","d":"Replace the any-6-digits stub.","ac":["Wrong code shows an error state","Resend timer and limits respected"],"a":["mobile/lib/features/auth"],"dep":["8.3"],"st":"todo"},
+ {"id":"8.6","t":"Mobile: Google and Apple sign-in","l":["M"],"s":"M","d":"google_sign_in and sign_in_with_apple; Apple on Android uses the web flow.","ac":["Sign-in works on a real device"],"a":["mobile/lib/features/auth"],"dep":["8.4"],"st":"todo"},
+ {"id":"8.7","t":"Tests and security review for OTP and social flows","l":["Q"],"s":"M","d":"Brute force, replay, token tampering.","ac":["Review notes stored"],"a":["src/QuickCommerce.Tests"],"dep":["8.5"],"st":"todo"}
+ ]},
+
+{"id":"P9","name":"Quality, hardening and Android release","goal":"Ship a stable build to real users through Play internal testing.","deps":["P6","P7"],"exit":["Signed release bundle passes the go/no-go checklist","Staging end-to-end suite green","Production backend settings verified"],
+ "tasks":[
+ {"id":"9.1","t":"End-to-end suite (integration_test) against staging","l":["Q"],"s":"L","d":"Browse, register, add to cart, address, checkout, pay, track.","ac":["Runs in one command","Covers failure paths"],"a":["mobile/integration_test"],"dep":["7.6","6.7"],"st":"todo"},
+ {"id":"9.2","t":"Accessibility audit (TalkBack, contrast, targets, font scale)","l":["Q","M"],"s":"M","d":"Both themes and both languages; confirm 48dp targets on steppers.","ac":["Issues fixed or logged"],"a":["mobile"],"dep":["7.6"],"st":"todo"},
+ {"id":"9.3","t":"Marathi review by a native speaker; Devanagari font decision","l":["M","X"],"s":"S","d":"Translations were written without review. Decide whether to bundle a Devanagari font.","ac":["Reviewed strings merged"],"a":["mobile/lib/core/strings_mr.dart"],"dep":[],"st":"todo"},
+ {"id":"9.4","t":"Performance pass: image caching, list performance, startup","l":["M"],"s":"M","d":"Profile in release mode on a mid-range device; evaluate an image-cache package only if needed.","ac":["Targets recorded and met"],"a":["mobile"],"dep":["1.7"],"st":"todo"},
+ {"id":"9.5","t":"Crash and error reporting with PII redaction","l":["M","I"],"s":"M","d":"Pick one tool (decision D11); no tokens, phone numbers or addresses in logs.","ac":["Test crash appears in the dashboard","Redaction verified"],"a":["mobile"],"dep":[],"st":"todo"},
+ {"id":"9.6","t":"Android release build: signing, flavors, versioning, R8, icon and splash","l":["M","I"],"s":"M","d":"Keystore kept outside source control; permissions reviewed.","ac":["Signed AAB builds reproducibly"],"a":["mobile/android"],"dep":["0.6"],"st":"todo"},
+ {"id":"9.7","t":"Backend production readiness","l":["A","I"],"s":"L","d":"Restrict CORS (currently any origin), JWT settings from secrets, migrations applied by reviewed script, health checks, confirm stateless behavior on multiple IIS instances.","ac":["CORS limited to known origins","Two-instance smoke test passes","Migration run documented"],"a":["Api","deploy/iis"],"dep":["7.4"],"st":"todo"},
+ {"id":"9.8","t":"Git-based CI for the mobile app (analyze, test, build)","l":["I"],"s":"M","d":"Only the mobile job now; full pipeline is a separate request.","ac":["Pull requests run analyze and test"],"a":["repo"],"dep":["0.7"],"st":"todo"},
+ {"id":"9.9","t":"Play Console: internal testing, store listing, privacy policy, data safety","l":["X"],"s":"M","d":"Needs a developer account and a hosted privacy policy.","ac":["Internal track live"],"a":["docs"],"dep":["9.6"],"st":"todo"},
+ {"id":"9.10","t":"Pilot with real store users and go/no-go review","l":["X","Q"],"s":"M","d":"Collect issues, fix blockers, decide launch.","ac":["Go/no-go checklist signed"],"a":["docs"],"dep":["9.1","9.7","9.9"],"st":"todo"},
+{"id":"9.11","t":"Account deletion (Google Play requirement)","l":["A","M","X"],"s":"M","d":"Apps that let people create accounts must offer account deletion in the app and via a web link. Decide anonymize versus delete (orders keep price snapshots), then implement the API, an in-app screen and a hosted deletion page.","ac":["Deletion available in the app","Web link for the Play listing","Order history retention rule documented"],"a":["Api","mobile/lib/features/profile"],"dep":["2.8"],"st":"todo"}
+ ]}
+],
+"backlog":["iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Favourites and ratings","Deals/coupons rule engine behind Today's deals","Delivery slots and scheduled delivery (configurable rules)","Multi-organization store switching","Product analytics"],
+"gaps":[
+ {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
+ {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},
+ {"f":"Categories","api":"partial","n":"Public, but no localized names.","p":"P1"},
+ {"f":"Nearest store and ETA","api":"partial","n":"stores/nearest is public; no ETA or delivery rule.","p":"P1"},
+ {"f":"Marathi product names","api":"missing","n":"No translation support.","p":"P1"},
+ {"f":"Discount / MRP","api":"missing","n":"Products have a single price.","p":"P1"},
+ {"f":"Product images","api":"partial","n":"ImageUrl exists; no upload or serving.","p":"P1"},
+ {"f":"Customer registration","api":"missing","n":"Only admin can create users.","p":"P2"},
+ {"f":"Login, refresh, logout, me","api":"ready","n":"POST /api/auth/login takes Username + Password.","p":"P2"},
+ {"f":"Forgot / reset password","api":"missing","n":"No endpoint or email sender.","p":"P2"},
+ {"f":"Pack sizes (variants)","api":"missing","n":"Cart keyed by productId; one price per product.","p":"P3"},
+ {"f":"Saved addresses","api":"missing","n":"Checkout takes an address string and coordinates only.","p":"P4"},
+ {"f":"Serviceability","api":"partial","n":"Radius logic exists inside nearest-store.","p":"P4"},
+ {"f":"Cart","api":"ready","n":"Per store and product; needs variant support.","p":"P5"},
+ {"f":"Fees and free-delivery threshold","api":"missing","n":"Currently constants in the app.","p":"P5"},
+ {"f":"Checkout","api":"ready","n":"Has conflict statuses; needs idempotency and payment.","p":"P5"},
+ {"f":"Orders list and detail","api":"ready","n":"Verify status history and snapshots in the DTO.","p":"P6"},
+ {"f":"Live tracking","api":"partial","n":"Polling only.","p":"P6"},
+ {"f":"Notifications","api":"ready","n":"List and mark-read exist.","p":"P6"},
+ {"f":"Push notifications","api":"missing","n":"No device tokens or sender.","p":"P6"},
+ {"f":"Online payments","api":"missing","n":"Not implemented.","p":"P7"},
+ {"f":"Phone OTP","api":"missing","n":"Not implemented.","p":"P8"},
+ {"f":"Google / Apple sign-in","api":"missing","n":"Not implemented.","p":"P8"}
+],
+"risks":[
+ {"id":"R1","t":"Auth architecture change needs explicit approval","sev":"H","m":"Written approval before P8; phase kept isolated; email/password ships first.","p":"P8"},
+ {"id":"R2","t":"Variants touch cart, inventory, orders and concurrency","sev":"H","m":"Additive migration with a default variant; compatibility tests; concurrency tests before any UI work.","p":"P3"},
+ {"id":"R3","t":"Payments: money, webhooks and PCI scope","sev":"H","m":"Provider-hosted UI; server-side amounts; signed idempotent webhooks; reconciliation.","p":"P7"},
+ {"id":"R4","t":"Public catalog route could expose admin-only data","sev":"M","m":"New customer DTO and route; review fields; keep admin policy for admin data.","p":"P1"},
+ {"id":"R5","t":"API changes break the admin portal","sev":"M","m":"Backward-compatible changes only; admin impact checklist per task.","p":"P1"},
+ {"id":"R6","t":"OTP or other state stored in memory breaks behind a load balancer","sev":"M","m":"Keep shared state in SQL; test with two instances.","p":"P8"},
+ {"id":"R7","t":"Third-party setup lead time (SMS, Google Cloud, Apple, payment KYC, Play account)","sev":"M","m":"Start account setup early, in parallel with development.","p":"P7"},
+ {"id":"R8","t":"Marathi translations are unreviewed","sev":"L","m":"Native review in P9; keep fallback to English.","p":"P9"},
+ {"id":"R9","t":"CORS is open to any origin and secrets must not ship","sev":"M","m":"Restrict origins and move secrets to environment before release.","p":"P9"},
+ {"id":"R10","t":"Production database drift: repo migrations do not prove a database is current","sev":"M","m":"Reviewed migration script and verification step per environment.","p":"P9"},
+ {"id":"R11","t":"A SQL login password was committed and pushed to GitHub","sev":"H","m":"Rotate the password everywhere it was used; prefer Windows authentication; the NoSecretsInSourceTests guard blocks new credentials. Rewriting history is a separate, disruptive decision.","p":"P0"}
+],
+"decisions":[
+ {"id":"D1","t":"Email/password ships first; phone OTP and social sign-in come later","s":"decided","n":"Keeps the existing JWT design. Interim Welcome pre-fills registration."},
+ {"id":"D2","t":"Add ProductVariant with an additive migration for pack sizes","s":"decided","n":"Matches catalog rules; default variant keeps old clients working."},
+ {"id":"D3","t":"Online UPI/card payments are in the first release","s":"decided","n":"Adds P7 before release. Provider still open (D9)."},
+ {"id":"D4","t":"First release is Android only","s":"decided","n":"iOS stays in the backlog."},
+ {"id":"D5","t":"Real EN/Marathi localization","s":"decided","n":"UI done; backend product translations in P1."},
+ {"id":"D6","t":"Riverpod + go_router; light/dark follows system with manual override","s":"decided","n":"Already implemented."},
+ {"id":"D7","t":"Approve extending authentication for OTP and social login","s":"open","n":"Needed before P8 starts."},
+ {"id":"D8","t":"Customer product listing: new public route and customer DTO","s":"decided","n":"Implemented as GET /api/catalog/products (task 1.1). Admin policy on /api/products unchanged."},
+ {"id":"D9","t":"Payment provider","s":"open","n":"Needed before P7 starts."},
+ {"id":"D10","t":"Push notifications (FCM) in v1?","s":"open","n":"New external service; confirm."},
+ {"id":"D11","t":"Crash reporting tool","s":"open","n":"Firebase Crashlytics or Sentry."},
+ {"id":"D12","t":"DTO approach: hand-written, no code generation","s":"decided","n":"Recorded in docs/adr/ADR-001-mobile-data-layer.md."},
+ {"id":"D13","t":"Database engine: keep SQL Server","s":"decided","n":"Decided 2026-10-07. PostgreSQL analysis kept in docs/adr/ADR-002-database-engine-postgresql.md."},
+ {"id":"D14","t":"API returns all translations in each response (translations map)","s":"decided","n":"Chosen 2026-10-07. See docs/plans/P1-mrp-and-translations.md."},
+ {"id":"D15","t":"Migrations are schema-only; demo MRP/Marathi values via a dev SQL script","s":"decided","n":"Keeps demo data out of schema history and production."},
+ {"id":"D16","t":"No product write endpoint in 1.3/1.4; editing is task 1.12","s":"decided","n":"Until then values are set by SQL."},
+ {"id":"D17","t":"Delivery time comes from configuration only (base + per km)","s":"decided","n":"No database change; store override later with 1.12."},
+ {"id":"D18","t":"Public API exposes inStock and lowStock flags, never exact quantities","s":"decided","n":"Reduces data exposure."},
+ {"id":"D19","t":"Interim demo location from app config until P4","s":"decided","n":"Coordinates are rounded to about 110 m before being sent."},
+ {"id":"D20","t":"Password reset uses an emailed code typed into the app","s":"decided","n":"No deep links or domain needed now; pattern reused for phone OTP in P8."},
+ {"id":"D21","t":"No email verification at registration in P2","s":"decided","n":"Real owner can reclaim via reset. Revisit with P8."},
+ {"id":"D22","t":"New customers join the configured organization, else the only active one","s":"decided","n":"Ambiguity fails with a clear configuration error."},
+ {"id":"D23","t":"Email provider (Gmail SMTP, SendGrid, SES, own server)","s":"open","n":"Not needed to build or test P2; Log mode for Development, Smtp configuration for real use."}
+],
+"guardrails":[
+ "Evolve, do not rebuild: smallest safe change, preserve working behaviour.",
+ "Mini-plan before edits and a summary after (docs/copilot-instructions.md sections 28 and 29).",
+ "Database changes are additive and reviewable; never auto-run migrations in production.",
+ "Keep API contracts backward compatible; check the admin portal for every change.",
+ "Authorization and organization/store scope are enforced on the server; never trust client IDs.",
+ "Orders keep price snapshots; inventory updates must be concurrency-safe.",
+ "Design for several IIS instances: no state in server memory.",
+ "No new infrastructure (Redis, Kafka, SignalR and similar) without a demonstrated need and approval.",
+ "Tests for pricing, inventory, authorization and order processing; do not edit tests just to pass.",
+ "Stop and ask before changing authentication, dropping data, or large refactors."
+]
+}
+</script>
+
+<script>
+(function(){
+"use strict";
+var PLAN = JSON.parse(document.getElementById("plan-data").textContent);
+var KEY = "quickcart-mobile-plan-v1";
+var STATUSES = [["todo","To do"],["doing","In progress"],["blocked","Blocked"],["done","Done"]];
+var WEIGHT = {S:1,M:3,L:5};
+var TABS = [["overview","Overview"],["phases","Phases and tasks"],["board","Board"],["gaps","Gaps and risks"],["decisions","Decisions"]];
+var mem = null;
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});}
+function load(){
+  var s = null;
+  try{ s = JSON.parse(localStorage.getItem(KEY)||"null"); }catch(e){ s = mem; }
+  s = s || {};
+  s.t = s.t||{}; s.e = s.e||{}; s.d = s.d||{}; s.ui = s.ui||{};
+  s.ui.tab = s.ui.tab||"overview"; s.ui.layers = s.ui.layers||[]; s.ui.open = s.ui.open||{}; s.ui.phasesOpen = s.ui.phasesOpen||{};
+  s.v = s.v||5;
+  return s;
+}
+var S = load();
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ mem = JSON.parse(JSON.stringify(S)); }
+}
+function toast(msg){var t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toast._h);toast._h=setTimeout(function(){t.classList.remove("show");},2200);}
+
+var tasks = [], taskById = {}, phaseById = {};
+PLAN.phases.forEach(function(p){ phaseById[p.id]=p; p.tasks.forEach(function(t){ t.phase=p.id; tasks.push(t); taskById[t.id]=t; }); });
+
+function tState(id){ var b=taskById[id]; var o=S.t[id]||{}; return { s:o.s||b.st, n:o.n||"", b:o.b||b.bk||"", ac:(o.ac&&o.ac.length===b.ac.length)?o.ac:b.ac.map(function(){return b.st==="done";}) }; }
+function setT(id,patch){ var cur=tState(id); S.t[id]={s:cur.s,n:cur.n,b:cur.b,ac:cur.ac.slice()}; for(var k in patch){S.t[id][k]=patch[k];} save(); }
+function tProg(id){ var st=tState(id); if(st.s==="done")return 1; var done=st.ac.filter(Boolean).length; var frac=st.ac.length?done/st.ac.length:0; var base=st.s==="doing"?0.1:0; return Math.min(0.9,Math.max(base,frac*0.9)); }
+function tW(id){ return WEIGHT[taskById[id].s]||1; }
+function pProg(p){ var tot=0,got=0; p.tasks.forEach(function(t){var w=tW(t.id);tot+=w;got+=w*tProg(t.id);}); return tot?got/tot:0; }
+function pPoints(p){ return p.tasks.reduce(function(a,t){return a+tW(t.id);},0); }
+function pStatus(p){
+  var sts=p.tasks.map(function(t){return tState(t.id).s;});
+  if(sts.every(function(s){return s==="done";}))return "done";
+  if(sts.indexOf("blocked")>=0)return "blocked";
+  if(sts.some(function(s){return s!=="todo";})||pProg(p)>0)return "doing";
+  return "todo";
+}
+function depsDone(p){ return p.deps.every(function(d){return pStatus(phaseById[d])==="done";}); }
+function pct(x){ return Math.round(x*100); }
+function overall(){ var tot=0,got=0; tasks.forEach(function(t){var w=tW(t.id);tot+=w;got+=w*tProg(t.id);}); return tot?got/tot:0; }
+function counts(){ var c={todo:0,doing:0,blocked:0,done:0}; tasks.forEach(function(t){c[tState(t.id).s]++;}); return c; }
+function remainingPoints(){ return tasks.reduce(function(a,t){return a+tW(t.id)*(1-tProg(t.id));},0); }
+function chip(txt,cls){return '<span class="chip '+cls+'">'+esc(txt)+'</span>';}
+function stChip(s){ var l=STATUSES.filter(function(x){return x[0]===s;})[0][1]; return chip(l,"st st-"+s); }
+function layerChips(t){ return t.l.map(function(l){return chip(PLAN.layers[l].split(" ")[0],"l-"+l);}).join(" "); }
+function bar(p,cls){ return '<div class="bar '+(cls||"")+'" role="progressbar" aria-valuenow="'+pct(p)+'" aria-valuemin="0" aria-valuemax="100"><i style="width:'+pct(p)+'%"></i></div>'; }
+
+function renderHeader(){
+  document.getElementById("subtitle").textContent = PLAN.meta.title+" · plan updated "+PLAN.meta.updated;
+  var o=overall(), c=counts(), r=2*Math.PI*40;
+  var ring='<div class="ring" aria-label="Overall progress '+pct(o)+' percent"><svg width="96" height="96" viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="10"/><circle cx="48" cy="48" r="40" fill="none" stroke="#ffd400" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+(r*o).toFixed(1)+' '+r.toFixed(1)+'"/></svg><div class="pct">'+pct(o)+'%</div></div>';
+  var done=PLAN.phases.filter(function(p){return pStatus(p)==="done";}).length;
+  document.getElementById("stats").innerHTML = ring+
+    '<div class="stat"><b>'+done+'/'+PLAN.phases.length+'</b><span>phases done</span></div>'+
+    '<div class="stat"><b>'+c.done+'/'+tasks.length+'</b><span>tasks done</span></div>'+
+    '<div class="stat"><b>'+c.doing+'</b><span>in progress</span></div>'+
+    '<div class="stat"><b>'+c.blocked+'</b><span>blocked</span></div>'+
+    '<div class="stat"><b>'+Math.round(remainingPoints())+'</b><span>points left</span></div>';
+}
+
+function renderTabs(){
+  var el=document.getElementById("tabs");
+  el.innerHTML=TABS.map(function(t){return '<button role="tab" data-tab="'+t[0]+'" aria-selected="'+(S.ui.tab===t[0])+'">'+t[1]+'</button>';}).join("");
+}
+
+function nextUp(){
+  var out=[];
+  tasks.forEach(function(t){ if(tState(t.id).s==="doing") out.push(t); });
+  tasks.forEach(function(t){
+    if(out.length>=8) return;
+    var p=phaseById[t.phase];
+    if(tState(t.id).s!=="todo"||!depsDone(p)) return;
+    if(t.dep.every(function(d){return tState(d).s==="done";})) out.push(t);
+  });
+  return out.slice(0,8);
+}
+
+function renderOverview(){
+  var h='<div class="grid cols-3">';
+  PLAN.phases.forEach(function(p){
+    var st=pStatus(p), pr=pProg(p), ready=depsDone(p);
+    h+='<div class="card"><div class="row spread"><h3>'+esc(p.id)+' · '+esc(p.name)+'</h3>'+stChip(st)+'</div>'+
+      '<p class="muted small" style="margin:0 0 10px">'+esc(p.goal)+'</p>'+bar(pr,st==="done"?"done":"")+
+      '<div class="row spread small" style="margin-top:8px"><span>'+pct(pr)+'% · '+p.tasks.filter(function(t){return tState(t.id).s==="done";}).length+'/'+p.tasks.length+' tasks · '+pPoints(p)+' pts</span>'+
+      '<button class="btn sm line" data-open="'+p.id+'">Open</button></div>'+
+      (p.deps.length?'<p class="small muted" style="margin:8px 0 0">Needs: '+p.deps.map(function(d){var ok=pStatus(phaseById[d])==="done";return esc(d)+(ok?" ✓":"");}).join(", ")+(ready?"":" · <b>waiting</b>")+'</p>':'')+
+      '</div>';
+  });
+  h+='</div>';
+  var nu=nextUp();
+  h+='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:14px">';
+  h+='<div class="card"><h3>Next up</h3>'+(nu.length?'<ul class="clean" style="list-style:none;padding:0">'+nu.map(function(t){return '<li style="margin:6px 0"><button class="btn sm line" data-open="'+t.phase+'" data-task="'+t.id+'">'+esc(t.id)+'</button> '+esc(t.t)+' '+stChip(tState(t.id).s)+'</li>';}).join("")+'</ul>':'<p class="muted">Nothing ready. Check blocked items or finish dependencies.</p>')+'</div>';
+  var bl=tasks.filter(function(t){return tState(t.id).s==="blocked";});
+  h+='<div class="card"><h3>Blocked</h3>'+(bl.length?'<ul class="clean">'+bl.map(function(t){return '<li>'+esc(t.id)+' '+esc(t.t)+'<br><span class="muted small">'+esc(tState(t.id).b||"No reason recorded")+'</span></li>';}).join("")+'</ul>':'<p class="muted">No blocked tasks.</p>')+'</div>';
+  var openD=PLAN.decisions.filter(function(d){return decState(d.id).s==="open";});
+  h+='<div class="card"><h3>Open decisions</h3>'+(openD.length?'<ul class="clean">'+openD.map(function(d){return '<li><b>'+esc(d.id)+'</b> '+esc(d.t)+'</li>';}).join("")+'</ul>':'<p class="muted">All decided.</p>')+'</div>';
+  var rem=remainingPoints(), wk=S.v>0?rem/S.v:0;
+  h+='<div class="card"><h3>Forecast</h3><p class="small muted" style="margin-top:0">Effort uses points (S=1, M=3, L=5). Enter your real pace to project the remaining work. This is an estimate, not a commitment.</p><div class="row"><label for="vel">Points per week</label><input id="vel" type="number" min="1" max="100" value="'+S.v+'" style="width:90px"></div><p style="margin:10px 0 0"><b>'+Math.round(rem)+'</b> points left ≈ <b>'+wk.toFixed(1)+'</b> weeks</p></div>';
+  h+='</div>';
+  return h;
+}
+
+function visibleTask(t){
+  var f=S.ui, st=tState(t.id);
+  if(f.status&&st.s!==f.status) return false;
+  if(f.hideDone&&st.s==="done") return false;
+  if(f.layers.length&&!t.l.some(function(l){return f.layers.indexOf(l)>=0;})) return false;
+  if(f.q){ var q=f.q.toLowerCase(); if((t.id+" "+t.t+" "+t.d).toLowerCase().indexOf(q)<0) return false; }
+  return true;
+}
+function filtersBar(){
+  var f=S.ui;
+  return '<div class="filters">'+
+    '<input type="search" id="q" placeholder="Search tasks" aria-label="Search tasks" value="'+esc(f.q||"")+'">'+
+    '<select class="status" id="fstatus" aria-label="Filter by status"><option value="">All statuses</option>'+STATUSES.map(function(s){return '<option value="'+s[0]+'"'+(f.status===s[0]?" selected":"")+'>'+s[1]+'</option>';}).join("")+'</select>'+
+    Object.keys(PLAN.layers).map(function(l){return '<button class="layerbtn" data-layer="'+l+'" aria-pressed="'+(f.layers.indexOf(l)>=0)+'" title="'+esc(PLAN.layers[l])+'">'+l+' · '+esc(PLAN.layers[l].split(" ")[0])+'</button>';}).join("")+
+    '<label class="small"><input type="checkbox" id="fhide"'+(f.hideDone?" checked":"")+'> Hide done</label>'+
+    '<button class="btn sm line" id="expandAll">Expand all</button><button class="btn sm line" id="collapseAll">Collapse all</button></div>';
+}
+function renderTask(t){
+  var st=tState(t.id), open=!!S.ui.open[t.id], acDone=st.ac.filter(Boolean).length;
+  var h='<div class="task '+(st.s==="done"?"done":"")+'" id="task-'+esc(t.id)+'"><div class="th">'+
+   '<select class="status" data-status="'+t.id+'" aria-label="Status of '+esc(t.t)+'">'+STATUSES.map(function(s){return '<option value="'+s[0]+'"'+(st.s===s[0]?" selected":"")+'>'+s[1]+'</option>';}).join("")+'</select>'+
+   '<span class="kbd">'+esc(t.id)+'</span>'+
+   '<button class="title" data-toggle="'+t.id+'" aria-expanded="'+open+'">'+esc(t.t)+'</button>'+
+   layerChips(t)+' '+chip(t.s+" · "+WEIGHT[t.s]+" pt","")+' '+(t.ac.length?'<span class="small muted">'+acDone+'/'+t.ac.length+'</span>':'')+'</div>';
+  if(open){
+    h+='<div class="detail"><p style="margin:8px 0">'+esc(t.d)+'</p>';
+    h+='<div class="small muted" style="margin-bottom:4px"><b>Done when</b></div>'+t.ac.map(function(a,i){return '<label class="ac"><input type="checkbox" data-ac="'+t.id+':'+i+'"'+(st.ac[i]?" checked":"")+'><span>'+esc(a)+'</span></label>';}).join("");
+    if(t.a.length) h+='<p class="small muted" style="margin:10px 0 4px"><b>Where</b>: '+t.a.map(function(a){return '<span class="kbd">'+esc(a)+'</span>';}).join(" ")+'</p>';
+    if(t.dep.length) h+='<p class="small muted" style="margin:4px 0"><b>Depends on</b>: '+t.dep.map(function(d){var ok=tState(d).s==="done";return '<span class="kbd">'+esc(d)+(ok?" ✓":" …")+'</span>';}).join(" ")+'</p>';
+    if(st.s==="blocked") h+='<label class="small" for="b-'+t.id+'"><b>Why blocked</b></label><input type="text" id="b-'+t.id+'" data-block="'+t.id+'" value="'+esc(st.b)+'">';
+    h+='<label class="small" for="n-'+t.id+'" style="display:block;margin-top:8px"><b>Notes</b></label><textarea id="n-'+t.id+'" data-note="'+t.id+'" placeholder="Decisions, links, findings">'+esc(st.n)+'</textarea></div>';
+  }
+  return h+'</div>';
+}
+function renderPhases(){
+  var h=filtersBar();
+  PLAN.phases.forEach(function(p){
+    var list=p.tasks.filter(visibleTask);
+    if(!list.length&&(S.ui.q||S.ui.status||S.ui.layers.length||S.ui.hideDone)) return;
+    var open=S.ui.phasesOpen[p.id]!==false&&(S.ui.phasesOpen[p.id]===true||pStatus(p)!=="done");
+    var st=pStatus(p), pr=pProg(p);
+    h+='<section class="card phase" id="phase-'+p.id+'"><button class="ph" data-phase="'+p.id+'" aria-expanded="'+open+'"><div class="row spread"><h3 style="margin:0;font-size:18px">'+esc(p.id)+' · '+esc(p.name)+'</h3><div class="row">'+stChip(st)+'<span class="small muted">'+pct(pr)+'%</span></div></div><p class="muted small" style="margin:4px 0 8px">'+esc(p.goal)+'</p>'+bar(pr,st==="done"?"done":"")+'</button>';
+    if(open){
+      var ex=S.e[p.id]||[];
+      h+='<div class="body"><div class="small muted" style="margin:10px 0 4px"><b>Phase exit criteria</b>'+(p.deps.length?' · needs '+p.deps.join(", "):"")+'</div>'+
+        p.exit.map(function(e,i){return '<label class="ac"><input type="checkbox" data-exit="'+p.id+':'+i+'"'+(ex[i]?" checked":"")+'><span>'+esc(e)+'</span></label>';}).join("")+
+        list.map(renderTask).join("")+'</div>';
+    }
+    h+='</section>';
+  });
+  return h;
+}
+function renderBoard(){
+  var sel=S.ui.boardPhase||"all";
+  var h='<div class="filters"><label class="small" for="bphase">Phase</label><select class="status" id="bphase"><option value="all">All phases</option>'+PLAN.phases.map(function(p){return '<option value="'+p.id+'"'+(sel===p.id?" selected":"")+'>'+esc(p.id)+' · '+esc(p.name)+'</option>';}).join("")+'</select><span class="small muted">Drag cards between columns, or use the status menu on a card.</span></div><div class="board">';
+  STATUSES.forEach(function(s){
+    var list=tasks.filter(function(t){return (sel==="all"||t.phase===sel)&&tState(t.id).s===s[0];});
+    h+='<div class="col" data-drop="'+s[0]+'" aria-label="'+s[1]+'"><h4><span>'+s[1]+'</span><span class="muted">'+list.length+'</span></h4>'+
+      list.map(function(t){return '<div class="kcard" draggable="true" data-drag="'+t.id+'"><div class="row spread"><span class="kbd">'+esc(t.id)+'</span>'+chip(t.s,"")+'</div><div style="margin:6px 0;font-weight:700">'+esc(t.t)+'</div><div class="row">'+layerChips(t)+'</div><select class="status" style="margin-top:8px" data-status="'+t.id+'" aria-label="Status of '+esc(t.t)+'">'+STATUSES.map(function(x){return '<option value="'+x[0]+'"'+(s[0]===x[0]?" selected":"")+'>'+x[1]+'</option>';}).join("")+'</select></div>';}).join("")+'</div>';
+  });
+  return h+'</div>';
+}
+function renderGaps(){
+  var h='<div class="card"><h3>What the app needs vs what the API offers today</h3><p class="small muted" style="margin-top:0">Based on the controllers and DTOs in src/QuickCommerce.Api and Application at plan time.</p><div class="tableWrap"><table><thead><tr><th>App feature</th><th>API</th><th>Detail</th><th>Phase</th></tr></thead><tbody>'+
+    PLAN.gaps.map(function(g){return '<tr><td>'+esc(g.f)+'</td><td class="api-'+g.api+'">'+esc(g.api)+'</td><td class="small">'+esc(g.n)+'</td><td><button class="btn sm line" data-open="'+g.p+'">'+esc(g.p)+'</button></td></tr>';}).join("")+'</tbody></table></div></div>';
+  h+='<div class="card" style="margin-top:14px"><h3>Risks</h3><div class="tableWrap"><table><thead><tr><th>ID</th><th>Risk</th><th>Severity</th><th>Mitigation</th><th>Phase</th></tr></thead><tbody>'+
+    PLAN.risks.map(function(r){return '<tr><td>'+esc(r.id)+'</td><td>'+esc(r.t)+'</td><td class="sev-'+r.sev+'">'+({H:"High",M:"Medium",L:"Low"}[r.sev])+'</td><td class="small">'+esc(r.m)+'</td><td>'+esc(r.p)+'</td></tr>';}).join("")+'</tbody></table></div></div>';
+  return h;
+}
+function decState(id){ var d=PLAN.decisions.filter(function(x){return x.id===id;})[0]; var o=S.d[id]||{}; return {s:o.s||d.s,n:o.n!=null?o.n:d.n}; }
+function renderDecisions(){
+  var h='<div class="card"><h3>Decisions</h3><div class="tableWrap"><table><thead><tr><th>ID</th><th>Decision</th><th>Status</th><th>Notes</th></tr></thead><tbody>'+
+    PLAN.decisions.map(function(d){var st=decState(d.id);return '<tr><td>'+esc(d.id)+'</td><td>'+esc(d.t)+'</td><td><select class="status" data-dec="'+d.id+'" aria-label="Status of decision '+esc(d.id)+'"><option value="open"'+(st.s==="open"?" selected":"")+'>Open</option><option value="decided"'+(st.s==="decided"?" selected":"")+'>Decided</option></select></td><td><input type="text" data-decnote="'+d.id+'" value="'+esc(st.n)+'" aria-label="Notes for '+esc(d.id)+'"></td></tr>';}).join("")+'</tbody></table></div></div>';
+  h+='<div class="card" style="margin-top:14px"><h3>Engineering guardrails</h3><p class="small muted" style="margin-top:0">Summarised from docs/copilot-instructions.md. Apply them to every task.</p><ul class="clean">'+PLAN.guardrails.map(function(g){return '<li>'+esc(g)+'</li>';}).join("")+'</ul></div>';
+  h+='<div class="card" style="margin-top:14px"><h3>Backlog after the first release</h3><ul class="clean">'+PLAN.backlog.map(function(b){return '<li>'+esc(b)+'</li>';}).join("")+'</ul></div>';
+  return h;
+}
+
+function render(){
+  var ae=document.activeElement, id=ae&&ae.id, pos=ae&&ae.selectionStart;
+  var y=window.scrollY;
+  renderHeader(); renderTabs();
+  var v=S.ui.tab, html={overview:renderOverview,phases:renderPhases,board:renderBoard,gaps:renderGaps,decisions:renderDecisions}[v]();
+  document.getElementById("app").innerHTML=html;
+  window.scrollTo(0,y);
+  if(id){ var n=document.getElementById(id); if(n){ n.focus(); try{ if(pos!=null) n.setSelectionRange(pos,pos);}catch(e){} } }
+}
+function go(tab,phase,task){
+  S.ui.tab=tab; if(phase){ S.ui.phasesOpen[phase]=true; } if(task){ S.ui.open[task]=true; } save(); render();
+  if(phase){ var el=document.getElementById(task?"task-"+task:"phase-"+phase); if(el) el.scrollIntoView({block:"start"}); }
+}
+
+document.addEventListener("click",function(e){
+  var b=e.target.closest("[data-tab],[data-open],[data-toggle],[data-phase],[data-layer],#expandAll,#collapseAll");
+  if(!b) return;
+  if(b.dataset.tab){ S.ui.tab=b.dataset.tab; save(); render(); window.scrollTo(0,0); }
+  else if(b.dataset.open){ go("phases",b.dataset.open,b.dataset.task); }
+  else if(b.dataset.toggle){ var t=b.dataset.toggle; S.ui.open[t]=!S.ui.open[t]; save(); render(); }
+  else if(b.dataset.phase){ var p=b.dataset.phase; var cur=S.ui.phasesOpen[p]!==false&&(S.ui.phasesOpen[p]===true||pStatus(phaseById[p])!=="done"); S.ui.phasesOpen[p]=!cur; save(); render(); }
+  else if(b.dataset.layer){ var l=b.dataset.layer, i=S.ui.layers.indexOf(l); if(i>=0)S.ui.layers.splice(i,1); else S.ui.layers.push(l); save(); render(); }
+  else if(b.id==="expandAll"){ tasks.forEach(function(t){S.ui.open[t.id]=true;}); PLAN.phases.forEach(function(p){S.ui.phasesOpen[p.id]=true;}); save(); render(); }
+  else if(b.id==="collapseAll"){ S.ui.open={}; save(); render(); }
+});
+document.addEventListener("change",function(e){
+  var t=e.target;
+  if(t.dataset.status){ var prev=tState(t.dataset.status).s; setT(t.dataset.status,{s:t.value}); if(t.value==="blocked"){S.ui.open[t.dataset.status]=true;save();} if(t.value==="done"&&prev!=="done"){ var c=tState(t.dataset.status); setT(t.dataset.status,{ac:c.ac.map(function(){return true;})}); } render(); }
+  else if(t.dataset.ac){ var a=t.dataset.ac.split(":"),st=tState(a[0]),ac=st.ac.slice(); ac[+a[1]]=t.checked; setT(a[0],{ac:ac}); if(ac.every(Boolean)&&st.s!=="done") toast("All criteria met. Set the task to Done when verified."); render(); }
+  else if(t.dataset.exit){ var x=t.dataset.exit.split(":"),arr=(S.e[x[0]]||[]).slice(); arr[+x[1]]=t.checked; S.e[x[0]]=arr; save(); }
+  else if(t.dataset.dec){ S.d[t.dataset.dec]=Object.assign({},S.d[t.dataset.dec],{s:t.value}); save(); render(); }
+  else if(t.dataset.decnote){ S.d[t.dataset.decnote]=Object.assign({},S.d[t.dataset.decnote],{n:t.value}); save(); }
+  else if(t.dataset.note){ setT(t.dataset.note,{n:t.value}); }
+  else if(t.dataset.block){ setT(t.dataset.block,{b:t.value}); }
+  else if(t.id==="fstatus"){ S.ui.status=t.value; save(); render(); }
+  else if(t.id==="fhide"){ S.ui.hideDone=t.checked; save(); render(); }
+  else if(t.id==="bphase"){ S.ui.boardPhase=t.value; save(); render(); }
+  else if(t.id==="vel"){ S.v=Math.max(1,+t.value||5); save(); render(); }
+});
+document.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.id==="q"){ S.ui.q=t.value; save(); render(); }
+  else if(t.dataset.note){ setT(t.dataset.note,{n:t.value}); }
+});
+var dragId=null;
+document.addEventListener("dragstart",function(e){ var c=e.target.closest("[data-drag]"); if(c){ dragId=c.dataset.drag; e.dataTransfer.setData("text/plain",dragId); e.dataTransfer.effectAllowed="move"; } });
+document.addEventListener("dragover",function(e){ var c=e.target.closest("[data-drop]"); if(c&&dragId){ e.preventDefault(); c.classList.add("over"); } });
+document.addEventListener("dragleave",function(e){ var c=e.target.closest("[data-drop]"); if(c) c.classList.remove("over"); });
+document.addEventListener("drop",function(e){ var c=e.target.closest("[data-drop]"); if(c&&dragId){ e.preventDefault(); var s=c.dataset.drop,prev=tState(dragId).s; setT(dragId,{s:s}); if(s==="done"&&prev!=="done"){ setT(dragId,{ac:tState(dragId).ac.map(function(){return true;})}); } dragId=null; render(); } });
+document.addEventListener("dragend",function(){ dragId=null; });
+
+function download(name,text){ var a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"application/json"})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500); }
+document.getElementById("btnExport").addEventListener("click",function(){
+  var data={app:"quickcart-mobile-plan",version:PLAN.meta.version,exportedAt:new Date().toISOString(),tasks:S.t,exitCriteria:S.e,decisions:S.d,pointsPerWeek:S.v};
+  download("quickcart-progress-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2)); toast("Progress exported");
+});
+document.getElementById("btnImport").addEventListener("click",function(){ document.getElementById("fileImport").click(); });
+document.getElementById("fileImport").addEventListener("change",function(e){
+  var f=e.target.files[0]; if(!f) return; var r=new FileReader();
+  r.onload=function(){ try{ var d=JSON.parse(r.result); if(d.app!=="quickcart-mobile-plan") throw new Error("Not a QuickCart progress file"); S.t=d.tasks||{}; S.e=d.exitCriteria||{}; S.d=d.decisions||{}; S.v=d.pointsPerWeek||S.v; save(); render(); toast("Progress imported"); }catch(err){ toast("Import failed: "+err.message); } };
+  r.readAsText(f); e.target.value="";
+});
+document.getElementById("btnReset").addEventListener("click",function(){
+  if(window.confirm("Discard your saved changes and go back to the status stored in this file?")){ S.t={}; S.e={}; S.d={}; save(); render(); toast("Reset to file baseline"); }
+});
+document.getElementById("btnSummary").addEventListener("click",function(){
+  var lines=["# QuickCart mobile progress ("+new Date().toISOString().slice(0,10)+")","","Overall: "+pct(overall())+"% · "+counts().done+"/"+tasks.length+" tasks done","","| Phase | Status | Progress |","|---|---|---|"];
+  PLAN.phases.forEach(function(p){lines.push("| "+p.id+" "+p.name+" | "+pStatus(p)+" | "+pct(pProg(p))+"% |");});
+  lines.push("","Next up:"); nextUp().forEach(function(t){lines.push("- "+t.id+" "+t.t);});
+  var bl=tasks.filter(function(t){return tState(t.id).s==="blocked";}); if(bl.length){lines.push("","Blocked:"); bl.forEach(function(t){lines.push("- "+t.id+" "+t.t+": "+(tState(t.id).b||"no reason recorded"));});}
+  var text=lines.join("\n");
+  (navigator.clipboard?navigator.clipboard.writeText(text):Promise.reject()).then(function(){toast("Summary copied");},function(){ var ta=document.createElement("textarea"); ta.value=text; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");toast("Summary copied");}catch(e){toast("Copy failed");} ta.remove(); });
+});
+function applyTheme(){ var t=S.ui.theme||(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"); document.documentElement.setAttribute("data-theme",t); }
+document.getElementById("btnTheme").addEventListener("click",function(){ S.ui.theme=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark"; save(); applyTheme(); });
+applyTheme(); render();
+})();
+</script>
+</body>
+</html>

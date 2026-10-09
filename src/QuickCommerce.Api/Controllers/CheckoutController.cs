@@ -21,10 +21,11 @@ public sealed class CheckoutController(ICheckoutService checkoutService) : Contr
             CheckoutOperationStatus.InvalidRequest => BadRequest(Failure(result.Message!)),
             CheckoutOperationStatus.Unauthorized => Forbid(),
             CheckoutOperationStatus.NotFound => NotFound(Failure(result.Message!)),
-            CheckoutOperationStatus.Conflict => Conflict(Failure(result.Message!)),
+            CheckoutOperationStatus.Conflict => Conflict(Failure(result.Message!, result.Reason)),
             _ => StatusCode(StatusCodes.Status500InternalServerError)
         };
     }
 
-    private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };
+    // reason is a stable machine-readable code (for example OutsideServiceArea) next to the human message.
+    private static object Failure(string message, string? reason = null) => new { success = false, message, reason, errors = Array.Empty<string>() };
 }

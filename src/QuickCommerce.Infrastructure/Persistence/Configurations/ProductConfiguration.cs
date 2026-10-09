@@ -13,6 +13,8 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(product => product.Name).HasMaxLength(160).IsRequired();
         builder.Property(product => product.Description).HasMaxLength(2000).IsRequired();
         builder.Property(product => product.Price).HasPrecision(18, 2).IsRequired();
+        builder.Property(product => product.Mrp).HasPrecision(18, 2);
+        builder.ToTable(table => table.HasCheckConstraint("CK_Products_Mrp_GreaterOrEqual_Price", "[Mrp] IS NULL OR [Mrp] >= [Price]"));
         builder.Property(product => product.UnitOfMeasure).HasMaxLength(32).IsRequired();
         builder.Property(product => product.ImageUrl).HasMaxLength(500);
         builder.HasIndex(product => product.Sku).IsUnique();

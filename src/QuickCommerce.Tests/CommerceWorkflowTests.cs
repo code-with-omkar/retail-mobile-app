@@ -13,10 +13,10 @@ public sealed class CommerceWorkflowTests
     public void StoreSelection_returns_the_nearest_serviceable_store()
     {
         var data = InMemoryCommerceStore.CreateSeeded();
-        var productId = data.Products[0].Id;
+        var variantId = data.DefaultVariantOf(data.Products[0]).Id;
         var service = new StoreSelectionService();
 
-        var result = service.FindNearest(19.076, 72.8777, [productId], data.Stores, data.Inventory);
+        var result = service.FindNearest(19.076, 72.8777, [variantId], data.Stores, data.Inventory);
 
         Assert.NotNull(result);
         Assert.Equal("Harbor Point Dark Store", result.Name);
@@ -27,7 +27,7 @@ public sealed class CommerceWorkflowTests
     {
         var data = InMemoryCommerceStore.CreateSeeded();
         var product = data.Products[0];
-        var initialQuantity = data.Inventory.First(stock => stock.ProductId == product.Id).AvailableQuantity;
+        var initialQuantity = data.Inventory.First(stock => stock.VariantId == data.DefaultVariantOf(product).Id).AvailableQuantity;
         var service = new OrderService(data, new StoreSelectionService(), new CreateOrderRequestValidator());
 
         var result = await service.CreateOrderAsync(new CreateOrderRequest(
@@ -41,7 +41,7 @@ public sealed class CommerceWorkflowTests
         Assert.NotNull(result.Order);
         Assert.Equal(product.Name, result.Order.Items[0].ProductNameSnapshot);
         Assert.Equal(product.Price, result.Order.Items[0].UnitPrice);
-        Assert.Equal(initialQuantity - 2, data.Inventory.First(stock => stock.StoreId == result.Order.StoreId && stock.ProductId == product.Id).AvailableQuantity);
+        Assert.Equal(initialQuantity - 2, data.Inventory.First(stock => stock.StoreId == result.Order.StoreId && stock.VariantId == data.DefaultVariantOf(product).Id).AvailableQuantity);
     }
 
     [Fact]

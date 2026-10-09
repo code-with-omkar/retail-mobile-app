@@ -46,3 +46,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local build configuration (may contain machine-specific URLs)
+/config/*.local.json
+
+# Google Maps / Places API key and other local secrets: never commit (see docs/plans/P4-addresses-and-serviceability.md)
+/android/secrets.properties
+/config/local.json
