@@ -11,7 +11,7 @@ public sealed class PersistenceModelTests
     public void Model_contains_required_tables_and_inventory_concurrency_token()
     {
         var options = new DbContextOptionsBuilder<QuickCommerceDbContext>()
-            .UseSqlServer("Server=NCIT-08;Database=retail-mobile-app;Trusted_Connection=True;User Id=sa;Password=Ncit@1234;TrustServerCertificate=True")
+            .UseSqlServer("Server=(local);Database=ModelOnly;Trusted_Connection=True;TrustServerCertificate=True;") // model inspection only; this test never opens a connection
             .Options;
         using var db = new QuickCommerceDbContext(options);
 

@@ -16,3 +16,6 @@ deploy/iis/backups/
 # Test and coverage output
 **/TestResults/
 **/coverage/
+
+# Local secrets (API keys)
+**/secrets.properties

@@ -8,6 +8,7 @@ public sealed class AddCartItemRequestValidator : AbstractValidator<AddCartItemR
     public AddCartItemRequestValidator()
     {
         RuleFor(request => request.ProductId).NotEmpty();
+        RuleFor(request => request.VariantId).NotEqual(Guid.Empty).When(request => request.VariantId.HasValue).WithMessage("VariantId is not valid.");
         RuleFor(request => request.Quantity).InclusiveBetween(1, 1000);
     }
 }

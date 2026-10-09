@@ -2,7 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Application.Services;
+using QuickCommerce.Infrastructure.Email;
 using QuickCommerce.Domain;
 using QuickCommerce.Infrastructure.Caching;
 using QuickCommerce.Infrastructure.Health;
@@ -35,6 +38,16 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthorizationScopeService, AuthorizationScopeService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+        services.AddScoped<IPasswordHashing, IdentityPasswordHashing>();
+        services.AddScoped<IAccountStore, EfAccountStore>();
+        services.AddScoped<IAddressStore, EfAddressStore>();
+        services.AddScoped<IPaymentStore, EfPaymentStore>();
+        // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.
+        services.TryAddSingleton(new EmailSettings());
+        services.TryAddSingleton(new RegistrationSettings());
+        services.AddScoped<IEmailSender>(provider => provider.GetRequiredService<EmailSettings>().Mode == EmailMode.Smtp
+            ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
+            : ActivatorUtilities.CreateInstance<LoggingEmailSender>(provider));
         services.AddHostedService<DevelopmentAuthenticationSeedService>();
         services.AddScoped<ICurrentUserContextResolver, CurrentUserContextResolver>();
         return services;

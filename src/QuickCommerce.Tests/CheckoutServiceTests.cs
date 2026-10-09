@@ -19,7 +19,7 @@ public sealed class CheckoutServiceTests
         var (cartService, checkoutService) = CreateServices(data);
         var store = data.Stores.First();
         var product = data.Products.First();
-        var inventory = data.Inventory.Single(item => item.StoreId == store.Id && item.ProductId == product.Id);
+        var inventory = data.StockOf(store, product);
         var initialQuantity = inventory.AvailableQuantity;
 
         await cartService.AddItemAsync(store.Id, new AddCartItemRequest(product.Id, 2));
@@ -41,11 +41,11 @@ public sealed class CheckoutServiceTests
         var (cartService, checkoutService) = CreateServices(data);
         var store = data.Stores.First();
         var product = data.Products.First();
-        var inventory = data.Inventory.Single(item => item.StoreId == store.Id && item.ProductId == product.Id);
+        var inventory = data.StockOf(store, product);
         var initialQuantity = inventory.AvailableQuantity;
 
         await cartService.AddItemAsync(store.Id, new AddCartItemRequest(product.Id, 1));
-        product.Price += 1;
+        data.DefaultVariantOf(product).Price += 1;
         var result = await checkoutService.CheckoutAsync(store.Id, new CheckoutRequest("12 Main Street", 19.07, 72.87));
 
         Assert.Equal(CheckoutOperationStatus.Conflict, result.Status);
@@ -61,7 +61,7 @@ public sealed class CheckoutServiceTests
         var (cartService, checkoutService) = CreateServices(data);
         var store = data.Stores.First();
         var product = data.Products.First();
-        var inventory = data.Inventory.Single(item => item.StoreId == store.Id && item.ProductId == product.Id);
+        var inventory = data.StockOf(store, product);
         var initialQuantity = inventory.AvailableQuantity;
 
         await cartService.AddItemAsync(store.Id, new AddCartItemRequest(product.Id, initialQuantity + 1));

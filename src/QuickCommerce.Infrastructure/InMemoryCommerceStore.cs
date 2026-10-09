@@ -1,10 +1,11 @@
+using QuickCommerce.Application.Services;
 using QuickCommerce.Application.Interfaces;
 using QuickCommerce.Application.DTOs;
 using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -12,9 +13,14 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     public List<Customer> Customers { get; } = [];
     public List<Notification> Notifications { get; } = [];
     public List<Product> Products { get; } = [];
+    public List<ProductTranslation> ProductTranslations { get; } = [];
+    public List<CategoryTranslation> CategoryTranslations { get; } = [];
     public List<Store> Stores { get; } = [];
-    public List<StoreInventory> Inventory { get; } = [];
+    public List<ProductVariant> Variants { get; } = [];
+    public List<StoreVariantInventory> Inventory { get; } = [];
     public List<Cart> Carts { get; } = [];
+    public List<Payment> Payments { get; } = [];
+    public List<PaymentEvent> PaymentEvents { get; } = [];
     public List<Order> Orders { get; } = [];
     public object SyncRoot { get; } = new();
 
@@ -22,7 +28,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     {
         var scopedStores = Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray();
         var scopedStoreIds = scopedStores.Select(store => store.Id).ToHashSet();
-        var scopedOrders = Orders.Where(order => scopedStoreIds.Contains(order.StoreId)).OrderByDescending(order => order.CreatedAt).ToArray();
+        var scopedOrders = Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && scopedStoreIds.Contains(order.StoreId)).OrderByDescending(order => order.CreatedAt).ToArray();
         var today = DateTime.UtcNow.Date;
         var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Confirmed, OrderStatus.OutForDelivery };
         var activeOrders = scopedOrders.Where(order => activeStatuses.Contains(order.Status)).Select(order => new ActiveOrderSummary(
@@ -60,21 +66,95 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
         .ToArray());
 
+    public Task<(IReadOnlyList<Product> Items, int TotalCount)> GetActiveProductPageAsync(string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var query = Products
+            .Where(product => product.IsActive)
+            .Where(product => string.IsNullOrWhiteSpace(search)
+                || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || ProductTranslations.Any(translation => translation.ProductId == product.Id
+                    && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .ToArray();
+        var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
+        return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));
+    }
+
+    public Task<(IReadOnlyList<Product> Items, int TotalCount)> GetStoreProductPageAsync(Guid storeId, string? search, Guid? categoryId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        var carried = CarriedProductIds(storeId);
+        var query = Products
+            .Where(product => product.IsActive && carried.Contains(product.Id))
+            .Where(product => string.IsNullOrWhiteSpace(search)
+                || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || ProductTranslations.Any(translation => translation.ProductId == product.Id
+                    && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .ToArray();
+        var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
+        return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));
+    }
+
+    public Task<IReadOnlyList<Guid>> GetCarriedCategoryIdsAsync(Guid storeId, CancellationToken cancellationToken = default)
+    {
+        var carried = CarriedProductIds(storeId);
+        return Task.FromResult<IReadOnlyList<Guid>>(Products.Where(product => product.IsActive && carried.Contains(product.Id)).Select(product => product.CategoryId).Distinct().ToArray());
+    }
+
+    public Task<IReadOnlyList<Guid>> GetStoreIdsCarryingProductsAsync(CancellationToken cancellationToken = default)
+    {
+        var activeVariants = Variants.Where(variant => variant.IsActive && Products.Any(product => product.Id == variant.ProductId && product.IsActive)).Select(variant => variant.Id).ToHashSet();
+        return Task.FromResult<IReadOnlyList<Guid>>(Inventory.Where(row => activeVariants.Contains(row.VariantId)).Select(row => row.StoreId).Distinct().ToArray());
+    }
+
+    /// <summary>Products for which the store has a stock row on at least one active variant.</summary>
+    private HashSet<Guid> CarriedProductIds(Guid storeId)
+    {
+        var stocked = Inventory.Where(row => row.StoreId == storeId).Select(row => row.VariantId).ToHashSet();
+        return Variants.Where(variant => variant.IsActive && stocked.Contains(variant.Id)).Select(variant => variant.ProductId).ToHashSet();
+    }
+
+    /// <summary>The default variant of a product (test and seeding helper).</summary>
+    public ProductVariant DefaultVariantOf(Product product) => Variants.Single(variant => variant.ProductId == product.Id && variant.IsDefault);
+
+    /// <summary>The stock row of a product's default variant in a store (test and seeding helper).</summary>
+    public StoreVariantInventory StockOf(Store store, Product product)
+    {
+        var variantId = DefaultVariantOf(product).Id;
+        return Inventory.Single(row => row.StoreId == store.Id && row.VariantId == variantId);
+    }
+
+    public Task<IReadOnlyList<StoreVariantInventory>> GetStoreVariantInventoryAsync(Guid storeId, IReadOnlyCollection<Guid> variantIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<StoreVariantInventory>>(Inventory.Where(row => row.StoreId == storeId && variantIds.Contains(row.VariantId)).ToArray());
+
+    public Task<IReadOnlyList<ProductVariant>> GetVariantsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProductVariant>>(Variants.Where(variant => productIds.Contains(variant.ProductId)).OrderBy(variant => variant.SortOrder).ThenBy(variant => variant.Price).ToArray());
+
+    public Task<ProductVariant?> GetVariantAsync(Guid variantId, CancellationToken cancellationToken = default) => Task.FromResult(Variants.FirstOrDefault(variant => variant.Id == variantId));
+
+    public Task<IReadOnlyList<ProductTranslation>> GetProductTranslationsAsync(IReadOnlyCollection<Guid> productIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<ProductTranslation>>(ProductTranslations.Where(translation => productIds.Contains(translation.ProductId)).ToArray());
+
+    public Task<IReadOnlyList<CategoryTranslation>> GetCategoryTranslationsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<CategoryTranslation>>(CategoryTranslations.ToArray());
+
     public Task<Product?> GetProductAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Products.FirstOrDefault(product => product.Id == id));
 
     public Task<IReadOnlyList<Store>> GetStoresAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.ToArray());
 
     public Task<IReadOnlyList<Store>> GetScopedStoresAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Store>>(Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray());
 
-    public Task<IReadOnlyList<StoreInventory>> GetInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreInventory>>(Inventory.ToArray());
+    public Task<IReadOnlyList<StoreVariantInventory>> GetVariantInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreVariantInventory>>(Inventory.ToArray());
 
-    public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.ToArray());
+    public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment).ToArray());
 
-    public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
+    public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
 
-    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
+    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
 
-    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id));
+    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id && order.Status != OrderStatus.AwaitingPayment));
 
     public Task<IReadOnlyList<Order>> GetCustomerOrdersAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders
         .Where(order => order.UserId == userId && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId))
@@ -121,10 +201,46 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
     public Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutRequest request, CancellationToken cancellationToken = default)
+    public Task<Cart?> GetCurrentCartAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
         {
+            return Task.FromResult(Carts.Where(cart => cart.CustomerId == customerId).OrderByDescending(cart => cart.UpdatedAt).FirstOrDefault());
+        }
+    }
+
+    public Task<bool> DeleteCartAsync(Guid customerId, Guid storeId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Carts.RemoveAll(cart => cart.CustomerId == customerId && cart.StoreId == storeId) > 0);
+        }
+    }
+
+    /// <summary>Checkout keys already used: customer and key to what they produced.</summary>
+    public List<CheckoutRequestRecord> CheckoutRequests { get; } = [];
+
+    public Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            if (commit.IdempotencyKey is not null)
+            {
+                var record = CheckoutRequests.FirstOrDefault(item => item.CustomerId == customerId && item.IdempotencyKey == commit.IdempotencyKey);
+                if (record is not null && record.CreatedAt < DateTime.UtcNow - TimeSpan.FromHours(24))
+                {
+                    CheckoutRequests.Remove(record);
+                    record = null;
+                }
+
+                if (record is not null)
+                {
+                    return Task.FromResult(record.RequestHash == commit.RequestHash
+                        ? new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(Orders.Single(order => order.Id == record.OrderId)), Replayed: true)
+                        : new CheckoutCommitResult(CheckoutCommitStatus.KeyReused));
+                }
+            }
+
             var cart = Carts.FirstOrDefault(item => item.CustomerId == customerId && item.StoreId == storeId);
             if (cart is null)
             {
@@ -136,53 +252,93 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.CartEmpty));
             }
 
+            var gone = new List<CheckoutIssue>();
+            var notEnough = new List<CheckoutIssue>();
+            var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
             foreach (var cartItem in cart.Items)
             {
                 var product = Products.FirstOrDefault(item => item.Id == cartItem.ProductId);
-                if (product is null || !product.IsActive)
+                var variant = Variants.FirstOrDefault(item => item.Id == cartItem.VariantId && item.ProductId == cartItem.ProductId);
+                if (product is null || !product.IsActive || variant is null || !variant.IsActive)
                 {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable));
+                    gone.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, cartItem.ProductNameSnapshot, cartItem.VariantLabelSnapshot, cartItem.Quantity));
+                    continue;
                 }
 
-                if (product.Price != cartItem.UnitPriceSnapshot)
-                {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged));
-                }
-
-                var inventory = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.ProductId == cartItem.ProductId);
+                var inventory = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId);
                 if (inventory is null || inventory.AvailableQuantity < cartItem.Quantity)
                 {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict));
+                    notEnough.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, Available: inventory?.AvailableQuantity ?? 0));
+                    continue;
+                }
+
+                if (variant.Price != cartItem.UnitPriceSnapshot)
+                {
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    continue;
                 }
 
                 orderItems.Add(new OrderItem
                 {
                     ProductId = product.Id,
+                    VariantId = variant.Id,
                     ProductNameSnapshot = product.Name,
-                    UnitPrice = product.Price,
+                    VariantLabelSnapshot = variant.Label,
+                    UnitPrice = variant.Price,
+                    UnitMrpSnapshot = variant.Mrp,
                     Quantity = cartItem.Quantity
                 });
             }
 
-            foreach (var cartItem in cart.Items)
+            if (gone.Count > 0 || notEnough.Count > 0 || repriced.Count > 0)
             {
-                Inventory.Single(item => item.StoreId == storeId && item.ProductId == cartItem.ProductId).AvailableQuantity -= cartItem.Quantity;
+                return Task.FromResult(gone.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable, Issues: gone)
+                    : notEnough.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict, Issues: notEnough)
+                    : new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged, Issues: repriced));
             }
 
+            foreach (var cartItem in cart.Items)
+            {
+                Inventory.Single(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId).AvailableQuantity -= cartItem.Quantity;
+            }
+
+            var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
             var order = new Order
             {
                 OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
                 UserId = Customers.Single(customer => customer.Id == customerId).UserId,
                 StoreId = storeId,
-                DeliveryAddress = request.DeliveryAddress,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
+                DeliveryAddress = commit.Delivery.Address,
+                Latitude = commit.Delivery.Latitude,
+                Longitude = commit.Delivery.Longitude,
+                DeliveryAddressId = commit.Delivery.AddressId,
+                ReceiverName = commit.Delivery.ReceiverName,
+                ReceiverPhone = commit.Delivery.ReceiverPhone,
+                EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
+                SubtotalAmount = price.Subtotal,
+                DeliveryFee = price.DeliveryFee,
+                HandlingFee = price.HandlingFee,
+                TotalAmount = price.Total,
+                PaymentMethod = commit.PaymentMethod,
+                Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
+                PaymentStatus = commit.PaymentMethod == PaymentMethods.Online ? PaymentState.Created : PaymentState.NotRequired,
+                PaymentExpiresAt = commit.PaymentMethod == PaymentMethods.Online ? commit.PaymentExpiresAt : null,
                 Items = orderItems
             };
-            order.TotalAmount = orderItems.Sum(item => item.TotalPrice);
-            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
+            // An online order waits for its payment, holding its items; the shop sees it only once it is paid.
+            order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
             Orders.Add(order);
+            if (order.Status == OrderStatus.AwaitingPayment)
+            {
+                Payments.Add(new Payment { OrderId = order.Id, AmountPaise = PaymentTransitions.ToPaise(order.TotalAmount) });
+            }
+
+            if (commit.IdempotencyKey is not null)
+            {
+                CheckoutRequests.Add(new CheckoutRequestRecord { CustomerId = customerId, IdempotencyKey = commit.IdempotencyKey, RequestHash = commit.RequestHash!, OrderId = order.Id });
+            }
+
             cart.Items.Clear();
             cart.UpdatedAt = DateTime.UtcNow;
             return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order)));
@@ -210,6 +366,11 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
             order.Status = targetStatus;
             order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
+            if (targetStatus == OrderStatus.Rejected)
+            {
+                EndPayment(order, wasAwaitingPayment: false);
+            }
+
             var customer = Customers.FirstOrDefault(customer => customer.UserId == order.UserId);
             if (customer is not null)
             {
@@ -225,7 +386,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         {
             foreach (var adjustment in inventoryAdjustments)
             {
-                var stock = Inventory.FirstOrDefault(item => item.StoreId == adjustment.StoreId && item.ProductId == adjustment.ProductId);
+                var stock = Inventory.FirstOrDefault(item => item.StoreId == adjustment.StoreId && item.VariantId == adjustment.VariantId);
                 if (stock is null || stock.AvailableQuantity < adjustment.Quantity)
                 {
                     return Task.FromResult(false);
@@ -234,7 +395,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
             foreach (var adjustment in inventoryAdjustments)
             {
-                Inventory.First(item => item.StoreId == adjustment.StoreId && item.ProductId == adjustment.ProductId).AvailableQuantity -= adjustment.Quantity;
+                Inventory.First(item => item.StoreId == adjustment.StoreId && item.VariantId == adjustment.VariantId).AvailableQuantity -= adjustment.Quantity;
             }
 
             Orders.Add(order);
@@ -253,16 +414,316 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         order.Latitude,
         order.Longitude,
         order.CreatedAt,
-        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
-        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
+        order.SubtotalAmount,
+        order.DeliveryFee,
+        order.HandlingFee,
+        order.PaymentMethod,
+        order.ReceiverName,
+        order.ReceiverPhone,
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
+        PaymentStatus: order.PaymentStatus,
+        PaymentExpiresAt: order.PaymentExpiresAt);
+
+    public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Notifications.Count(notification => notification.CustomerId == customerId && !notification.IsRead));
+        }
+    }
+
+    public Task<int> MarkAllNotificationsReadAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var unread = Notifications.Where(notification => notification.CustomerId == customerId && !notification.IsRead).ToList();
+            unread.ForEach(notification => notification.IsRead = true);
+            return Task.FromResult(unread.Count);
+        }
+    }
+
+    public Task<CancelCommitResult> TryCancelCustomerOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.UserId == userId && Stores.Any(store => store.Id == item.StoreId && store.OrganizationId == organizationId));
+            if (order is null)
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.NotFound));
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.AlreadyCancelled, MapOrder(order)));
+            }
+
+            if (order.Status is not (OrderStatus.Pending or OrderStatus.AwaitingPayment))
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.NotCancellable, CurrentStatus: order.Status));
+            }
+
+            var wasAwaitingPayment = order.Status == OrderStatus.AwaitingPayment;
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            EndPayment(order, wasAwaitingPayment);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
+            if (customer is not null)
+            {
+                Notifications.Add(CreateStatusNotification(customer.Id, order.Id, OrderStatus.Cancelled));
+            }
+
+            return Task.FromResult(new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order)));
+        }
+    }
+
+    // ---------------- payments ----------------
+
+    private void EndPayment(Order order, bool wasAwaitingPayment)
+    {
+        var payment = Payments.FirstOrDefault(item => item.OrderId == order.Id);
+        var now = DateTime.UtcNow;
+        if (wasAwaitingPayment)
+        {
+            order.PaymentStatus = PaymentState.Failed;
+            if (payment is not null && payment.Status is PaymentState.Created or PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Failed;
+                payment.FailureReason = "Cancelled";
+                payment.UpdatedAt = now;
+            }
+
+            return;
+        }
+
+        PaymentTransitions.QueueRefundIfPaid(order, payment, now);
+    }
+
+    private void ReturnStock(Order order)
+    {
+        foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+        {
+            var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+            if (row is not null)
+            {
+                row.AvailableQuantity += line.Sum(item => item.Quantity);
+            }
+        }
+    }
+
+    private void NotePayment(Order order, NoteText? note)
+    {
+        var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
+        if (note is not null && customer is not null)
+        {
+            Notifications.Add(new Notification { CustomerId = customer.Id, OrderId = order.Id, Type = "PaymentUpdate", Title = note.Title, Message = note.Message });
+        }
+    }
+
+    public Task<PaymentOrderView?> GetOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.UserId == userId && Stores.Any(store => store.Id == item.StoreId && store.OrganizationId == organizationId));
+            return Task.FromResult(order is null ? null : new PaymentOrderView(order.Id, order.OrderNumber, order.Status, order.PaymentMethod, order.PaymentStatus, order.TotalAmount, order.PaymentExpiresAt));
+        }
+    }
+
+    public Task<Payment?> GetPaymentAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Payments.FirstOrDefault(item => item.OrderId == orderId));
+        }
+    }
+
+    public Task<Payment?> BeginAttemptAsync(Guid orderId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId);
+            var payment = Payments.FirstOrDefault(item => item.OrderId == orderId);
+            if (order is null || payment is null || order.Status != OrderStatus.AwaitingPayment)
+            {
+                return Task.FromResult<Payment?>(null);
+            }
+
+            payment.Attempts++;
+            payment.UpdatedAt = now;
+            if (payment.Status == PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Created;
+                order.PaymentStatus = PaymentState.Created;
+            }
+
+            return Task.FromResult<Payment?>(payment);
+        }
+    }
+
+    public Task<bool> AttachProviderOrderAsync(Guid paymentId, string providerOrderId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            if (payment.ProviderOrderId is not null)
+            {
+                return Task.FromResult(false);
+            }
+
+            payment.ProviderOrderId = providerOrderId;
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<CapturedOutcome> ApplyCapturedAsync(string providerOrderId, string providerPaymentId, long paidPaise, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (payment is null)
+            {
+                return Task.FromResult(CapturedOutcome.UnknownPayment);
+            }
+
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            var result = PaymentTransitions.ApplyCaptured(order, payment, providerPaymentId, paidPaise, now);
+            NotePayment(order, result.Note);
+            return Task.FromResult(result.Outcome);
+        }
+    }
+
+    public Task<bool> ApplyFailedAsync(string providerOrderId, string? providerPaymentId, string reason, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (payment is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            PaymentTransitions.ApplyFailed(Orders.Single(item => item.Id == payment.OrderId), payment, providerPaymentId, reason, now);
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<Guid>> ReleaseExpiredAsync(DateTime now, int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var released = new List<Guid>();
+            foreach (var order in Orders.Where(item => item.Status == OrderStatus.AwaitingPayment && item.PaymentExpiresAt <= now).Take(max).ToArray())
+            {
+                var note = PaymentTransitions.ExpireHold(order, Payments.FirstOrDefault(item => item.OrderId == order.Id), now);
+                ReturnStock(order);
+                NotePayment(order, note);
+                released.Add(order.Id);
+            }
+
+            return Task.FromResult<IReadOnlyList<Guid>>(released);
+        }
+    }
+
+    public Task<IReadOnlyList<Payment>> GetRefundsToStartAsync(int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Payment>>(Payments.Where(item => item.Status == PaymentState.Refunding && item.RefundId is null).Take(max).ToArray());
+        }
+    }
+
+    public Task SetRefundStartedAsync(Guid paymentId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            payment.RefundId = refundId;
+            payment.UpdatedAt = now;
+            if (processed)
+            {
+                NotePayment(order, PaymentTransitions.ApplyRefundResult(order, payment, refundId, true, now));
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task SetRefundFailedAsync(Guid paymentId, string reason, bool permanent, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            payment.FailureReason = reason.Length <= 200 ? reason : reason[..200];
+            payment.UpdatedAt = now;
+            if (permanent)
+            {
+                payment.Status = PaymentState.RefundFailed;
+                Orders.Single(item => item.Id == payment.OrderId).PaymentStatus = PaymentState.RefundFailed;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task<bool> ApplyRefundResultAsync(string providerPaymentId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderPaymentId == providerPaymentId);
+            if (payment is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            NotePayment(order, PaymentTransitions.ApplyRefundResult(order, payment, refundId, processed, now));
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<Payment>> GetUnsettledAsync(DateTime olderThan, int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Payment>>(Payments
+                .Where(item => item.UpdatedAt < olderThan && item.CreatedAt > olderThan.AddDays(-7) &&
+                    ((item.Status is PaymentState.Created or PaymentState.Failed && item.ProviderOrderId is not null) || (item.Status == PaymentState.Refunding && item.RefundId is not null)))
+                .Take(max).ToArray());
+        }
+    }
+
+    public Task<bool> TryRecordEventAsync(string provider, string eventId, string type, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            if (PaymentEvents.Any(item => item.Provider == provider && item.EventId == eventId))
+            {
+                return Task.FromResult(false);
+            }
+
+            PaymentEvents.Add(new PaymentEvent { Provider = provider, EventId = eventId, Type = type, ReceivedAt = now });
+            return Task.FromResult(true);
+        }
+    }
 
     private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
     {
         CustomerId = customerId,
         OrderId = orderId,
         Type = "OrderStatusChanged",
-        Title = "Order status updated",
-        Message = $"Your order is now {status}.",
+        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
+        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
         IsRead = false
     };
 
@@ -304,12 +765,18 @@ public sealed class InMemoryCommerceStore : ICommerceStore
             new Store { Name = "North Star Fulfillment", Address = "8 Station Road", Latitude = 19.045, Longitude = 72.899, ServiceRadiusKm = 9, OrganizationId = organization.Id, Organization = organization }
         ]);
 
+        // Every product has exactly one default variant, copying its own price, MRP and unit.
+        foreach (var product in products)
+        {
+            store.Variants.Add(new ProductVariant { ProductId = product.Id, Sku = product.Sku, Label = product.UnitOfMeasure, Price = product.Price, Mrp = product.Mrp, SortOrder = 0, IsDefault = true });
+        }
+
         var quantities = new[] { 24, 8, 0, 16, 5 };
         foreach (var currentStore in store.Stores)
         {
             for (var index = 0; index < products.Length; index++)
             {
-                store.Inventory.Add(new StoreInventory { StoreId = currentStore.Id, ProductId = products[index].Id, AvailableQuantity = Math.Max(0, quantities[index] + store.Stores.IndexOf(currentStore) * 4) });
+                store.Inventory.Add(new StoreVariantInventory { StoreId = currentStore.Id, VariantId = store.DefaultVariantOf(products[index]).Id, AvailableQuantity = Math.Max(0, quantities[index] + store.Stores.IndexOf(currentStore) * 4) });
             }
         }
 

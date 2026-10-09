@@ -9,9 +9,11 @@ public sealed record CreateOrderRequest(
     string DeliveryAddress,
     IReadOnlyList<OrderLineRequest> Items);
 
-public sealed record OrderLineRequest(Guid ProductId, int Quantity);
+/// <param name="VariantId">The pack size. Omitted means the product's default variant.</param>
+public sealed record OrderLineRequest(Guid ProductId, int Quantity, Guid? VariantId = null);
 
-public sealed record InventoryAdjustment(Guid StoreId, Guid ProductId, int Quantity);
+/// <summary>Stock is held per variant.</summary>
+public sealed record InventoryAdjustment(Guid StoreId, Guid VariantId, int Quantity);
 
 public sealed record OrderResponse(
     Guid Id,
@@ -25,7 +27,18 @@ public sealed record OrderResponse(
     double Longitude,
     DateTime CreatedAt,
     IReadOnlyList<OrderItemResponse> Items,
-    IReadOnlyList<OrderStatusHistoryResponse> StatusHistory);
+    IReadOnlyList<OrderStatusHistoryResponse> StatusHistory,
+    decimal SubtotalAmount = 0,
+    decimal DeliveryFee = 0,
+    decimal HandlingFee = 0,
+    string PaymentMethod = "CashOnDelivery",
+    string? ReceiverName = null,
+    string? ReceiverPhone = null,
+    string? StoreName = null,
+    string? StorePhone = null,
+    int? EstimatedDeliveryMinutes = null,
+    PaymentState PaymentStatus = PaymentState.NotRequired,
+    DateTime? PaymentExpiresAt = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -43,7 +56,9 @@ public sealed record OrderItemResponse(
     string ProductNameSnapshot,
     decimal UnitPrice,
     int Quantity,
-    decimal TotalPrice);
+    decimal TotalPrice,
+    Guid? VariantId = null,
+    string? VariantLabel = null);
 
 public sealed record OrderStatusHistoryResponse(OrderStatus Status, DateTime ChangedAt);
 

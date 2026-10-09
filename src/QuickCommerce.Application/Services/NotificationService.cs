@@ -26,6 +26,18 @@ public sealed class NotificationService(
         return customer is not null && await data.SetNotificationReadAsync(notificationId, customer.Id, isRead, cancellationToken);
     }
 
+    public async Task<int?> GetUnreadCountAsync(CancellationToken cancellationToken = default)
+    {
+        var customer = await ResolveCustomerAsync(cancellationToken);
+        return customer is null ? null : await data.GetUnreadNotificationCountAsync(customer.Id, cancellationToken);
+    }
+
+    public async Task<int?> MarkAllReadAsync(CancellationToken cancellationToken = default)
+    {
+        var customer = await ResolveCustomerAsync(cancellationToken);
+        return customer is null ? null : await data.MarkAllNotificationsReadAsync(customer.Id, cancellationToken);
+    }
+
     private async Task<Customer?> ResolveCustomerAsync(CancellationToken cancellationToken)
     {
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);

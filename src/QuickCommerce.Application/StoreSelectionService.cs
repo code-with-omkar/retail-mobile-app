@@ -4,16 +4,16 @@ namespace QuickCommerce.Application;
 
 public interface IStoreSelectionService
 {
-    Store? FindNearest(double latitude, double longitude, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Store> stores, IReadOnlyCollection<StoreInventory> inventory);
+    Store? FindNearest(double latitude, double longitude, IReadOnlyCollection<Guid> variantIds, IReadOnlyCollection<Store> stores, IReadOnlyCollection<StoreVariantInventory> inventory);
 }
 
 public sealed class StoreSelectionService : IStoreSelectionService
 {
-    public Store? FindNearest(double latitude, double longitude, IReadOnlyCollection<Guid> productIds, IReadOnlyCollection<Store> stores, IReadOnlyCollection<StoreInventory> inventory)
+    public Store? FindNearest(double latitude, double longitude, IReadOnlyCollection<Guid> variantIds, IReadOnlyCollection<Store> stores, IReadOnlyCollection<StoreVariantInventory> inventory)
     {
         return stores
             .Where(store => store.IsActive && DistanceKm(latitude, longitude, store.Latitude, store.Longitude) <= store.ServiceRadiusKm)
-            .Where(store => productIds.All(productId => inventory.Any(stock => stock.StoreId == store.Id && stock.ProductId == productId && stock.AvailableQuantity > 0)))
+            .Where(store => variantIds.All(variantId => inventory.Any(stock => stock.StoreId == store.Id && stock.VariantId == variantId && stock.AvailableQuantity > 0)))
             .OrderBy(store => DistanceKm(latitude, longitude, store.Latitude, store.Longitude))
             .FirstOrDefault();
     }

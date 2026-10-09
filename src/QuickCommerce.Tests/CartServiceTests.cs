@@ -44,7 +44,7 @@ public sealed class CartServiceTests
         var service = CreateService(data);
         var store = data.Stores.First();
         var product = data.Products.First();
-        var originalQuantity = data.Inventory.First(item => item.StoreId == store.Id && item.ProductId == product.Id).AvailableQuantity;
+        var originalQuantity = data.StockOf(store, product).AvailableQuantity;
 
         await service.AddItemAsync(store.Id, new AddCartItemRequest(product.Id, 2));
         var updated = await service.UpdateItemAsync(store.Id, product.Id, new UpdateCartItemRequest(5));
@@ -56,7 +56,7 @@ public sealed class CartServiceTests
 
         Assert.Equal(CartOperationStatus.Succeeded, removed.Status);
         Assert.Empty(removed.Cart!.Items);
-        Assert.Equal(originalQuantity, data.Inventory.First(item => item.StoreId == store.Id && item.ProductId == product.Id).AvailableQuantity);
+        Assert.Equal(originalQuantity, data.StockOf(store, product).AvailableQuantity);
     }
 
     [Fact]

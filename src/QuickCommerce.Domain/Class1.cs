@@ -14,7 +14,10 @@ public enum OrderStatus
 	Confirmed,
 	OutForDelivery,
 	Delivered,
-	Cancelled
+	Cancelled,
+
+	/// <summary>An online order whose payment has not arrived yet. Its items are held until <see cref="Order.PaymentExpiresAt"/>. Staff do not see it.</summary>
+	AwaitingPayment
 }
 
 public static class OrderStatusTransitions
@@ -116,6 +119,9 @@ public sealed class User
 	public string? FirstName { get; set; }
 	public string? LastName { get; set; }
 	public string? Email { get; set; }
+
+	/// <summary>Contact number entered by the customer. Not verified; verification arrives with phone sign-in.</summary>
+	public string? PhoneNumber { get; set; }
 	public Guid OrganizationId { get; set; }
 	public Guid? StoreId { get; set; }
 	public Role Role { get; set; } = Role.Customer;
@@ -215,10 +221,45 @@ public sealed class Product
 	public required string Name { get; set; }
 	public required string Description { get; set; }
 	public decimal Price { get; set; }
+
+	/// <summary>Optional maximum retail price. Null means no separate MRP (no discount).</summary>
+	public decimal? Mrp { get; set; }
 	public required string UnitOfMeasure { get; set; }
 	public Guid CategoryId { get; set; }
 	public string? ImageUrl { get; set; }
 	public bool IsActive { get; set; } = true;
+}
+
+/// <summary>A password reset code. Only a keyed hash of the code is stored, never the code itself.</summary>
+public sealed class PasswordResetCode
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid UserId { get; set; }
+	public required string CodeHash { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime ExpiresAt { get; set; }
+	public int FailedAttempts { get; set; }
+	public DateTime? UsedAt { get; set; }
+	public string? RequestedFromIp { get; set; }
+}
+
+/// <summary>Translated product text. English stays in <see cref="Product.Name"/> and <see cref="Product.Description"/>.</summary>
+public sealed class ProductTranslation
+{
+	public Guid ProductId { get; set; }
+
+	/// <summary>Lowercase language code, for example "mr".</summary>
+	public required string Locale { get; set; }
+	public required string Name { get; set; }
+	public string? Description { get; set; }
+}
+
+/// <summary>Translated category name. English stays in <see cref="Category.Name"/>.</summary>
+public sealed class CategoryTranslation
+{
+	public Guid CategoryId { get; set; }
+	public required string Locale { get; set; }
+	public required string Name { get; set; }
 }
 
 public sealed class Store
@@ -230,6 +271,9 @@ public sealed class Store
 	public double Latitude { get; set; }
 	public double Longitude { get; set; }
 	public double ServiceRadiusKm { get; set; } = 8;
+
+	/// <summary>How customers reach the store about an order. Optional; staff fill it in.</summary>
+	public string? PhoneNumber { get; set; }
 	public bool IsActive { get; set; } = true;
 	public Organization Organization { get; set; } = null!;
 	public List<User> Users { get; set; } = [];
@@ -237,6 +281,38 @@ public sealed class Store
 	public List<Cart> Carts { get; set; } = [];
 }
 
+/// <summary>
+/// A sellable pack of a product (for example 500 g). Every product has exactly one default variant; price, MRP and stock
+/// live on the variant. The product's own price columns remain for the admin API until product editing is rebuilt.
+/// </summary>
+public sealed class ProductVariant
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid ProductId { get; set; }
+	public required string Sku { get; set; }
+
+	/// <summary>Shown to customers, for example "500 g".</summary>
+	public required string Label { get; set; }
+	public decimal Price { get; set; }
+
+	/// <summary>Optional maximum retail price. Null means no separate MRP (no discount).</summary>
+	public decimal? Mrp { get; set; }
+	public int SortOrder { get; set; }
+	public bool IsDefault { get; set; }
+	public bool IsActive { get; set; } = true;
+}
+
+/// <summary>Stock of one variant in one store. A row means the store carries the variant, whatever the quantity.</summary>
+public sealed class StoreVariantInventory
+{
+	public Guid StoreId { get; set; }
+	public Guid VariantId { get; set; }
+	public int AvailableQuantity { get; set; }
+	public int ReorderThreshold { get; set; } = 5;
+	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>Stock per product. Superseded by <see cref="StoreVariantInventory"/> (phase P3) and no longer read or written by the application; the table is kept as the rollback copy until a later cleanup.</summary>
 public sealed class StoreInventory
 {
 	public Guid StoreId { get; set; }
@@ -244,6 +320,32 @@ public sealed class StoreInventory
 	public int AvailableQuantity { get; set; }
 	public int ReorderThreshold { get; set; } = 5;
 	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A delivery address saved by a customer. Personal data: only its owner may read or change it.</summary>
+public sealed class CustomerAddress
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CustomerId { get; set; }
+
+	/// <summary>Home, Work or a name the customer chose.</summary>
+	public required string Label { get; set; }
+
+	/// <summary>The formatted address from the map or search.</summary>
+	public required string Line { get; set; }
+	public string FlatOrBuilding { get; set; } = string.Empty;
+	public string Landmark { get; set; } = string.Empty;
+	public double Latitude { get; set; }
+	public double Longitude { get; set; }
+
+	/// <summary>Who receives the delivery, and how to reach them.</summary>
+	public required string ReceiverName { get; set; }
+	public required string ReceiverPhone { get; set; }
+
+	/// <summary>Exactly one address per customer is the default (enforced by a filtered unique index).</summary>
+	public bool IsDefault { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class Cart
@@ -262,7 +364,9 @@ public sealed class CartItem
 {
 	public Guid CartId { get; set; }
 	public Guid ProductId { get; set; }
+	public Guid VariantId { get; set; }
 	public string ProductNameSnapshot { get; set; } = string.Empty;
+	public string VariantLabelSnapshot { get; set; } = string.Empty;
 	public decimal UnitPriceSnapshot { get; set; }
 	public int Quantity { get; set; }
 	public DateTime AddedAt { get; set; } = DateTime.UtcNow;
@@ -277,15 +381,115 @@ public sealed class Order
 	public required string OrderNumber { get; set; }
 	public Guid UserId { get; set; }
 	public Guid StoreId { get; set; }
+	/// <summary>What the customer pays: <see cref="SubtotalAmount"/> + <see cref="DeliveryFee"/> + <see cref="HandlingFee"/>.</summary>
 	public decimal TotalAmount { get; set; }
+	public decimal SubtotalAmount { get; set; }
+	public decimal DeliveryFee { get; set; }
+	public decimal HandlingFee { get; set; }
+
+	/// <summary>How the customer pays. Only <see cref="PaymentMethods.CashOnDelivery"/> exists until online payment (P7).</summary>
+	public string PaymentMethod { get; set; } = PaymentMethods.CashOnDelivery;
 	public OrderStatus Status { get; set; } = OrderStatus.Pending;
 	public required string DeliveryAddress { get; set; }
 	public double Latitude { get; set; }
 	public double Longitude { get; set; }
+
+	/// <summary>Copied from the saved address when the order was placed with one; later edits to the address do not change the order.</summary>
+	public string? ReceiverName { get; set; }
+	public string? ReceiverPhone { get; set; }
+	public Guid? DeliveryAddressId { get; set; }
+
+	/// <summary>The arrival estimate given when the order was placed. Null for orders placed before it was kept.</summary>
+	public int? EstimatedDeliveryMinutes { get; set; }
+
+	/// <summary>Where the money stands. Cash on delivery orders are NotRequired. Mirrors the status of the order's <see cref="Payment"/>.</summary>
+	public PaymentState PaymentStatus { get; set; } = PaymentState.NotRequired;
+
+	/// <summary>For an order awaiting payment: until when its items are held.</summary>
+	public DateTime? PaymentExpiresAt { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
 	public List<OrderItem> Items { get; set; } = [];
 	public List<OrderStatusHistory> StatusHistory { get; set; } = [];
+}
+
+public static class PaymentMethods
+{
+	public const string CashOnDelivery = "CashOnDelivery";
+
+	/// <summary>Paid in the app through the payment provider (UPI, card, netbanking).</summary>
+	public const string Online = "Online";
+}
+
+public enum PaymentState
+{
+	/// <summary>Cash on delivery: nothing is paid in the app.</summary>
+	NotRequired,
+
+	/// <summary>Waiting for the customer to pay (or to try again after a failed attempt).</summary>
+	Created,
+
+	/// <summary>The last attempt failed. The customer may try again until the hold runs out.</summary>
+	Failed,
+	Paid,
+
+	/// <summary>The order was cancelled or declined after payment (or the payment came too late): the refund is to be made or is on its way.</summary>
+	Refunding,
+	Refunded,
+
+	/// <summary>The provider could not make the refund. Retried, and listed for staff.</summary>
+	RefundFailed
+}
+
+/// <summary>One online payment for one order, as the provider reports it. Amounts are in paise, as the provider counts them.</summary>
+public sealed class Payment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public string Provider { get; set; } = "Razorpay";
+
+	/// <summary>The provider's own order id for this payment (created when the customer starts paying).</summary>
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+
+	/// <summary>What the customer owes, worked out by the server when the order was placed. Never taken from the app.</summary>
+	public long AmountPaise { get; set; }
+	public string Currency { get; set; } = "INR";
+	public PaymentState Status { get; set; } = PaymentState.Created;
+
+	/// <summary>How many times the customer has started to pay.</summary>
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A notification from the provider that has been handled, so the same one arriving again does nothing.</summary>
+public sealed class PaymentEvent
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public string Provider { get; set; } = "Razorpay";
+	public required string EventId { get; set; }
+	public required string Type { get; set; }
+	public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// Remembers that a checkout with this key already produced an order, so a retry or double tap gets that order back instead of a second one.
+/// Written in the same transaction as the order.
+/// </summary>
+public sealed class CheckoutRequestRecord
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CustomerId { get; set; }
+	public required string IdempotencyKey { get; set; }
+
+	/// <summary>Hash of the store and delivery address the key was first used with. The same key with something else is a mistake, not a retry.</summary>
+	public required string RequestHash { get; set; }
+	public Guid OrderId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class Notification
@@ -304,8 +508,17 @@ public sealed class Notification
 public sealed class OrderItem
 {
 	public Guid ProductId { get; set; }
+
+	/// <summary>Null on orders placed before variants existed.</summary>
+	public Guid? VariantId { get; set; }
 	public required string ProductNameSnapshot { get; set; }
+
+	/// <summary>The pack label at the time of the order, for example "500 g". Null on orders placed before variants existed.</summary>
+	public string? VariantLabelSnapshot { get; set; }
 	public decimal UnitPrice { get; set; }
+
+	/// <summary>The variant's MRP at the time of the order, when it had one.</summary>
+	public decimal? UnitMrpSnapshot { get; set; }
 	public int Quantity { get; set; }
 	public decimal TotalPrice => UnitPrice * Quantity;
 }
