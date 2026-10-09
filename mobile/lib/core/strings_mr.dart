@@ -444,4 +444,8 @@ const marathi = <String, String>{
   'We could not refund your payment automatically. Please contact the store.': 'आम्ही तुमचे पैसे आपोआप परत करू शकलो नाही. कृपया दुकानाशी संपर्क साधा.',
   'The store has not accepted it yet. If you cancel, the items go back to the store and your payment is refunded to the original payment method.': 'दुकानाने ती अजून स्वीकारलेली नाही. तुम्ही रद्द केल्यास वस्तू दुकानात परत जातील आणि तुमचे पैसे मूळ पेमेंट पद्धतीत परत केले जातील.',
   'Online payment is not available right now. You can pay cash on delivery instead.': 'ऑनलाइन पेमेंट सध्या उपलब्ध नाही. त्याऐवजी तुम्ही डिलिव्हरीच्या वेळी रोख देऊ शकता.',
+  'Offer': 'ऑफर',
+  'Offers and announcements': 'ऑफर आणि सूचना',
+  'Order and payment updates are always sent.': 'ऑर्डर आणि पेमेंटच्या सूचना नेहमी पाठवल्या जातात.',
+  'Could not save your choice. Please try again.': 'तुमची निवड जतन झाली नाही. कृपया पुन्हा प्रयत्न करा.',
 };

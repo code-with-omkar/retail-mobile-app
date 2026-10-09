@@ -63,13 +63,41 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24),
-                        itemCount: items.length,
+                        itemCount: items.length + 1,
                         separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (_, i) => _NotificationCard(items[i]),
+                        itemBuilder: (_, i) => i == 0 ? const _OffersSwitch() : _NotificationCard(items[i - 1]),
                       ),
                     ),
             ),
       ),
+    );
+  }
+}
+
+/// The one switch the customer has: offers and announcements. Order and payment messages are always sent.
+class _OffersSwitch extends ConsumerWidget {
+  const _OffersSwitch();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.pal;
+    final on = ref.watch(offersProvider).value ?? true;
+    return Surface(
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(context.tr('Offers and announcements'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800)),
+            Text(context.tr('Order and payment updates are always sent.'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+          ]),
+        ),
+        Switch(
+          value: on,
+          onChanged: (value) => ref.read(offersProvider.notifier).set(value).catchError((Object _) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Could not save your choice. Please try again.'))));
+          }),
+        ),
+      ]),
     );
   }
 }
@@ -98,11 +126,12 @@ class _NotificationCard extends ConsumerWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(color: unread ? Pal.yellow : (p.dark ? p.border : Colors.white), shape: BoxShape.circle),
-              child: Icon(notification.title == 'Order cancelled' ? Icons.cancel_outlined : Icons.receipt_long_outlined, color: unread ? Pal.ink : p.onCard),
+              child: Icon(notificationIcon(notification), color: unread ? Pal.ink : p.onCard),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (notification.category == 'Offer') Padding(padding: const EdgeInsets.only(bottom: 4), child: Chip2(context.tr('Offer'), dot: Pal.pink)),
                 Text(texts.title, style: TextStyle(color: p.onCard, fontWeight: unread ? FontWeight.w900 : FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
                 Text(texts.message, style: TextStyle(color: p.mutedOnCard, height: 1.3)),

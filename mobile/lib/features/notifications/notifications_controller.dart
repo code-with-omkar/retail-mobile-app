@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n.dart';
 import '../../data/models.dart';
+import '../../core/prefs.dart';
 import '../../data/providers.dart';
 import '../auth/auth_controller.dart';
 
@@ -33,12 +34,16 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   Future<List<AppNotification>> build() async {
     final signedIn = ref.watch(authProvider.select((a) => a.isSignedIn));
     if (!signedIn) return const [];
-    return ref.watch(notificationRepositoryProvider).list();
+    // Read again (in the new language) when the customer switches language.
+    final language = ref.watch(localeProvider).languageCode;
+    return ref.watch(notificationRepositoryProvider).list(language: language);
   }
+
+  String get _language => ref.read(localeProvider).languageCode;
 
   Future<void> refresh() async {
     if (!ref.read(authProvider).isSignedIn) return;
-    state = await AsyncValue.guard(() => ref.read(notificationRepositoryProvider).list());
+    state = await AsyncValue.guard(() => ref.read(notificationRepositoryProvider).list(language: _language));
     await _syncCount();
   }
 
@@ -46,7 +51,7 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   /// what is shown and is thrown, so the caller can slow down.
   Future<void> poll() async {
     if (!ref.read(authProvider).isSignedIn) return;
-    final list = await ref.read(notificationRepositoryProvider).list();
+    final list = await ref.read(notificationRepositoryProvider).list(language: _language);
     if (!ref.mounted) return;
     state = AsyncData(list);
     ref.read(unreadCountProvider.notifier).set(list.where((n) => !n.isRead).length);
@@ -89,6 +94,45 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
 }
 
 final notificationsProvider = AsyncNotifierProvider<NotificationsNotifier, List<AppNotification>>(NotificationsNotifier.new);
+
+/// Whether the customer wants offers and announcements. Switching shows at once and is undone if the server refuses.
+class OffersNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    if (!ref.watch(authProvider.select((a) => a.isSignedIn))) return true;
+    return ref.watch(notificationRepositoryProvider).offersEnabled();
+  }
+
+  Future<void> set(bool enabled) async {
+    final before = state.value ?? true;
+    state = AsyncData(enabled);
+    try {
+      await ref.read(notificationRepositoryProvider).setOffers(enabled);
+    } catch (_) {
+      if (ref.mounted) state = AsyncData(before);
+      rethrow;
+    }
+  }
+}
+
+final offersProvider = AsyncNotifierProvider<OffersNotifier, bool>(OffersNotifier.new);
+
+/// The icon for a notification: by what happened to the order, and for offers and payments by their category.
+IconData notificationIcon(AppNotification n) {
+  if (n.category == 'Offer') return Icons.local_offer_outlined;
+  return switch (n.type) {
+    'OrderPlaced' => Icons.receipt_long_outlined,
+    'OrderAccepted' => Icons.storefront_outlined,
+    'OrderPacking' => Icons.inventory_2_outlined,
+    'OutForDelivery' => Icons.delivery_dining_outlined,
+    'OrderDelivered' => Icons.check_circle_outline,
+    'OrderRejected' => Icons.block,
+    'OrderCancelled' => Icons.cancel_outlined,
+    _ when n.title == 'Order cancelled' => Icons.cancel_outlined,
+    _ when n.category == 'Payment' => Icons.account_balance_wallet_outlined,
+    _ => Icons.receipt_long_outlined,
+  };
+}
 
 /// The server writes its notifications in English. This shows the ones it knows in the customer's language and any other as it came.
 ({String title, String message}) notificationTexts(BuildContext context, AppNotification n) {

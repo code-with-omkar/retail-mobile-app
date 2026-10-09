@@ -309,8 +309,26 @@ class FakeNotificationRepository implements NotificationRepository {
     }
   }
 
+  var offers = true;
+  String? lastLanguage;
+
   @override
-  Future<List<AppNotification>> list() async {
+  Future<bool> offersEnabled() async {
+    calls.add('offers');
+    _maybeFail();
+    return offers;
+  }
+
+  @override
+  Future<void> setOffers(bool enabled) async {
+    calls.add('setOffers $enabled');
+    _maybeFail();
+    offers = enabled;
+  }
+
+  @override
+  Future<List<AppNotification>> list({String? language}) async {
+    lastLanguage = language;
     calls.add('list');
     _maybeFail();
     return List.of(items)..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first, like the real repository

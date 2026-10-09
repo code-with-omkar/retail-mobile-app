@@ -421,11 +421,14 @@ class DeliveryPlace {
 
 /// A message from the shop about an order (`api/customer/notifications`). [title] and [message] are the server's English text.
 class AppNotification {
-  const AppNotification({required this.id, this.orderId, required this.type, required this.title, required this.message, required this.isRead, required this.createdAt});
+  const AppNotification({required this.id, this.orderId, required this.type, required this.title, required this.message, required this.isRead, required this.createdAt, this.category = 'Order'});
   final String id, type, title, message;
+
+  /// Order, Payment, Offer or System: what kind of message it is (the icon, and whether it can be switched off).
+  final String category;
   final String? orderId;
   final bool isRead;
   final DateTime createdAt;
 
-  AppNotification asRead() => AppNotification(id: id, orderId: orderId, type: type, title: title, message: message, isRead: true, createdAt: createdAt);
+  AppNotification asRead() => AppNotification(id: id, orderId: orderId, type: type, title: title, message: message, isRead: true, createdAt: createdAt, category: category);
 }
