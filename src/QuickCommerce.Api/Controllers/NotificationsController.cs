@@ -12,12 +12,27 @@ namespace QuickCommerce.Api.Controllers;
 public sealed class NotificationsController(INotificationService notificationService) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get([FromQuery] bool unreadOnly = false, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Get([FromQuery] bool unreadOnly = false, [FromQuery] string? lang = null, CancellationToken cancellationToken = default)
     {
-        var notifications = await notificationService.GetAsync(unreadOnly, cancellationToken);
+        var notifications = await notificationService.GetAsync(unreadOnly, lang, cancellationToken);
         return notifications is null
             ? Forbid()
             : Ok(new { success = true, data = notifications });
+    }
+
+    /// <summary>What the customer chose about notifications. Order and payment notifications are always sent.</summary>
+    [HttpGet("preferences")]
+    public async Task<IActionResult> Preferences(CancellationToken cancellationToken)
+    {
+        var preferences = await notificationService.GetPreferencesAsync(cancellationToken);
+        return preferences is null ? Forbid() : Ok(new { success = true, data = preferences });
+    }
+
+    [HttpPut("preferences")]
+    public async Task<IActionResult> SetPreferences(NotificationPreferences request, CancellationToken cancellationToken)
+    {
+        var preferences = await notificationService.SetOffersAsync(request.Offers, cancellationToken);
+        return preferences is null ? Forbid() : Ok(new { success = true, data = preferences });
     }
 
     /// <summary>How many notifications are unread: small enough to ask often (the bell).</summary>

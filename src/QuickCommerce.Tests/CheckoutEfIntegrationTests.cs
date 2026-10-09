@@ -133,6 +133,7 @@ public sealed class CheckoutEfIntegrationTests
             await cleanup.Carts.Where(cart => cart.StoreId == Store.Id).ExecuteDeleteAsync();
             var orderIds = await cleanup.Orders.Where(order => order.StoreId == Store.Id).Select(order => order.Id).ToListAsync();
             await cleanup.CheckoutRequests.Where(record => orderIds.Contains(record.OrderId)).ExecuteDeleteAsync();
+            await cleanup.OrderNumberCounters.Where(counter => counter.StoreId == Store.Id).ExecuteDeleteAsync();
             await cleanup.Notifications.Where(notification => notification.OrderId != null && orderIds.Contains(notification.OrderId.Value)).ExecuteDeleteAsync();
             await cleanup.Orders.Where(order => order.StoreId == Store.Id).ExecuteDeleteAsync();
             await cleanup.StoreVariantInventory.Where(row => row.StoreId == Store.Id).ExecuteDeleteAsync();

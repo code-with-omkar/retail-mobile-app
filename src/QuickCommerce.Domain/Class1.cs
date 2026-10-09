@@ -201,6 +201,9 @@ public sealed class Customer
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public Guid UserId { get; set; }
 	public bool IsActive { get; set; } = true;
+
+	/// <summary>Whether this customer wants offers and announcements. Order and payment notifications are always sent.</summary>
+	public bool OffersEnabled { get; set; } = true;
 	public User User { get; set; } = null!;
 	public List<Cart> Carts { get; set; } = [];
 	public List<Notification> Notifications { get; set; } = [];
@@ -274,6 +277,9 @@ public sealed class Store
 
 	/// <summary>How customers reach the store about an order. Optional; staff fill it in.</summary>
 	public string? PhoneNumber { get; set; }
+
+	/// <summary>Short unique code (up to 8 letters or digits) that starts this store's order numbers, for example KHG.</summary>
+	public string? Code { get; set; }
 	public bool IsActive { get; set; } = true;
 	public Organization Organization { get; set; } = null!;
 	public List<User> Users { get; set; } = [];
@@ -502,7 +508,63 @@ public sealed class Notification
 	public required string Message { get; set; }
 	public bool IsRead { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+	/// <summary>Order, Payment, Offer or System (see <see cref="NotificationCategories"/>).</summary>
+	public string Category { get; set; } = NotificationCategories.Order;
+
+	/// <summary>Small data the words are filled from, for example {"orderNumber":"KHG-261009-0042"}.</summary>
+	public string? DataJson { get; set; }
+
+	/// <summary>Set for offers: the campaign that sent it (its words are used when the notification is shown).</summary>
+	public Guid? CampaignId { get; set; }
+	public Campaign? Campaign { get; set; }
 	public Customer Customer { get; set; } = null!;
+}
+
+public static class NotificationCategories
+{
+	public const string Order = "Order";
+	public const string Payment = "Payment";
+	public const string Offer = "Offer";
+	public const string System = "System";
+}
+
+/// <summary>The kinds of notification. The words for each are in the notification catalogue.</summary>
+public static class NotificationTypes
+{
+	public const string OrderPlaced = "OrderPlaced";
+	public const string OrderAccepted = "OrderAccepted";
+	public const string OrderPacking = "OrderPacking";
+	public const string OutForDelivery = "OutForDelivery";
+	public const string OrderDelivered = "OrderDelivered";
+	public const string OrderRejected = "OrderRejected";
+	public const string OrderCancelled = "OrderCancelled";
+	public const string PaymentReceived = "PaymentReceived";
+	public const string PaymentNotCompleted = "PaymentNotCompleted";
+	public const string PaymentProblem = "PaymentProblem";
+	public const string PaymentWillBeRefunded = "PaymentWillBeRefunded";
+	public const string RefundProcessed = "RefundProcessed";
+	public const string Offer = "Offer";
+}
+
+/// <summary>An offer or announcement written by an admin. When its start time comes it is sent once to every customer who has offers switched on.</summary>
+public sealed class Campaign
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public required string TitleEn { get; set; }
+	public required string BodyEn { get; set; }
+	public string? TitleMr { get; set; }
+	public string? BodyMr { get; set; }
+	public DateTime StartsAt { get; set; } = DateTime.UtcNow;
+
+	/// <summary>False once cancelled before it was sent.</summary>
+	public bool IsActive { get; set; } = true;
+
+	/// <summary>When it was sent; null while it is waiting for its start time.</summary>
+	public DateTime? PublishedAt { get; set; }
+	public int RecipientCount { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
 }
 
 public sealed class OrderItem
@@ -527,4 +589,26 @@ public sealed class OrderStatusHistory
 {
 	public OrderStatus Status { get; set; }
 	public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>The last order number given out by a store on a day. One row per store and day; the next number is this plus one.</summary>
+public sealed class OrderNumberCounter
+{
+	public Guid StoreId { get; set; }
+	public DateOnly Day { get; set; }
+	public int LastNumber { get; set; }
+}
+
+/// <summary>Order numbers look like KHG-261009-0042: the store's code, the day (yyMMdd, India time) and that store's count for the day.</summary>
+public static class OrderNumbers
+{
+	private static readonly TimeSpan India = TimeSpan.FromHours(5.5);
+
+	/// <summary>The business day of a moment: the calendar day in India, so a number's date matches what the customer sees on their clock.</summary>
+	public static DateOnly DayOf(DateTime utcNow) => DateOnly.FromDateTime(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).Add(India));
+
+	/// <summary>The store's code, or (for a store without one) a short stand-in taken from its id, so a number can always be made.</summary>
+	public static string CodeOf(Store store) => string.IsNullOrWhiteSpace(store.Code) ? store.Id.ToString("N")[..4].ToUpperInvariant() : store.Code.Trim().ToUpperInvariant();
+
+	public static string Format(string storeCode, DateOnly day, int number) => $"{storeCode}-{day:yyMMdd}-{number:0000}";
 }

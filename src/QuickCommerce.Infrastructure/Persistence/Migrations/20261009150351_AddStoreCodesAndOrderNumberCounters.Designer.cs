@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using QuickCommerce.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using QuickCommerce.Infrastructure.Persistence;
 namespace QuickCommerce.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(QuickCommerceDbContext))]
-    partial class QuickCommerceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009150351_AddStoreCodesAndOrderNumberCounters")]
+    partial class AddStoreCodesAndOrderNumberCounters
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -307,60 +310,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("QuickCommerce.Domain.Campaign", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("BodyEn")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("BodyMr")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("PublishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("RecipientCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("StartsAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("TitleEn")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.Property<string>("TitleMr")
-                        .HasMaxLength(160)
-                        .HasColumnType("nvarchar(160)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StartsAt")
-                        .HasFilter("[PublishedAt] IS NULL AND [IsActive] = 1");
-
-                    b.ToTable("Campaigns", t =>
-                        {
-                            t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0");
-                        });
-                });
-
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -548,11 +497,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("OffersEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -655,25 +599,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("CampaignId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Order");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DataJson")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
@@ -699,10 +629,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
-
-                    b.HasIndex("CampaignId", "CustomerId")
-                        .IsUnique()
-                        .HasFilter("[CampaignId] IS NOT NULL");
 
                     b.HasIndex("CustomerId", "IsRead", "CreatedAt");
 
@@ -2275,11 +2201,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("QuickCommerce.Domain.Notification", b =>
                 {
-                    b.HasOne("QuickCommerce.Domain.Campaign", "Campaign")
-                        .WithMany()
-                        .HasForeignKey("CampaignId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("QuickCommerce.Domain.Customer", "Customer")
                         .WithMany("Notifications")
                         .HasForeignKey("CustomerId")
@@ -2290,8 +2211,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Campaign");
 
                     b.Navigation("Customer");
                 });

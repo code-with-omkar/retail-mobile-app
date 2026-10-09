@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -184,6 +184,84 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
         .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
         .FirstOrDefault());
 
+    public Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var customer = Customers.FirstOrDefault(item => item.Id == customerId);
+            if (customer is not null)
+            {
+                customer.OffersEnabled = enabled;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public List<Campaign> Campaigns { get; } = [];
+
+    public Task<IReadOnlyList<Campaign>> ListCampaignsAsync(CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Campaign>>(Campaigns.ToArray());
+        }
+    }
+
+    public Task AddCampaignAsync(Campaign campaign, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            Campaigns.Add(campaign);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<Campaign?> GetCampaignAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Campaigns.FirstOrDefault(campaign => campaign.Id == id));
+        }
+    }
+
+    public Task<Campaign?> TryCancelCampaignAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var campaign = Campaigns.FirstOrDefault(item => item.Id == id);
+            if (campaign is not null && campaign.PublishedAt is null)
+            {
+                campaign.IsActive = false;
+            }
+
+            return Task.FromResult(campaign);
+        }
+    }
+
+    public Task<int> PublishDueCampaignsAsync(DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var sent = 0;
+            foreach (var campaign in Campaigns.Where(item => item.IsActive && item.PublishedAt is null && item.StartsAt <= now).ToArray())
+            {
+                campaign.PublishedAt = now;
+                var recipients = Customers.Where(customer => customer.IsActive && customer.OffersEnabled).ToArray();
+                foreach (var customer in recipients)
+                {
+                    Notifications.Add(new Notification { CustomerId = customer.Id, Type = NotificationTypes.Offer, Category = NotificationCategories.Offer, Title = campaign.TitleEn, Message = campaign.BodyEn, CampaignId = campaign.Id, Campaign = campaign });
+                }
+
+                campaign.RecipientCount = recipients.Length;
+                sent++;
+            }
+
+            return Task.FromResult(sent);
+        }
+    }
+
     public Task<Customer?> GetCustomerByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult<Customer?>(Customers
         .FirstOrDefault(customer => customer.UserId == userId && customer.IsActive));
 
@@ -306,7 +384,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
             var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
             var order = new Order
             {
-                OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
+                OrderNumber = NextOrderNumber(storeId),
                 UserId = Customers.Single(customer => customer.Id == customerId).UserId,
                 StoreId = storeId,
                 DeliveryAddress = commit.Delivery.Address,
@@ -329,6 +407,10 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
             // An online order waits for its payment, holding its items; the shop sees it only once it is paid.
             order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
             Orders.Add(order);
+            if (order.Status == OrderStatus.Pending)
+            {
+                Notifications.Add(NotificationCatalog.Create(customerId, order.Id, NotificationTypes.OrderPlaced, order.OrderNumber));
+            }
             if (order.Status == OrderStatus.AwaitingPayment)
             {
                 Payments.Add(new Payment { OrderId = order.Id, AmountPaise = PaymentTransitions.ToPaise(order.TotalAmount) });
@@ -369,15 +451,33 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
             if (targetStatus == OrderStatus.Rejected)
             {
                 EndPayment(order, wasAwaitingPayment: false);
+                foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+                {
+                    var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+                    if (row is not null)
+                    {
+                        row.AvailableQuantity += line.Sum(item => item.Quantity);
+                    }
+                }
             }
 
             var customer = Customers.FirstOrDefault(customer => customer.UserId == order.UserId);
             if (customer is not null)
             {
-                Notifications.Add(CreateStatusNotification(customer.Id, order.Id, targetStatus));
+                Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, targetStatus));
             }
             return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order)));
         }
+    }
+
+    private readonly Dictionary<(Guid StoreId, DateOnly Day), int> orderCounters = [];
+
+    /// <summary>The next order number for the store today, like the SQL store (called while the lock is held).</summary>
+    private string NextOrderNumber(Guid storeId)
+    {
+        var day = OrderNumbers.DayOf(DateTime.UtcNow);
+        orderCounters[(storeId, day)] = orderCounters.GetValueOrDefault((storeId, day)) + 1;
+        return OrderNumbers.Format(OrderNumbers.CodeOf(Stores.Single(item => item.Id == storeId)), day, orderCounters[(storeId, day)]);
     }
 
     public Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default)
@@ -398,6 +498,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
                 Inventory.First(item => item.StoreId == adjustment.StoreId && item.VariantId == adjustment.VariantId).AvailableQuantity -= adjustment.Quantity;
             }
 
+            order.OrderNumber = NextOrderNumber(order.StoreId);
             Orders.Add(order);
             return Task.FromResult(true);
         }
@@ -480,7 +581,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
             var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
             if (customer is not null)
             {
-                Notifications.Add(CreateStatusNotification(customer.Id, order.Id, OrderStatus.Cancelled));
+                Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, OrderStatus.Cancelled));
             }
 
             return Task.FromResult(new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order)));
@@ -526,7 +627,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
         var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
         if (note is not null && customer is not null)
         {
-            Notifications.Add(new Notification { CustomerId = customer.Id, OrderId = order.Id, Type = "PaymentUpdate", Title = note.Title, Message = note.Message });
+            Notifications.Add(NotificationCatalog.From(customer.Id, order.Id, note));
         }
     }
 
@@ -717,16 +818,6 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
         }
     }
 
-    private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
-    {
-        CustomerId = customerId,
-        OrderId = orderId,
-        Type = "OrderStatusChanged",
-        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
-        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
-        IsRead = false
-    };
-
     public static InMemoryCommerceStore CreateSeeded()
     {
         var store = new InMemoryCommerceStore();
@@ -760,9 +851,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
         store.Products.AddRange(products);
 
         store.Stores.AddRange([
-            new Store { Name = "Harbor Point Dark Store", Address = "12 Marine Drive", Latitude = 19.076, Longitude = 72.8777, ServiceRadiusKm = 8, OrganizationId = organization.Id, Organization = organization },
-            new Store { Name = "Cedar Market Hub", Address = "44 Cedar Avenue", Latitude = 19.102, Longitude = 72.916, ServiceRadiusKm = 7, OrganizationId = organization.Id, Organization = organization },
-            new Store { Name = "North Star Fulfillment", Address = "8 Station Road", Latitude = 19.045, Longitude = 72.899, ServiceRadiusKm = 9, OrganizationId = organization.Id, Organization = organization }
+            new Store { Code = "HBR", Name = "Harbor Point Dark Store", Address = "12 Marine Drive", Latitude = 19.076, Longitude = 72.8777, ServiceRadiusKm = 8, OrganizationId = organization.Id, Organization = organization },
+            new Store { Code = "CDR", Name = "Cedar Market Hub", Address = "44 Cedar Avenue", Latitude = 19.102, Longitude = 72.916, ServiceRadiusKm = 7, OrganizationId = organization.Id, Organization = organization },
+            new Store { Code = "NSF", Name = "North Star Fulfillment", Address = "8 Station Road", Latitude = 19.045, Longitude = 72.899, ServiceRadiusKm = 9, OrganizationId = organization.Id, Organization = organization }
         ]);
 
         // Every product has exactly one default variant, copying its own price, MRP and unit.

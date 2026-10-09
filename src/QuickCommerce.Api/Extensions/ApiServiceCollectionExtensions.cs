@@ -55,6 +55,7 @@ public static class ApiServiceCollectionExtensions
         services.AddTrustedProxies(configuration);
         ValidateProductionConfiguration(configuration, environment);
         services.AddHealthChecks();
+        services.AddHostedService<QuickCommerce.Api.Hosting.CampaignBackgroundService>();
         services.AddHostedService<ShutdownLoggingHostedService>();
         services.AddOpenApi();
         services.AddHttpContextAccessor();

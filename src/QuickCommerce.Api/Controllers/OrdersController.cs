@@ -32,7 +32,7 @@ public sealed class OrdersController(
             return Forbid();
         }
 
-        var orders = await data.GetScopedOrderSummariesAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        var orders = await data.GetScopedOrderSummariesAsync(scope.OrganizationId, await OperatingStoresAsync(scope, cancellationToken), scope.IsApplicationAdmin, cancellationToken);
         return Ok(new { success = true, data = orders });
     }
 
@@ -62,13 +62,28 @@ public sealed class OrdersController(
             : NotFound(new { success = false, message = "Order not found", errors = Array.Empty<string>() });
     }
 
+    /// <summary>
+    /// The stores whose orders staff see: the one they operate (their primary store), which is the same store they can change statuses in.
+    /// Application admins are not limited by store. A user with no operating store sees none.
+    /// </summary>
+    private async Task<IReadOnlySet<Guid>> OperatingStoresAsync(QuickCommerce.Application.DTOs.AuthorizationScope scope, CancellationToken cancellationToken)
+    {
+        if (scope.IsApplicationAdmin)
+        {
+            return scope.StoreIds;
+        }
+
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        return context?.StoreId is { } storeId ? new HashSet<Guid> { storeId } : new HashSet<Guid>();
+    }
+
     private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };
 
     private async Task<OrderResponse?> GetScopedOrderAsync(Guid id, CancellationToken cancellationToken)
     {
         var scope = await scopeService.ResolveAsync(cancellationToken);
         if (scope is null) return null;
-        var orders = await data.GetScopedOrdersAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        var orders = await data.GetScopedOrdersAsync(scope.OrganizationId, await OperatingStoresAsync(scope, cancellationToken), scope.IsApplicationAdmin, cancellationToken);
         return orders.FirstOrDefault(order => order.Id == id) is { } order ? Map(order) : null;
     }
 

@@ -199,7 +199,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public async Task<IReadOnlyList<Notification>> GetNotificationsAsync(Guid customerId, bool unreadOnly, CancellationToken cancellationToken = default)
     {
-        var query = db.Notifications.AsNoTracking().Where(notification => notification.CustomerId == customerId);
+        var query = db.Notifications.AsNoTracking().Include(notification => notification.Campaign).Where(notification => notification.CustomerId == customerId);
         if (unreadOnly)
         {
             query = query.Where(notification => !notification.IsRead);
@@ -220,6 +220,10 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default) => db.Customers
+        .Where(customer => customer.Id == customerId)
+        .ExecuteUpdateAsync(set => set.SetProperty(customer => customer.OffersEnabled, enabled), cancellationToken);
 
     public Task<Customer?> GetCustomerByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => db.Customers
         .AsNoTracking()
@@ -283,6 +287,37 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     /// <summary>How long a checkout key is remembered. After that the same key counts as new.</summary>
     private static readonly TimeSpan CheckoutKeyLifetime = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// The next order number for the store today (for example KHG-261009-0042). The counter row is changed inside the order's own
+    /// transaction, so two orders never get the same number, and an order that is rolled back gives its number back.
+    /// </summary>
+    private async Task<string> NextOrderNumberAsync(Guid storeId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
+    {
+        var store = await db.Stores.AsNoTracking().SingleAsync(item => item.Id == storeId, cancellationToken);
+        var day = OrderNumbers.DayOf(DateTime.UtcNow);
+        var connection = db.Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        command.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(transaction);
+        command.CommandText = """
+            MERGE OrderNumberCounters WITH (HOLDLOCK) AS target
+            USING (SELECT @store AS StoreId, @day AS Day) AS source ON target.StoreId = source.StoreId AND target.Day = source.Day
+            WHEN MATCHED THEN UPDATE SET LastNumber = target.LastNumber + 1
+            WHEN NOT MATCHED THEN INSERT (StoreId, Day, LastNumber) VALUES (source.StoreId, source.Day, 1)
+            OUTPUT inserted.LastNumber;
+            """;
+        var storeParameter = command.CreateParameter();
+        storeParameter.ParameterName = "@store";
+        storeParameter.Value = storeId;
+        var dayParameter = command.CreateParameter();
+        dayParameter.ParameterName = "@day";
+        dayParameter.DbType = System.Data.DbType.Date;
+        dayParameter.Value = day.ToDateTime(TimeOnly.MinValue);
+        command.Parameters.Add(storeParameter);
+        command.Parameters.Add(dayParameter);
+        var number = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+        return OrderNumbers.Format(OrderNumbers.CodeOf(store), day, number);
+    }
 
     private async Task<CheckoutCommitResult> TryCheckoutCartOnceAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken)
     {
@@ -381,7 +416,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
             var order = new Order
             {
-                OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
+                OrderNumber = await NextOrderNumberAsync(storeId, transaction, cancellationToken),
                 UserId = userId,
                 StoreId = storeId,
                 DeliveryAddress = commit.Delivery.Address,
@@ -405,6 +440,10 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
 
             db.Orders.Add(order);
+            if (order.Status == OrderStatus.Pending)
+            {
+                db.Notifications.Add(NotificationCatalog.Create(customerId, order.Id, NotificationTypes.OrderPlaced, order.OrderNumber));
+            }
             if (order.Status == OrderStatus.AwaitingPayment)
             {
                 // The amount is the one worked out here, in the same transaction as the order. The app never sends an amount.
@@ -524,8 +563,16 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
         if (targetStatus == OrderStatus.Rejected)
         {
-            // A paid order the shop declines is refunded in full.
+            // A paid order the shop declines is refunded in full, and the stock it took goes back to the store (as when the customer cancels).
             await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
         }
         var customerId = await db.Customers
             .Where(customer => customer.UserId == order.UserId)
@@ -533,7 +580,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             .SingleOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, targetStatus));
+            db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, targetStatus));
         }
         try
         {
@@ -584,6 +631,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
                 inventory.AvailableQuantity -= adjustment.Quantity;
             }
 
+            order.OrderNumber = await NextOrderNumberAsync(order.StoreId, transaction, cancellationToken);
             db.Orders.Add(order);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -689,7 +737,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
             if (customerId.HasValue)
             {
-                db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, OrderStatus.Cancelled));
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, OrderStatus.Cancelled));
             }
 
             await db.SaveChangesAsync(cancellationToken);
@@ -705,13 +753,4 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         }
     }
 
-    private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
-    {
-        CustomerId = customerId,
-        OrderId = orderId,
-        Type = "OrderStatusChanged",
-        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
-        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
-        IsRead = false
-    };
 }

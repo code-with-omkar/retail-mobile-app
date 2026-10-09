@@ -22,6 +22,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<ICustomerPaymentService, PaymentService>();
         services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
         services.AddScoped<IPaymentMaintenance, PaymentMaintenance>();
+        services.AddScoped<ICampaignAdminService, CampaignAdminService>();
         services.AddScoped<IServiceabilityService, ServiceabilityService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAccountService, AccountService>();
