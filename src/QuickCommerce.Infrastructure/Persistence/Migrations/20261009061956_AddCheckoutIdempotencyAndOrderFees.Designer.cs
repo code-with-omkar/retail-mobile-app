@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using QuickCommerce.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using QuickCommerce.Infrastructure.Persistence;
 namespace QuickCommerce.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(QuickCommerceDbContext))]
-    partial class QuickCommerceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009061956_AddCheckoutIdempotencyAndOrderFees")]
+    partial class AddCheckoutIdempotencyAndOrderFees
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -653,9 +656,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("EstimatedDeliveryMinutes")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("HandlingFee")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1254,10 +1254,6 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.Property<double>("ServiceRadiusKm")
                         .HasPrecision(9, 2)

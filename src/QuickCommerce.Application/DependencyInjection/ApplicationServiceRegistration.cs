@@ -17,6 +17,7 @@ public static class ApplicationServiceRegistration
         services.TryAddSingleton<IDeliveryEstimator, DeliveryEstimator>();
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(new AddressSettings());
+        services.TryAddSingleton(new PricingSettings());
         services.AddScoped<IServiceabilityService, ServiceabilityService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAccountService, AccountService>();

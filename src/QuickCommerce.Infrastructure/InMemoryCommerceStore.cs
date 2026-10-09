@@ -1,3 +1,4 @@
+using QuickCommerce.Application.Services;
 using QuickCommerce.Application.Interfaces;
 using QuickCommerce.Application.DTOs;
 using QuickCommerce.Domain;
@@ -198,10 +199,46 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
     public Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutRequest request, CancellationToken cancellationToken = default)
+    public Task<Cart?> GetCurrentCartAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
         {
+            return Task.FromResult(Carts.Where(cart => cart.CustomerId == customerId).OrderByDescending(cart => cart.UpdatedAt).FirstOrDefault());
+        }
+    }
+
+    public Task<bool> DeleteCartAsync(Guid customerId, Guid storeId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Carts.RemoveAll(cart => cart.CustomerId == customerId && cart.StoreId == storeId) > 0);
+        }
+    }
+
+    /// <summary>Checkout keys already used: customer and key to what they produced.</summary>
+    public List<CheckoutRequestRecord> CheckoutRequests { get; } = [];
+
+    public Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            if (commit.IdempotencyKey is not null)
+            {
+                var record = CheckoutRequests.FirstOrDefault(item => item.CustomerId == customerId && item.IdempotencyKey == commit.IdempotencyKey);
+                if (record is not null && record.CreatedAt < DateTime.UtcNow - TimeSpan.FromHours(24))
+                {
+                    CheckoutRequests.Remove(record);
+                    record = null;
+                }
+
+                if (record is not null)
+                {
+                    return Task.FromResult(record.RequestHash == commit.RequestHash
+                        ? new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(Orders.Single(order => order.Id == record.OrderId)), Replayed: true)
+                        : new CheckoutCommitResult(CheckoutCommitStatus.KeyReused));
+                }
+            }
+
             var cart = Carts.FirstOrDefault(item => item.CustomerId == customerId && item.StoreId == storeId);
             if (cart is null)
             {
@@ -213,6 +250,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.CartEmpty));
             }
 
+            var gone = new List<CheckoutIssue>();
+            var notEnough = new List<CheckoutIssue>();
+            var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
             foreach (var cartItem in cart.Items)
             {
@@ -220,18 +260,21 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 var variant = Variants.FirstOrDefault(item => item.Id == cartItem.VariantId && item.ProductId == cartItem.ProductId);
                 if (product is null || !product.IsActive || variant is null || !variant.IsActive)
                 {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable));
-                }
-
-                if (variant.Price != cartItem.UnitPriceSnapshot)
-                {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged));
+                    gone.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, cartItem.ProductNameSnapshot, cartItem.VariantLabelSnapshot, cartItem.Quantity));
+                    continue;
                 }
 
                 var inventory = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId);
                 if (inventory is null || inventory.AvailableQuantity < cartItem.Quantity)
                 {
-                    return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict));
+                    notEnough.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, Available: inventory?.AvailableQuantity ?? 0));
+                    continue;
+                }
+
+                if (variant.Price != cartItem.UnitPriceSnapshot)
+                {
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    continue;
                 }
 
                 orderItems.Add(new OrderItem
@@ -246,24 +289,45 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 });
             }
 
+            if (gone.Count > 0 || notEnough.Count > 0 || repriced.Count > 0)
+            {
+                return Task.FromResult(gone.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable, Issues: gone)
+                    : notEnough.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict, Issues: notEnough)
+                    : new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged, Issues: repriced));
+            }
+
             foreach (var cartItem in cart.Items)
             {
                 Inventory.Single(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId).AvailableQuantity -= cartItem.Quantity;
             }
 
+            var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
             var order = new Order
             {
                 OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
                 UserId = Customers.Single(customer => customer.Id == customerId).UserId,
                 StoreId = storeId,
-                DeliveryAddress = request.DeliveryAddress,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
+                DeliveryAddress = commit.Delivery.Address,
+                Latitude = commit.Delivery.Latitude,
+                Longitude = commit.Delivery.Longitude,
+                DeliveryAddressId = commit.Delivery.AddressId,
+                ReceiverName = commit.Delivery.ReceiverName,
+                ReceiverPhone = commit.Delivery.ReceiverPhone,
+                EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
+                SubtotalAmount = price.Subtotal,
+                DeliveryFee = price.DeliveryFee,
+                HandlingFee = price.HandlingFee,
+                TotalAmount = price.Total,
+                PaymentMethod = PaymentMethods.CashOnDelivery,
                 Items = orderItems
             };
-            order.TotalAmount = orderItems.Sum(item => item.TotalPrice);
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
             Orders.Add(order);
+            if (commit.IdempotencyKey is not null)
+            {
+                CheckoutRequests.Add(new CheckoutRequestRecord { CustomerId = customerId, IdempotencyKey = commit.IdempotencyKey, RequestHash = commit.RequestHash!, OrderId = order.Id });
+            }
+
             cart.Items.Clear();
             cart.UpdatedAt = DateTime.UtcNow;
             return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order)));
@@ -335,15 +399,81 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         order.Longitude,
         order.CreatedAt,
         order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
-        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
+        order.SubtotalAmount,
+        order.DeliveryFee,
+        order.HandlingFee,
+        order.PaymentMethod,
+        order.ReceiverName,
+        order.ReceiverPhone,
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+
+    public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Notifications.Count(notification => notification.CustomerId == customerId && !notification.IsRead));
+        }
+    }
+
+    public Task<int> MarkAllNotificationsReadAsync(Guid customerId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var unread = Notifications.Where(notification => notification.CustomerId == customerId && !notification.IsRead).ToList();
+            unread.ForEach(notification => notification.IsRead = true);
+            return Task.FromResult(unread.Count);
+        }
+    }
+
+    public Task<CancelCommitResult> TryCancelCustomerOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.UserId == userId && Stores.Any(store => store.Id == item.StoreId && store.OrganizationId == organizationId));
+            if (order is null)
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.NotFound));
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.AlreadyCancelled, MapOrder(order)));
+            }
+
+            if (order.Status != OrderStatus.Pending)
+            {
+                return Task.FromResult(new CancelCommitResult(CancelCommitStatus.NotCancellable, CurrentStatus: order.Status));
+            }
+
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
+            if (customer is not null)
+            {
+                Notifications.Add(CreateStatusNotification(customer.Id, order.Id, OrderStatus.Cancelled));
+            }
+
+            return Task.FromResult(new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order)));
+        }
+    }
 
     private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
     {
         CustomerId = customerId,
         OrderId = orderId,
         Type = "OrderStatusChanged",
-        Title = "Order status updated",
-        Message = $"Your order is now {status}.",
+        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
+        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
         IsRead = false
     };
 

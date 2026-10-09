@@ -89,7 +89,7 @@ public sealed class VariantEfIntegrationTests
 
         try
         {
-            var request = new CheckoutRequest("12 Test Street", 41.0, 41.0);
+            var request = new CheckoutCommit(new CheckoutDelivery("12 Test Street", 41.0, 41.0), new QuickCommerce.Application.Services.PricingSettings());
             var attempts = customerIds.Select(async customerId =>
             {
                 await using var db = new QuickCommerceDbContext(options);

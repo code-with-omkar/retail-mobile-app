@@ -27,7 +27,16 @@ public sealed record OrderResponse(
     double Longitude,
     DateTime CreatedAt,
     IReadOnlyList<OrderItemResponse> Items,
-    IReadOnlyList<OrderStatusHistoryResponse> StatusHistory);
+    IReadOnlyList<OrderStatusHistoryResponse> StatusHistory,
+    decimal SubtotalAmount = 0,
+    decimal DeliveryFee = 0,
+    decimal HandlingFee = 0,
+    string PaymentMethod = "CashOnDelivery",
+    string? ReceiverName = null,
+    string? ReceiverPhone = null,
+    string? StoreName = null,
+    string? StorePhone = null,
+    int? EstimatedDeliveryMinutes = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,

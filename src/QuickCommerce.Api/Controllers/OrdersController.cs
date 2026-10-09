@@ -84,5 +84,12 @@ public sealed class OrdersController(
         order.Longitude,
         order.CreatedAt,
         order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
-        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
+        order.SubtotalAmount,
+        order.DeliveryFee,
+        order.HandlingFee,
+        order.PaymentMethod,
+        order.ReceiverName,
+        order.ReceiverPhone,
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
 }

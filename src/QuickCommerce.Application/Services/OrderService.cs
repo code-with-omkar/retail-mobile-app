@@ -85,6 +85,7 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
             Items = lines
         };
         order.TotalAmount = lines.Sum(line => line.TotalPrice);
+        order.SubtotalAmount = order.TotalAmount;
         order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
 
         var adjustments = resolved.Select(item => new InventoryAdjustment(store.Id, item.Variant.Id, item.Line.Quantity)).ToArray();
@@ -108,5 +109,12 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
         order.Longitude,
         order.CreatedAt,
         order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
-        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
+        order.SubtotalAmount,
+        order.DeliveryFee,
+        order.HandlingFee,
+        order.PaymentMethod,
+        order.ReceiverName,
+        order.ReceiverPhone,
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
 }

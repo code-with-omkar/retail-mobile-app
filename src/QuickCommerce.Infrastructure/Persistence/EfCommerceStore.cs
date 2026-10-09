@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using QuickCommerce.Application.Services;
 using QuickCommerce.Application.DTOs;
 using QuickCommerce.Application.Interfaces;
 using QuickCommerce.Domain;
@@ -230,6 +231,20 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         .AsNoTracking()
         .FirstOrDefaultAsync(cart => cart.CustomerId == customerId && cart.StoreId == storeId, cancellationToken);
 
+    public Task<Cart?> GetCurrentCartAsync(Guid customerId, CancellationToken cancellationToken = default) => db.Carts
+        .Include(cart => cart.Items)
+        .AsNoTracking()
+        .Where(cart => cart.CustomerId == customerId)
+        .OrderByDescending(cart => cart.UpdatedAt)
+        .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<bool> DeleteCartAsync(Guid customerId, Guid storeId, CancellationToken cancellationToken = default)
+    {
+        // Lines go with the cart (cascade).
+        var deleted = await db.Carts.Where(cart => cart.CustomerId == customerId && cart.StoreId == storeId).ExecuteDeleteAsync(cancellationToken);
+        return deleted > 0;
+    }
+
     public async Task AddCartAsync(Cart cart, CancellationToken cancellationToken = default)
     {
         db.Carts.Add(cart);
@@ -248,12 +263,12 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
     // Two customers buying the last units of a pack at the same moment both read the same stock row; the second SaveChanges fails
     // the row-version check. The stock may well still be enough, so the work is repeated on fresh data before a conflict is reported.
     // A real shortage is not retried. Nothing is oversold either way: the check is what stops it.
-    public async Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutRequest request, CancellationToken cancellationToken = default)
+    public async Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; ; attempt++)
         {
             concurrencyLost = false;
-            var result = await TryCheckoutCartOnceAsync(customerId, storeId, request, cancellationToken);
+            var result = await TryCheckoutCartOnceAsync(customerId, storeId, commit, cancellationToken);
             if (!concurrencyLost || attempt >= ConcurrencyAttempts)
             {
                 return result;
@@ -263,11 +278,26 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         }
     }
 
-    private async Task<CheckoutCommitResult> TryCheckoutCartOnceAsync(Guid customerId, Guid storeId, CheckoutRequest request, CancellationToken cancellationToken)
+    /// <summary>How long a checkout key is remembered. After that the same key counts as new.</summary>
+    private static readonly TimeSpan CheckoutKeyLifetime = TimeSpan.FromHours(24);
+
+    private async Task<CheckoutCommitResult> TryCheckoutCartOnceAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
+            if (commit.IdempotencyKey is not null)
+            {
+                // One checkout at a time per customer, so a double tap waits for the first and then finds its order instead of racing it.
+                await LockCheckoutAsync(customerId, cancellationToken);
+                var earlier = await FindEarlierCheckoutAsync(customerId, commit, cancellationToken);
+                if (earlier is not null)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return earlier;
+                }
+            }
+
             var cart = await db.Carts
                 .Include(currentCart => currentCart.Items)
                 .SingleOrDefaultAsync(currentCart => currentCart.CustomerId == customerId && currentCart.StoreId == storeId, cancellationToken);
@@ -288,32 +318,37 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 .Select(customer => customer.UserId)
                 .SingleAsync(cancellationToken);
 
+            // Look at every line before deciding, so the customer is told about all of them at once.
+            var gone = new List<CheckoutIssue>();
+            var notEnough = new List<CheckoutIssue>();
+            var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
+            var taken = new List<(StoreVariantInventory Row, int Quantity)>();
             foreach (var cartItem in cart.Items)
             {
                 var product = await db.Products.SingleOrDefaultAsync(item => item.Id == cartItem.ProductId, cancellationToken);
                 var variant = await db.ProductVariants.SingleOrDefaultAsync(item => item.Id == cartItem.VariantId && item.ProductId == cartItem.ProductId, cancellationToken);
                 if (product is null || !product.IsActive || variant is null || !variant.IsActive)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable);
-                }
-
-                // The price is the variant's, re-read here: the cart only holds what the customer saw.
-                if (variant.Price != cartItem.UnitPriceSnapshot)
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged);
+                    gone.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, cartItem.ProductNameSnapshot, cartItem.VariantLabelSnapshot, cartItem.Quantity));
+                    continue;
                 }
 
                 var inventory = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == storeId && item.VariantId == cartItem.VariantId, cancellationToken);
                 if (inventory is null || inventory.AvailableQuantity < cartItem.Quantity)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
+                    notEnough.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, Available: inventory?.AvailableQuantity ?? 0));
+                    continue;
                 }
 
-                inventory.AvailableQuantity -= cartItem.Quantity;
+                // The price is the variant's, re-read here: the cart only holds what the customer saw.
+                if (variant.Price != cartItem.UnitPriceSnapshot)
+                {
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    continue;
+                }
+
+                taken.Add((inventory, cartItem.Quantity));
                 // Snapshots: later price or label edits never change this order.
                 orderItems.Add(new OrderItem
                 {
@@ -327,20 +362,48 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 });
             }
 
+            if (gone.Count > 0 || notEnough.Count > 0 || repriced.Count > 0)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return gone.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.ProductUnavailable, Issues: gone)
+                    : notEnough.Count > 0 ? new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict, Issues: notEnough)
+                    : new CheckoutCommitResult(CheckoutCommitStatus.PriceChanged, Issues: repriced);
+            }
+
+            foreach (var (row, quantity) in taken)
+            {
+                row.AvailableQuantity -= quantity;
+            }
+
+            var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
             var order = new Order
             {
                 OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
                 UserId = userId,
                 StoreId = storeId,
-                DeliveryAddress = request.DeliveryAddress,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
+                DeliveryAddress = commit.Delivery.Address,
+                Latitude = commit.Delivery.Latitude,
+                Longitude = commit.Delivery.Longitude,
+                DeliveryAddressId = commit.Delivery.AddressId,
+                ReceiverName = commit.Delivery.ReceiverName,
+                ReceiverPhone = commit.Delivery.ReceiverPhone,
+                EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
+                SubtotalAmount = price.Subtotal,
+                DeliveryFee = price.DeliveryFee,
+                HandlingFee = price.HandlingFee,
+                TotalAmount = price.Total,
+                PaymentMethod = PaymentMethods.CashOnDelivery,
                 Items = orderItems
             };
-            order.TotalAmount = orderItems.Sum(item => item.TotalPrice);
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
 
             db.Orders.Add(order);
+            if (commit.IdempotencyKey is not null)
+            {
+                // Same transaction as the order: either both exist or neither does.
+                db.CheckoutRequests.Add(new CheckoutRequestRecord { CustomerId = customerId, IdempotencyKey = commit.IdempotencyKey, RequestHash = commit.RequestHash!, OrderId = order.Id });
+            }
+
             await db.SaveChangesAsync(cancellationToken);
 
             db.CartItems.RemoveRange(cart.Items);
@@ -354,11 +417,52 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             await transaction.RollbackAsync(cancellationToken);
             return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
         }
+        catch (DbUpdateException) when (commit.IdempotencyKey is not null)
+        {
+            // Most likely the one-order-per-key index: another request with this key won. Start again and it is found as an earlier checkout.
+            concurrencyLost = true;
+            await transaction.RollbackAsync(cancellationToken);
+            return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
+        }
         catch (DbUpdateException)
         {
             await transaction.RollbackAsync(cancellationToken);
             return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
         }
+    }
+
+    private Task LockCheckoutAsync(Guid customerId, CancellationToken cancellationToken) => db.Database.ExecuteSqlInterpolatedAsync($@"
+DECLARE @result int;
+EXEC @result = sp_getapplock @Resource = {"checkout:" + customerId}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000;
+IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancellationToken);
+
+    /// <summary>The order an earlier checkout with this key produced, or a refusal when the key was used for something else; null when the key is new (or has expired).</summary>
+    private async Task<CheckoutCommitResult?> FindEarlierCheckoutAsync(Guid customerId, CheckoutCommit commit, CancellationToken cancellationToken)
+    {
+        var record = await db.CheckoutRequests.SingleOrDefaultAsync(item => item.CustomerId == customerId && item.IdempotencyKey == commit.IdempotencyKey, cancellationToken);
+        if (record is null)
+        {
+            return null;
+        }
+
+        if (record.CreatedAt < DateTime.UtcNow - CheckoutKeyLifetime)
+        {
+            db.CheckoutRequests.Remove(record);
+            await db.SaveChangesAsync(cancellationToken);
+            return null;
+        }
+
+        if (!string.Equals(record.RequestHash, commit.RequestHash, StringComparison.Ordinal))
+        {
+            return new CheckoutCommitResult(CheckoutCommitStatus.KeyReused);
+        }
+
+        var order = await db.Orders
+            .AsNoTracking()
+            .Include(current => current.Items)
+            .Include(current => current.StatusHistory)
+            .SingleAsync(current => current.Id == record.OrderId, cancellationToken);
+        return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order), Replayed: true);
     }
 
     public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default)
@@ -463,15 +567,105 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         order.Longitude,
         order.CreatedAt,
         order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
-        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray());
+        order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
+        order.SubtotalAmount,
+        order.DeliveryFee,
+        order.HandlingFee,
+        order.PaymentMethod,
+        order.ReceiverName,
+        order.ReceiverPhone,
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+
+    public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
+        db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);
+
+    public Task<int> MarkAllNotificationsReadAsync(Guid customerId, CancellationToken cancellationToken = default) =>
+        db.Notifications.Where(notification => notification.CustomerId == customerId && !notification.IsRead)
+            .ExecuteUpdateAsync(set => set.SetProperty(notification => notification.IsRead, true), cancellationToken);
+
+    public async Task<CancelCommitResult> TryCancelCustomerOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            concurrencyLost = false;
+            var result = await TryCancelOnceAsync(orderId, userId, organizationId, cancellationToken);
+            if (!concurrencyLost || attempt >= ConcurrencyAttempts)
+            {
+                return result;
+            }
+
+            db.ChangeTracker.Clear();
+        }
+    }
+
+    private async Task<CancelCommitResult> TryCancelOnceAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Only the customer's own order, in their organisation: anyone else's is simply not found.
+            var order = await db.Orders
+                .Include(current => current.Items)
+                .Include(current => current.StatusHistory)
+                .SingleOrDefaultAsync(current => current.Id == orderId && current.UserId == userId &&
+                    db.Stores.Any(store => store.Id == current.StoreId && store.OrganizationId == organizationId), cancellationToken);
+            if (order is null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CancelCommitResult(CancelCommitStatus.NotFound);
+            }
+
+            if (order.Status == OrderStatus.Cancelled)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CancelCommitResult(CancelCommitStatus.AlreadyCancelled, MapOrder(order));
+            }
+
+            if (order.Status != OrderStatus.Pending)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CancelCommitResult(CancelCommitStatus.NotCancellable, CurrentStatus: order.Status);
+            }
+
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+
+            // The stock the order took goes back to the store, line by line. Orders from before packs existed have no variant and took none from here.
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
+            if (customerId.HasValue)
+            {
+                db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, OrderStatus.Cancelled));
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order));
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The shop accepted it, or another buyer took stock from the same row, at the same moment: look again on fresh data.
+            concurrencyLost = true;
+            await transaction.RollbackAsync(cancellationToken);
+            return new CancelCommitResult(CancelCommitStatus.NotCancellable);
+        }
+    }
 
     private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
     {
         CustomerId = customerId,
         OrderId = orderId,
         Type = "OrderStatusChanged",
-        Title = "Order status updated",
-        Message = $"Your order is now {status}.",
+        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
+        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
         IsRead = false
     };
 }

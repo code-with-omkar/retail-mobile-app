@@ -8,7 +8,7 @@ namespace QuickCommerce.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability) : ControllerBase
+public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability, QuickCommerce.Application.Services.PricingSettings? pricing = null) : ControllerBase
 {
     [HttpGet("categories")]
     public async Task<IActionResult> Categories(CancellationToken cancellationToken) => Ok(new { success = true, data = await catalogService.GetCategoriesAsync(cancellationToken) });
@@ -32,6 +32,14 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
         return result.Status == CatalogQueryStatus.Succeeded
             ? Ok(new { success = true, data = result.Categories })
             : NotFound(new { success = false, message = result.Message, errors = Array.Empty<string>() });
+    }
+
+    /// <summary>The fee settings, so a guest's cart shows the same delivery and handling fees and free-delivery threshold as the server will charge. Anonymous.</summary>
+    [HttpGet("catalog/pricing")]
+    public IActionResult Pricing()
+    {
+        var settings = pricing ?? new QuickCommerce.Application.Services.PricingSettings();
+        return Ok(new { success = true, data = new { deliveryFee = settings.DeliveryFee, handlingFee = settings.HandlingFee, freeDeliveryThreshold = settings.FreeDeliveryThreshold } });
     }
 
     /// <summary>Whether anyone delivers to a point, and if not, why (OutsideServiceArea or NoStoreAvailable). Anonymous, so guests can use it.</summary>

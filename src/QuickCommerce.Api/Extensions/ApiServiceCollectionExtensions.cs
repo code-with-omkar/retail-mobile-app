@@ -20,6 +20,10 @@ public static class ApiServiceCollectionExtensions
         delivery.Validate();
         services.AddSingleton(delivery);
         services.AddSingleton<IDeliveryEstimator, DeliveryEstimator>();
+        var pricing = configuration.GetSection(PricingSettings.SectionName).Get<PricingSettings>()
+            ?? throw new InvalidOperationException("The Pricing section (DeliveryFee, HandlingFee, FreeDeliveryThreshold) must be configured.");
+        pricing.Validate();
+        services.AddSingleton(pricing);
         var addresses = configuration.GetSection(AddressSettings.SectionName).Get<AddressSettings>() ?? new AddressSettings();
         addresses.Validate();
         services.AddSingleton(addresses);

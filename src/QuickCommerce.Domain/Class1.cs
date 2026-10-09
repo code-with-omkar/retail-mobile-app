@@ -268,6 +268,9 @@ public sealed class Store
 	public double Latitude { get; set; }
 	public double Longitude { get; set; }
 	public double ServiceRadiusKm { get; set; } = 8;
+
+	/// <summary>How customers reach the store about an order. Optional; staff fill it in.</summary>
+	public string? PhoneNumber { get; set; }
 	public bool IsActive { get; set; } = true;
 	public Organization Organization { get; set; } = null!;
 	public List<User> Users { get; set; } = [];
@@ -375,15 +378,51 @@ public sealed class Order
 	public required string OrderNumber { get; set; }
 	public Guid UserId { get; set; }
 	public Guid StoreId { get; set; }
+	/// <summary>What the customer pays: <see cref="SubtotalAmount"/> + <see cref="DeliveryFee"/> + <see cref="HandlingFee"/>.</summary>
 	public decimal TotalAmount { get; set; }
+	public decimal SubtotalAmount { get; set; }
+	public decimal DeliveryFee { get; set; }
+	public decimal HandlingFee { get; set; }
+
+	/// <summary>How the customer pays. Only <see cref="PaymentMethods.CashOnDelivery"/> exists until online payment (P7).</summary>
+	public string PaymentMethod { get; set; } = PaymentMethods.CashOnDelivery;
 	public OrderStatus Status { get; set; } = OrderStatus.Pending;
 	public required string DeliveryAddress { get; set; }
 	public double Latitude { get; set; }
 	public double Longitude { get; set; }
+
+	/// <summary>Copied from the saved address when the order was placed with one; later edits to the address do not change the order.</summary>
+	public string? ReceiverName { get; set; }
+	public string? ReceiverPhone { get; set; }
+	public Guid? DeliveryAddressId { get; set; }
+
+	/// <summary>The arrival estimate given when the order was placed. Null for orders placed before it was kept.</summary>
+	public int? EstimatedDeliveryMinutes { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
 	public List<OrderItem> Items { get; set; } = [];
 	public List<OrderStatusHistory> StatusHistory { get; set; } = [];
+}
+
+public static class PaymentMethods
+{
+	public const string CashOnDelivery = "CashOnDelivery";
+}
+
+/// <summary>
+/// Remembers that a checkout with this key already produced an order, so a retry or double tap gets that order back instead of a second one.
+/// Written in the same transaction as the order.
+/// </summary>
+public sealed class CheckoutRequestRecord
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CustomerId { get; set; }
+	public required string IdempotencyKey { get; set; }
+
+	/// <summary>Hash of the store and delivery address the key was first used with. The same key with something else is a mistake, not a retry.</summary>
+	public required string RequestHash { get; set; }
+	public Guid OrderId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class Notification
