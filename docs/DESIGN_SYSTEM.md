@@ -1,21 +1,24 @@
-# QuickCart Customer App — Final Design System: "Electric Yellow"
+# QuickCart Customer App — Final Design System: "Electric Yellow" v2
 
-Status: **FINAL** (approved 2026-10-06) · Applies to: Flutter customer app (`mobile/`) · Themes: **Light** and **Dark**
-Source of truth for visuals: Design canvas "QuickCart App Design Plan" → page *Client options* → boards **FINAL — Electric Yellow (light)** and **FINAL — Electric Yellow (dark)**.
+Status: **FINAL v2** (revised 2026-10-09) · Applies to: Flutter customer app (`mobile/`) · Themes: **Light** and **Dark**
+Source of truth for visuals: Design canvas "QuickCart App Design Plan" → page *Client options* → boards **FINAL — Electric Yellow (light)** and **FINAL — Electric Yellow (dark)** (both drawn from the part `FinalScreens.dc.html`).
 Brand name and logo: **not decided** — keep `[BRAND NAME]` / `[LOGO]` placeholders.
 
-> This file supersedes the earlier "Neon Market" theme (lime `#8DFF00` primary) and the MolBhav palette. The current `mobile/lib/core/theme/*.dart` files still hold Neon Market values and must be updated to the tokens below.
+> v2 changes from v1 (2026-10-06): smaller cards, fixed 12 px gaps between all cards, every card a single solid colour (no inner tinted image panels, no gradient hero tile), **orange `#FF7A1A` replaces hot pink** for deals/alerts, page gradient ends in violet instead of magenta.
+> Supersedes the earlier "Neon Market" theme (lime `#8DFF00`) and the MolBhav palette. The current `mobile/lib/core/theme/*.dart` files still hold Neon Market values and must be updated to the tokens below.
 
 ---
 
 ## 1. Principles
 
-1. **Electric gradient ground, solid tinted cards.** Page background is always a gradient; cards/tiles are always **solid opaque** colours. No translucent "glass" cards, no muddy overlays.
-2. **No plain white surfaces.** Cards use light tints of the palette (lavender, light yellow, light pink, light green) in light theme and deep indigo in dark theme.
-3. **Yellow = action.** Every primary action (buttons, Add, cart pill, active nav, selected chip, stickers) is yellow `#FFD400` with ink text `#141118`. Never white text on yellow.
-4. **Pink = deals/alerts. Green = in stock / done / savings.**
-5. **Black nav anchors the screen** in both themes.
-6. Text contrast ≥ 4.5:1 (≥ 3:1 for ≥ 24 px). Touch targets ≥ 44 px. Colour never the only signal (badges carry text).
+1. **Small cards, real spacing.** Cards are compact (see §5 sizes). Every gap between cards is **12 px**; sections are separated by **24 px**. Never butt cards against each other.
+2. **One card = one solid colour.** No split backgrounds inside a card (no tinted image panel inside a differently coloured card, no gradient tiles). Photos sit directly on the card colour; placeholders are a dashed outline only.
+3. **Gradient only on the page.** The electric gradient is the page background; nothing else uses a gradient.
+4. **No plain white surfaces.** Light theme cards use light tints (lavender, light yellow, light orange, light green); dark theme cards use one deep indigo.
+5. **Yellow = action.** Buttons, cart pill, active nav, selected chip, mic/pin buttons, ETA card: `#FFD400` with ink `#141118`. Never white text on yellow.
+6. **Orange = deals/alerts. Green = in stock / savings.** Pink is no longer used.
+7. **Black nav anchors the screen** in both themes.
+8. Text contrast ≥ 4.5:1 (≥ 3:1 for ≥ 24 px). Touch targets ≥ 44 px (in-card +/− 32 px with 44 px hit area). Colour never the only signal.
 
 ---
 
@@ -25,60 +28,52 @@ Brand name and logo: **not decided** — keep `[BRAND NAME]` / `[LOGO]` placehol
 
 | Token | Hex | Use | Text on it |
 |---|---|---|---|
-| `action` | `#FFD400` | Primary buttons, Add, cart pill, active nav, selected chip, discount sticker, mic/pin button | `#141118` |
-| `actionGradient` | `linear 135° #FFE14D 0% → #FFD400 50% → #FFB800 100%` | Hero/ETA tile only | `#141118` (muted `#3A3640`) |
-| `deal` | `#FB1A8E` | "Today's deals" tile, notification dot, alerts | `#141118` |
-| `success` | `#02F34C` | In-stock dot, savings text, completed steps | — (use as text only on dark chips) |
-| `ink` | `#141118` | Text on yellow/pink/green/tints; nav bar (light) | — |
+| `action` | `#FFD400` | Primary buttons, Add, cart pill, active nav, selected pack size, pin + mic buttons, ETA card, Welcome tile 1 | `#141118` |
+| `deal` | `#FF7A1A` | "Today's deals" card, notification dot, heart icon, alerts | `#141118` |
+| `success` | `#02F34C` | In-stock chip text/dot (on black chip), "You save" text on page | — |
+| `ink` | `#141118` | Text on yellow/orange/green/tints; nav bar (light); stickers (light) | — |
 
 ### 2.2 Light theme
 
 | Token | Value | Notes |
 |---|---|---|
-| `pageGradient` | `linear 165° #2A1BFF 0% → #6A11E8 45% → #B00699 100%` | Every screen background (Welcome: stops 0/50/100) |
-| `onPage` | `#FFFFFF` | Greeting, section titles, address |
-| `onPageMuted` | `#E9E4FF` | "DELIVER TO", meta, Marathi sub-labels |
+| `pageGradient` | `linear 165° #2A1BFF 0% → #5B16EE 55% → #8A10D8 100%` | Every screen background |
+| `onPage` / `onPageMuted` | `#FFFFFF` / `#E9E4FF` | Titles, address / meta, Marathi lines |
 | `onPageLink` | `#FFD400` | "See all" |
-| `card` | `#EAE4FF` (lavender) | Search bar, bell button, product cards, pack-size picker, "Fresh today" chip, quantity box |
-| `cardBorder` | `#EAE4FF` | Same as card (no visible hairline) |
-| `onCard` | `#141118` | |
-| `onCardMuted` | `#5E5A66` | Units ("1 kg"), placeholder text |
-| `onCardAccent` | `#B0008A` | Heart / favourite icon on cards |
-| `tileBuyAgain` | `#FFF1A8` (light yellow) | text `#141118`, meta `#5E5A66` |
-| `tileCategory1..4` | `#B9FFCF` · `#FFC6E2` · `#FFF1A8` · `#EAE4FF` | Veggies · Fruits · Dairy · Grocery — text/icons `#141118` |
-| `productImageBg1..3` | `#FFC6E2` · `#FFF1A8` · `#B9FFCF` | Behind product photos |
-| `stepper` | bg `#141118`, text `#FFFFFF`, minus `#3A3640`, plus `#FFD400` / `#141118` | On product cards |
-| `navBar` | `#141118`, icons `#FFFFFF`, active pill `#FFD400` / `#141118` | Floating capsule |
-| `chipSelected` | `#FFD400` / `#141118` | Pack size, filters |
+| `card` | `#EAE4FF` (lavender) | Search bar, bell, pack-size chips (unselected), "Fresh today" chip, quantity box |
+| `onCard` / `onCardMuted` | `#141118` / `#5E5A66` | |
+| `etaCard` | `#FFD400`, text `#141118`, meta `#3A3640` | Home: "From [STORE] · [ETA] min" |
+| `dealCard` | `#FF7A1A`, text `#141118` | Home: "Today's deals" |
+| `categoryTile1..4` | `#B9FFCF` · `#FFD3B0` · `#FFF1A8` · `#EAE4FF` | Veggies · Fruits · Dairy · Grocery; icon `#141118`; label below tile in `onPage` |
+| `productCard1..3` | `#FFD3B0` · `#FFF1A8` · `#B9FFCF` | Whole card one colour; text `#141118`, unit `#5E5A66`; photo placeholder dashed `rgba(20,17,24,.22)` |
+| `productDetailPanel` | `#FFD3B0` | Inset photo card on detail |
+| `sticker` | bg `#141118`, text `#FFD400` | Discount badge "−22%" |
+| `addButton` / `stepper` | bg `#141118`, icons/text `#FFD400` | On product cards |
+| `navBar` | `#141118`, icons `#FFFFFF`, active `#FFD400` / `#141118` | Floating capsule; also back/heart buttons on detail |
 | `statusChip` | bg `#141118`, text + dot `#02F34C` | "In stock" |
-| `savingsText` | `#02F34C` on page gradient | "You save ₹8" |
-| `input` | bg `#141118`, text `#FFFFFF`, border `#FFD400` 2 px | Phone number field |
-| `welcomeTiles` | `#FFD400` · `#B9FFCF` · `#FFC6E2` | text `#141118` |
-| `notificationDot` | `#FB1A8E` | |
+| `input` | bg `#141118`, text `#FFFFFF`, placeholder `#B9B4C2`, border `#FFD400` 2 px | Phone number |
+| `welcomeTiles` | `#FFD400` · `#B9FFCF` · `#FFD3B0` | text `#141118` |
+| `notificationDot` | `#FF7A1A` | |
 
 ### 2.3 Dark theme
 
 | Token | Value | Notes |
 |---|---|---|
-| `pageGradient` | `linear 165° #0E0A3A 0% → #24105E 45% → #4A0A4A 100%` | Every screen background |
-| `onPage` | `#FFFFFF` | |
-| `onPageMuted` | `#C9C2F0` | |
+| `pageGradient` | `linear 165° #0E0A3A 0% → #1E0F55 55% → #2E0B5E 100%` | Every screen background |
+| `onPage` / `onPageMuted` | `#FFFFFF` / `#C9C2F0` | |
 | `onPageLink` | `#FFD400` | |
-| `card` | `#1E1846` (deep indigo) | Search, bell, product cards, picker, chips, quantity box |
-| `cardBorder` | `#2E2766` | |
-| `onCard` | `#FFFFFF` | |
-| `onCardMuted` | `#C9C2F0` | |
-| `onCardAccent` | `#FB1A8E` | Heart icon |
-| `tileBuyAgain` | `#2E2766` | text `#FFFFFF`, meta `#C9C2F0` |
-| `tileCategory1..4` | `#02F34C` · `#FB1A8E` · `#FFD400` · `#B9A8FF` | Bright solids — text/icons `#141118` |
-| `productImageBg1..3` | `#FFC6E2` · `#FFF1A8` · `#B9FFCF` | Same as light |
-| `stepper` | bg `#EAE4FF`, text `#141118`, minus `#C9C2F0`, plus `#FFD400` / `#141118` | |
-| `navBar` | `#0A0720`, icons `#FFFFFF`, active `#FFD400` / `#141118` | |
-| `chipSelected` | `#FFD400` / `#141118` | |
+| `card` | `#1E1846` (deep indigo) | All cards: search, bell, chips, product cards, detail photo panel, quantity box |
+| `onCard` / `onCardMuted` | `#FFFFFF` / `#C9C2F0` | |
+| `etaCard` / `dealCard` | `#FFD400` / `#FF7A1A`, text `#141118` | Same as light |
+| `categoryTile1..4` | `#02F34C` · `#FF7A1A` · `#FFD400` · `#B9A8FF` | Bright solids; icon `#141118`; label `onPage` |
+| `productCard` | `#1E1846` | Single indigo for all; photo placeholder dashed `rgba(255,255,255,.28)` |
+| `sticker` | bg `#FFD400`, text `#141118` | |
+| `addButton` / `stepper` | bg `#FFD400`, icons/text `#141118` | |
+| `navBar` | `#0A0720`, icons `#FFFFFF`, active `#FFD400` / `#141118` | Also back/heart buttons |
 | `statusChip` | bg `#0A0720`, text + dot `#02F34C` | |
-| `input` | bg `#1E1846`, text `#FFFFFF`, border `#FFD400` 2 px | |
-| `welcomeTiles` | `#FFD400` · `#02F34C` · `#FB1A8E` | text `#141118` |
-| `notificationDot` | `#FB1A8E` | |
+| `input` | bg `#1E1846`, text `#FFFFFF`, placeholder `#C9C2F0`, border `#FFD400` 2 px | |
+| `welcomeTiles` | `#FFD400` · `#02F34C` · `#FF7A1A` | text `#141118` |
+| `notificationDot` / heart | `#FF7A1A` | |
 
 Theme switch: follow system (`ThemeMode.system`) with a manual override in Account.
 
@@ -88,14 +83,17 @@ Theme switch: follow system (`ThemeMode.system`) with a manual override in Accou
 
 | Role | Font | Size / line | Weight | Notes |
 |---|---|---|---|---|
-| Display (ETA, "Order placed") | Bricolage Grotesque | 52/48 · 40/44 | 800 | letter-spacing −3 % to −4 % |
-| H1 screen title | Bricolage Grotesque | 28–30 / 32–34 | 800 | −3 % |
-| H2 section | Bricolage Grotesque | 20/26 | 700 | |
-| Card title | Plus Jakarta Sans | 14–16 / 18–22 | 800 | |
-| Body | Plus Jakarta Sans | 14/20 | 500 | |
-| Caption / meta | Plus Jakarta Sans | 11–12 / 14–16 | 600–700 | "DELIVER TO" uses +8 % tracking, caps |
-| Price | Bricolage Grotesque | 18 (cards) · 40 (detail) | 800 | tabular figures, `₹` + Indian grouping |
-| Marathi / Devanagari | Mukta | +2 px vs Latin | 500–700 | e.g. `टोमॅटो`, `भाज्या` |
+| Welcome headline | Bricolage Grotesque | 36/38 | 800 | −3 % |
+| Product name (detail) | Bricolage Grotesque | 30/32 | 800 | Marathi name beside it in Mukta 22 |
+| Price (detail) | Bricolage Grotesque | 34 | 800 | tabular, `₹` + Indian grouping |
+| ETA value | Bricolage Grotesque | 28/28 | 800 | −3 % |
+| Greeting | Bricolage Grotesque | 26/30 | 800 | |
+| Section title | Bricolage Grotesque | 18 | 700 | |
+| Price (card) | Bricolage Grotesque | 16 | 800 | tabular |
+| Card title | Plus Jakarta Sans | 13–14 / 16–17 | 800 | |
+| Body / search | Plus Jakarta Sans | 14 | 500 | |
+| Meta / unit / label | Plus Jakarta Sans | 11–12 | 600–700 | "DELIVER TO" caps +8 % tracking |
+| Marathi / Devanagari | Mukta | +2 px vs Latin | 500–700 | |
 
 Flutter: `google_fonts` (Bricolage Grotesque, Plus Jakarta Sans, Mukta); `fontFamilyFallback: ['Mukta']`.
 
@@ -103,25 +101,26 @@ Flutter: `google_fonts` (Bricolage Grotesque, Plus Jakarta Sans, Mukta); `fontFa
 
 ## 4. Shape, spacing, depth
 
-- Radius: sticker 8 · photo areas 18 · cards/tiles 24 · hero tile 32 · detail photo bottom 40 · buttons/chips/nav **pill (999)**.
-- Spacing: screen gutter **20**, block gap **14**, grid gap **10**, card padding **8–18**.
-- Depth: cards flat (no shadow). Floating elements only (nav capsule, cart pill, Add button): `0 12px 32px rgba(20,17,24,.18)`.
-- Discount sticker: rotated −5° (card) / −8° (detail).
+- **Spacing scale:** 4 · 8 · 12 · 16 · 20 · 24.
+  - Screen gutter **20** · gap between cards (grid/row) **12** · between blocks in a section **16** · between sections **24** · card padding **12–14**.
+- **Radius:** sticker 6–10 · pack-size chip 14 · photo placeholder 14 · product card 20 · category tile 20 · ETA/deal/welcome cards 22 · detail photo panel 28 · buttons/search/nav **pill**.
+- **Depth:** cards flat (no shadow). Floating only (nav capsule, cart pill, Add button): `0 12px 32px rgba(20,17,24,.22)`.
+- Stickers are not rotated in v2.
 
 ---
 
-## 5. Components (as drawn)
+## 5. Components (v2 sizes)
 
-- **Address header:** yellow pin circle 40 · "DELIVER TO" muted caps · address 15/800 · bell 44 on `card` with pink dot.
-- **Search bar:** 52 high pill on `card`, muted placeholder, yellow mic button 40.
-- **Home bento:** left tall hero tile (`actionGradient`, ETA in ink 52 px) · right top pink "Today's deals" · right bottom "Buy again".
-- **Category grid:** 4 tiles, 88 high, icon 26 + label 12/800.
-- **Product card:** 158 wide on `card`, image 96 high on tinted bg, sticker top-left, name + muted unit, price + stepper or yellow `+` (34–36).
-- **Bottom bar:** floating black nav capsule (Home · Browse · Orders · Account, 52 px items, active = yellow) + yellow cart pill (items count + total + black cart icon).
-- **Product detail:** 360 tall image area (tint, rounded bottom 40), back + heart buttons on `card`, status chip, name + Marathi name, price 40 + struck MRP + "You save", pack-size segmented picker, sticky bottom: quantity box + yellow "Add · ₹28".
-- **Welcome:** gradient bg, `[LOGO]` slot, EN / मराठी switch, 3-tile bento, headline "Your local shop, now in your hand." + Marathi line, phone input, yellow "Get OTP".
+- **Address header:** yellow pin 40 · "DELIVER TO" + address · bell 44 on `card` with orange dot.
+- **Search:** 48 high pill on `card`, yellow mic 38.
+- **Promo row (Home):** 2 cards, 84 high, 12 gap — ETA (yellow, 1.25 fr) + Today's deals (orange, 1 fr).
+- **Category row:** 4 tiles **64×64**, 12 gap, icon 24, label below the tile (not inside).
+- **Product card:** **136 wide**, padding 12, gap 8; dashed photo slot 64 high; name 13/800, unit 11; price 16 + add (32) or stepper (32 high). Horizontal scroll, 12 gap.
+- **Bottom bar:** black nav capsule (48 px items) + yellow cart pill 60 high, 10 gap.
+- **Product detail:** inset photo card 300 high (16 top, 20 sides), black back/heart buttons 42, sticker bottom-right; status chips (8 gap); name; price row; **3 separate pack-size chips** 44 high with 10 gap (selected = yellow); sticky bottom: quantity box 58 + yellow "Add · ₹28".
+- **Welcome:** `[LOGO]` 48 + EN/मराठी switch on black; **3 small cards in a row** 112 high, 12 gap; headline + Marathi line; phone input 54; "Get OTP" 54.
 
-Screen inventory and flows (OTP, Search, Listing, Cart, Checkout COD, Order placed, Tracking, Notifications, Account, empty/error states) live on the *Working files* page of the canvas; restyle them with these tokens during build.
+Screen inventory and flows (OTP, Search, Listing, Cart, Checkout COD, Order placed, Tracking, Notifications, Account, empty/error states) live on the *Working files* page of the canvas; restyle them with these tokens and sizes during build.
 
 ---
 
@@ -137,71 +136,80 @@ Screen inventory and flows (OTP, Search, Listing, Cart, Checkout COD, Order plac
 ## 7. Flutter mapping
 
 ```dart
-// lib/core/theme/app_palette.dart — raw values (Electric Yellow)
+// lib/core/theme/app_palette.dart — raw values (Electric Yellow v2)
 abstract final class AppPalette {
   static const Color action = Color(0xFFFFD400);
-  static const Color actionLight = Color(0xFFFFE14D);
-  static const Color actionDeep = Color(0xFFFFB800);
-  static const Color deal = Color(0xFFFB1A8E);
+  static const Color deal = Color(0xFFFF7A1A);
   static const Color success = Color(0xFF02F34C);
   static const Color ink = Color(0xFF141118);
-  static const Color heroMuted = Color(0xFF3A3640);
-  static const Color magentaText = Color(0xFFB0008A);
+  static const Color etaMuted = Color(0xFF3A3640);
 
   // Light
-  static const List<Color> pageLight = [Color(0xFF2A1BFF), Color(0xFF6A11E8), Color(0xFFB00699)];
+  static const List<Color> pageLight = [Color(0xFF2A1BFF), Color(0xFF5B16EE), Color(0xFF8A10D8)];
   static const Color lavender = Color(0xFFEAE4FF);
   static const Color lightYellow = Color(0xFFFFF1A8);
-  static const Color lightPink = Color(0xFFFFC6E2);
+  static const Color lightOrange = Color(0xFFFFD3B0);
   static const Color lightGreen = Color(0xFFB9FFCF);
   static const Color onPageMutedLight = Color(0xFFE9E4FF);
   static const Color onCardMutedLight = Color(0xFF5E5A66);
-  static const Color stepperMinusLight = Color(0xFF3A3640);
 
   // Dark
-  static const List<Color> pageDark = [Color(0xFF0E0A3A), Color(0xFF24105E), Color(0xFF4A0A4A)];
+  static const List<Color> pageDark = [Color(0xFF0E0A3A), Color(0xFF1E0F55), Color(0xFF2E0B5E)];
   static const Color indigoCard = Color(0xFF1E1846);
-  static const Color indigoLine = Color(0xFF2E2766);
   static const Color lilac = Color(0xFFB9A8FF);
   static const Color onMutedDark = Color(0xFFC9C2F0);
   static const Color navDark = Color(0xFF0A0720);
+}
+
+// lib/core/theme/app_dimens.dart
+abstract final class AppSpacing {
+  static const double xs = 4, sm = 8, md = 12, lg = 16, gutter = 20, section = 24;
+  static const double cardGap = md;   // between any two cards
+}
+abstract final class AppRadius {
+  static const double chip = 14, productCard = 20, tile = 20, promoCard = 22, panel = 28, pill = 999;
+}
+abstract final class AppSizes {
+  static const double categoryTile = 64, productCardWidth = 136, promoCardHeight = 84,
+      searchHeight = 48, addButton = 32, packChipHeight = 44, ctaHeight = 58;
 }
 ```
 
 | `AppColors` (ThemeExtension) field | Light | Dark |
 |---|---|---|
-| `pageGradient` (LinearGradient, begin topLeft→bottomRight ≈165°) | `pageLight` stops 0/.45/1 | `pageDark` stops 0/.45/1 |
+| `pageGradient` (LinearGradient ≈165°, stops 0/.55/1) | `pageLight` | `pageDark` |
 | `onPage` / `onPageMuted` | `#FFFFFF` / `#E9E4FF` | `#FFFFFF` / `#C9C2F0` |
-| `card` / `cardBorder` | `#EAE4FF` / `#EAE4FF` | `#1E1846` / `#2E2766` |
-| `onCard` / `onCardMuted` / `onCardAccent` | `#141118` / `#5E5A66` / `#B0008A` | `#FFFFFF` / `#C9C2F0` / `#FB1A8E` |
+| `card` | `#EAE4FF` | `#1E1846` |
+| `onCard` / `onCardMuted` | `#141118` / `#5E5A66` | `#FFFFFF` / `#C9C2F0` |
 | `action` / `onAction` | `#FFD400` / `#141118` | same |
-| `deal` / `onDeal` | `#FB1A8E` / `#141118` | same |
+| `deal` / `onDeal` | `#FF7A1A` / `#141118` | same |
 | `success` | `#02F34C` | same |
-| `tileBuyAgain` | `#FFF1A8` | `#2E2766` |
-| `categoryTiles` | `[#B9FFCF, #FFC6E2, #FFF1A8, #EAE4FF]` | `[#02F34C, #FB1A8E, #FFD400, #B9A8FF]` |
+| `categoryTiles` | `[#B9FFCF, #FFD3B0, #FFF1A8, #EAE4FF]` | `[#02F34C, #FF7A1A, #FFD400, #B9A8FF]` |
+| `productCards` | `[#FFD3B0, #FFF1A8, #B9FFCF]` (cycle) | `[#1E1846]` |
+| `addButtonBg` / `addButtonFg` | `#141118` / `#FFD400` | `#FFD400` / `#141118` |
+| `stickerBg` / `stickerFg` | `#141118` / `#FFD400` | `#FFD400` / `#141118` |
 | `nav` | `#141118` | `#0A0720` |
-| `stepperBg` / `onStepper` / `stepperMinus` | `#141118` / `#FFFFFF` / `#3A3640` | `#EAE4FF` / `#141118` / `#C9C2F0` |
 | `statusChipBg` | `#141118` | `#0A0720` |
 
-`ColorScheme`: `primary = action`, `onPrimary = ink`, `secondary = deal`, `tertiary = success`, `surface = card`, `onSurface = onCard`. Scaffold background is transparent; wrap each screen body in a `DecoratedBox` with `pageGradient`.
+`ColorScheme`: `primary = action`, `onPrimary = ink`, `secondary = deal`, `tertiary = success`, `surface = card`, `onSurface = onCard`. Scaffold background transparent; wrap each screen body in a `DecoratedBox` with `pageGradient`.
 
 ---
 
 ## 8. Reference images
 
-Rendered from the final canvas boards (2× PNG). Stored with this doc as project file uploads / in `docs/design-reference/`; all eight are also bundled in `Electric-Yellow-Design-Reference.pdf`.
+Rendered from the final v2 canvas boards (2× PNG), in `docs/design-reference/` and bundled in `Electric-Yellow-Design-Reference.pdf`.
 
 | File | Shows |
 |---|---|
-| `01-final-electric-yellow-light-board.png` | Light board: palette swatches + Welcome, Home, Product detail |
-| `02-final-electric-yellow-dark-board.png` | Dark board: palette swatches + Welcome, Home, Product detail |
+| `01-final-electric-yellow-light-board.png` | Light board: palette + Welcome, Home, Product detail |
+| `02-final-electric-yellow-dark-board.png` | Dark board: palette + Welcome, Home, Product detail |
 | `03-light-welcome.png` · `04-light-home.png` · `05-light-product-detail.png` | Light screens, 390×844 @2× |
 | `06-dark-welcome.png` · `07-dark-home.png` · `08-dark-product-detail.png` | Dark screens, 390×844 @2× |
 
-When images and this doc disagree, the token tables in §2 win.
+When images and this doc disagree, the token tables in §2 and sizes in §4–5 win.
 
 ## 9. Known gaps
 
-- `[PRODUCT PHOTO]` placeholder label is low contrast on tinted image areas (placeholder only; real photos replace it).
 - Brand name, logo and app icon still open.
-- Existing theme code in `mobile/lib/core/theme/` uses the superseded Neon Market palette — update before building screens.
+- Existing theme code in `mobile/lib/core/theme/` uses the superseded Neon Market palette — update to v2 before building screens.
+- Other screens on the *Working files* page still show the older large-card layout; restyle during build using §4–5.

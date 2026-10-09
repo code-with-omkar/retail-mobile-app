@@ -193,7 +193,7 @@ Status: built, tested and applied to the dev database (2026-10-09). Everything b
 | **409** `{ success: false, message, reason: "OrderNotCancellable" }` | The shop has already accepted or finished with it (Accepted, Preparing, Ready, Completed, Rejected). The customer is told to contact the store. |
 | **404** | Not the caller's order, or no such order. |
 
-A successful cancel, in one transaction: the status becomes Cancelled (with a status-history row), the stock of every line goes back to the store, and the customer gets a notification ("Order cancelled" / "Your order was cancelled."). If the shop accepts at the same moment, exactly one of the two wins; staff can no longer accept a cancelled order (the existing transition rule refuses it). No refund is involved while payment is cash on delivery.
+A successful cancel, in one transaction: the status becomes Cancelled (with a status-history row), the stock of every line goes back to the store, and the customer gets a notification ("Order cancelled" / "Your order was cancelled."). If the shop accepts at the same moment, exactly one of the two wins; staff can no longer accept a cancelled order (the existing transition rule refuses it). No refund is involved while payment is cash on delivery. When the shop rejects an order instead, its stock goes back to the store the same way (once).
 
 **Notifications:**
 
@@ -224,3 +224,23 @@ Status: built and tested (2026-10-09); migration `AddOnlinePayments` applied to 
 Reasons on a **409** from start or confirm: `PaymentsUnavailable`, `NotAnOnlineOrder`, `PaymentHoldExpired`, `AlreadyPaid`, `OrderNotAwaitingPayment`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another customer's order is **404**.
 
 **Rules:** the shop sees an online order only after it is paid. A payment that arrives after the hold ran out, or for a different amount, is refunded automatically and the order stays cancelled. The customer cancelling a paid order (while still Pending) or the shop rejecting it queues a full refund to the original method; an unpaid order cancelled just releases the items. A background job (every `JobIntervalSeconds`) releases the items of unpaid orders after the hold, starts queued refunds (retrying temporary provider errors, marking permanent refusals `RefundFailed`), and looks up payments whose notification never arrived. Every state change is one transaction and safe to run twice or on several servers.
+
+## Order numbers (P10)
+
+Status: built and tested (2026-10-09); migration `AddStoreCodesAndOrderNumberCounters` applied to the dev database (backup `retail-mobile-app_pre-P10-order-numbers.bak`).
+
+New orders are numbered `STORE-yyMMdd-nnnn`, for example `KHG-261009-0042`: the store's code (`Stores.Code`, up to 8 letters or digits, unique), the day in India time, and that store's count for the day (restarts at 0001 each day, grows past four digits if needed). The number is given inside the order's own transaction, so two orders never share one and a refused order does not use up a number. Orders placed before keep their old numbers. `orderNumber` in every answer is simply this string. Existing stores get a code from the first three letters of their name when the migration runs; `docs/sql/dev-store-codes.sql` sets the preferred dev codes (KHG, PNV, HBR, BLP, CDR, NSF).
+
+## Notification system (P11)
+
+Status: built and tested (2026-10-09); migration `AddNotificationSystem` applied to the dev database (backup `retail-mobile-app_pre-P11-notifications.bak`).
+
+**Types.** Every notification has a `type` and a `category` (`Order`, `Payment`, `Offer`, `System`). Types: OrderPlaced, OrderAccepted, OrderPacking, OutForDelivery, OrderDelivered, OrderRejected, OrderCancelled, PaymentReceived, PaymentNotCompleted, PaymentProblem, PaymentWillBeRefunded, RefundProcessed, Offer. The words for each (English and Marathi) live in one place (`NotificationCatalog`); an order event only names the type and the order number. Older rows with other types are shown exactly as stored.
+
+**Reading.** `GET api/customer/notifications?unreadOnly=&lang=mr` returns `title` and `message` written in the requested language (`mr` for Marathi, anything else English) plus `category`. Everything else on that route is unchanged.
+
+**Order events** now notify the customer: placed (cash orders, at checkout; online orders get "Payment received" once paid), accepted, packing (Preparing), out for delivery (Ready), delivered (Completed), declined, cancelled; and the payment ones (received, not completed, problem, will be refunded, refund processed). Each message names the order number.
+
+**Preferences.** `GET` and `PUT api/customer/notifications/preferences` with `{ "offers": true|false }`. Only offers can be switched off; order and payment messages are always sent.
+
+**Offers (admin).** `GET api/admin/campaigns`, `POST api/admin/campaigns` (`titleEn`, `bodyEn` required up to 160 and 500 characters; `titleMr` and `bodyMr` both or neither; `startsAt` optional, a past or empty time means now), `POST api/admin/campaigns/{id}/cancel` (409 `CampaignAlreadySent` once sent). Admin only. A background job (every 30 seconds, safe on several servers) sends each due campaign once to every active customer with offers on; the count is kept on the campaign. Status is `Scheduled`, `Sent` or `Cancelled`. Push (FCM) will reuse the same types later.
