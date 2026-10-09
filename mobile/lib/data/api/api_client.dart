@@ -109,6 +109,8 @@ class ApiClient {
     final status = r.statusCode ?? 0;
     final body = r.data;
     final map = body is Map<String, dynamic> ? body : null;
+    // 204: success with nothing to return (for example no cart yet).
+    if (status == 204) return parse(null);
     if (status >= 200 && status < 300) {
       if (map == null || map['success'] != true) {
         throw UnexpectedResponseException('Response is not a success envelope', statusCode: status, correlationId: correlationId);
@@ -132,7 +134,7 @@ class ApiClient {
       401 => UnauthorizedException(message, statusCode: status, correlationId: id),
       403 => ForbiddenException(message, statusCode: status, correlationId: id),
       404 => NotFoundException(message, statusCode: status, correlationId: id),
-      409 => ConflictException(message, statusCode: status, correlationId: id, errors: errors),
+      409 => ConflictException(message, statusCode: status, correlationId: id, errors: errors, reason: map?['reason'] as String?, details: map?['details'] is List ? List<Object?>.of(map!['details'] as List) : const []),
       429 => TooManyRequestsException(message, statusCode: status, correlationId: id),
       >= 500 => ServerException(message, statusCode: status, correlationId: id),
       _ => UnexpectedResponseException(message, statusCode: status, correlationId: id),

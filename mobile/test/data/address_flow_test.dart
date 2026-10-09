@@ -12,7 +12,10 @@ import 'package:quickcart_customer/data/dto/auth_dto.dart';
 import 'package:quickcart_customer/data/location_services.dart';
 import 'package:quickcart_customer/data/models.dart';
 import 'package:quickcart_customer/data/providers.dart';
+import 'package:quickcart_customer/data/repositories/cart_repository.dart';
 import 'package:quickcart_customer/data/repositories/catalog_repository.dart';
+import 'package:quickcart_customer/data/repositories/local_shop.dart';
+import 'package:quickcart_customer/data/repositories/order_repository.dart';
 import 'package:quickcart_customer/data/repositories/product_store.dart';
 import 'package:quickcart_customer/data/seed.dart' as seed;
 import 'package:quickcart_customer/features/address/address_controller.dart';
@@ -53,7 +56,8 @@ class _GeoCatalog implements CatalogRepository {
 }
 
 class _App {
-  _App(this.container, this.repo, this.location, this.geocoding);
+  _App(this.container, this.repo, this.location, this.geocoding, this.shop);
+  final LocalShop shop;
   final ProviderContainer container;
   final FakeAddressRepository repo;
   final FakeLocationService location;
@@ -77,6 +81,7 @@ Future<_App> _pump(
   final locator = location ?? FakeLocationService();
   final geocoder = FakeGeocodingService();
   final products = ProductStore()..putAll(seed.products);
+  final shop = LocalShop();
   await tester.pumpWidget(ProviderScope(retry: noAutomaticRetry, overrides: [
     sharedPrefsProvider.overrideWithValue(sp),
     appConfigProvider.overrideWithValue(const AppConfig(env: AppEnv.dev, apiBaseUrl: 'http://test.invalid')),
@@ -85,10 +90,12 @@ Future<_App> _pump(
     locationServiceProvider.overrideWithValue(locator),
     geocodingServiceProvider.overrideWithValue(geocoder),
     productStoreProvider.overrideWithValue(products),
+    cartRepositoryProvider.overrideWithValue(LocalCartRepository(shop)),
+    orderRepositoryProvider.overrideWithValue(LocalOrderRepository(shop)),
     catalogRepositoryProvider.overrideWithValue(CachingCatalogRepository(_GeoCatalog(), products)),
   ], child: const QuickCartApp()));
   await tester.pumpAndSettle();
-  return _App(ProviderScope.containerOf(tester.element(find.byType(QuickCartApp))), addresses, locator, geocoder);
+  return _App(ProviderScope.containerOf(tester.element(find.byType(QuickCartApp))), addresses, locator, geocoder, shop);
 }
 
 void _go(WidgetTester tester, String path, {Object? extra}) => GoRouter.of(tester.element(find.byType(Scaffold).first)).push(path, extra: extra);
@@ -599,8 +606,13 @@ void main() {
   });
 
   group('checkout', () {
-    Future<void> openCheckout(WidgetTester tester, _App app) async {
-      app.container.read(cartProvider.notifier).add('tomato:1kg');
+    Future<void> openCheckout(WidgetTester tester, _App app, {bool alreadyOnServer = false}) async {
+      if (alreadyOnServer) {
+        // A cart saved earlier, in a store that no longer delivers to the chosen address.
+        app.shop.setLine('30000000-0000-0000-0000-000000000001', 'tomato:1kg', 1);
+      } else {
+        app.container.read(cartProvider.notifier).add('tomato:1kg');
+      }
       await tester.pumpAndSettle();
       _go(tester, '/checkout');
       await tester.pumpAndSettle();
@@ -611,7 +623,7 @@ void main() {
     testWidgets('an address nobody delivers to blocks the order with a clear reason and a way to choose another', (tester) async {
       final repo = FakeAddressRepository()..seed('Delhi', isDefault: true, latitude: 28.61, longitude: 77.21, line: 'Connaught Place, Delhi');
       final app = await _pump(tester, auth: const AuthState(AuthStatus.signedIn, _asha), repo: repo, height: 2000);
-      await openCheckout(tester, app);
+      await openCheckout(tester, app, alreadyOnServer: true);
 
       expect(find.text('Checkout'), findsWidgets);
       expect(find.text('Delivering to Delhi'), findsOneWidget);

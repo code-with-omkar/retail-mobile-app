@@ -171,12 +171,15 @@ class AppScaffold extends StatelessWidget {
 
 /// Round icon button used for back / favourite / notifications.
 class CircleIconButton extends StatelessWidget {
-  const CircleIconButton({super.key, required this.icon, required this.tooltip, required this.onPressed, this.background, this.color, this.badge = false});
+  const CircleIconButton({super.key, required this.icon, required this.tooltip, required this.onPressed, this.background, this.color, this.badge = false, this.badgeCount = 0});
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
   final Color? background, color;
   final bool badge;
+
+  /// A number on the button (for example unread notifications); nothing when zero. Over 9 reads "9+".
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +194,20 @@ class CircleIconButton extends StatelessWidget {
           decoration: BoxDecoration(color: background ?? p.card, shape: BoxShape.circle),
           child: Stack(alignment: Alignment.center, children: [
             Icon(icon, color: color ?? p.onCard),
-            if (badge) const Positioned(top: 11, right: 12, child: CircleAvatar(radius: 5, backgroundColor: Pal.pink)),
+            if (badgeCount > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Pal.pink, borderRadius: BorderRadius.circular(9)),
+                  child: Text(badgeCount > 9 ? '9+' : '$badgeCount', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, height: 1)),
+                ),
+              )
+            else if (badge)
+              const Positioned(top: 11, right: 12, child: CircleAvatar(radius: 5, backgroundColor: Pal.pink)),
           ]),
         ),
       ),

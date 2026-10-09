@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/l10n.dart';
+import '../../core/polling.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../address/address_controller.dart';
 import '../auth/auth_controller.dart';
+import '../festival/festival_widgets.dart';
+import '../notifications/notifications_controller.dart';
 import '../orders/orders_controller.dart';
 import '../stores/store_widgets.dart';
 import 'product_pager.dart';
@@ -79,7 +82,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(selectedStoreProvider, (before, after) {
       if (before?.value?.id != after.value?.id && _searching) setState(_resetPager);
     });
-    return SafeArea(
+    // The bell is checked every minute while Home is in front (not in the background, not on another tab).
+    return Polling(
+      interval: const Duration(seconds: 60),
+      active: ref.watch(authProvider.select((a) => a.isSignedIn)) && TickerMode.valuesOf(context).enabled,
+      onTick: ref.read(unreadCountProvider.notifier).poll,
+      child: Stack(children: [
+      SafeArea(
       bottom: false,
       child: CustomScrollView(slivers: [
         const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 0), sliver: SliverToBoxAdapter(child: _Header())),
@@ -87,10 +96,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 12),
           sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, height: 1.1))),
         ),
+        if (!_searching) const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: FestivalBanner())),
         SliverPadding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _searchBar(context))),
         const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0), sliver: SliverToBoxAdapter(child: StoreBar())),
         if (_searching) ..._results(context) else ..._browse(context),
       ]),
+      ),
+      // Falling lights or petals during a festival, over everything and never taking a tap.
+      const Positioned.fill(child: FestivalParticles()),
+    ]),
     );
   }
 
@@ -249,7 +263,12 @@ class _Header extends ConsumerWidget {
         ),
       ),
       const SizedBox(width: 12),
-      CircleIconButton(icon: Icons.notifications_none_rounded, tooltip: context.tr('Notifications'), badge: true, onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('No new notifications'))))),
+      CircleIconButton(
+        icon: Icons.notifications_none_rounded,
+        tooltip: context.tr('Notifications'),
+        badgeCount: ref.watch(unreadCountProvider).value ?? 0,
+        onPressed: () => context.push('/notifications'),
+      ),
     ]);
   }
 }
@@ -262,7 +281,7 @@ class _HeroRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.pal;
-    final last = ref.watch(ordersProvider).firstOrNull;
+    final last = ref.watch(ordersProvider).value?.firstOrNull;
     return SizedBox(
       height: 76,
       child: Row(children: [

@@ -60,7 +60,14 @@ final class NotFoundException extends ApiException {
 
 /// 409: state conflict, for example price changed or stock no longer available at checkout.
 final class ConflictException extends ApiException {
-  const ConflictException(super.message, {super.statusCode, super.correlationId, super.errors});
+  const ConflictException(super.message, {super.statusCode, super.correlationId, super.errors, this.reason, this.details = const []});
+
+  /// Stable code from the API (for example PriceChanged, InventoryConflict); null when the server gave none.
+  final String? reason;
+
+  /// The lines or items involved, exactly as the API sent them (see the checkout details in the API reference).
+  final List<Object?> details;
+
   @override
   String get userMessageKey => 'This changed while you were shopping. Please review and try again.';
 }

@@ -7,23 +7,40 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
-import '../../data/seed.dart';
 import 'cart_controller.dart';
+import 'cart_problems.dart';
 
-class CartScreen extends ConsumerWidget {
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // A cart changed on another phone, or prices that moved, show up when the cart opens.
+    Future.microtask(() => mounted ? ref.read(cartProvider.notifier).reload() : null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = ref.watch(cartTotalsProvider);
     final p = context.pal;
     return AppScaffold(
       appBar: appTopBar(context, context.tr('Your cart'), actions: [if (!t.isEmpty) TextButton(onPressed: () => ref.read(cartProvider.notifier).clear(), child: Text(context.tr('Clear')))]),
       body: t.isEmpty
-          ? EmptyState(icon: Icons.shopping_bag_outlined, title: context.tr('Your cart is empty'), message: context.tr('Add fresh groceries to get started.'), actionLabel: context.tr('Start shopping'), onAction: () => context.go('/'))
+          ? Column(children: [
+              const Padding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), child: CartNoticeCard()),
+              Expanded(child: EmptyState(icon: Icons.shopping_bag_outlined, title: context.tr('Your cart is empty'), message: context.tr('Add fresh groceries to get started.'), actionLabel: context.tr('Start shopping'), onAction: () => context.go('/'))),
+            ])
           : ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
+              const CartNoticeCard(),
+              const CartProblemsCard(),
               _StoreLine(ref.watch(selectedStoreProvider).value),
-              _Banner(t),
+              if (t.feesKnown && t.freeDeliveryThreshold > 0) _Banner(t),
               const SizedBox(height: 16),
               Surface(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -38,8 +55,10 @@ class CartScreen extends ConsumerWidget {
               Surface(
                 child: Column(children: [
                   BillRow(context.tr('Item total'), rupees(t.subtotal)),
-                  BillRow(context.tr('Delivery fee'), t.delivery == 0 ? context.tr('FREE') : rupees(t.delivery), accent: t.delivery == 0),
-                  BillRow(context.tr('Handling fee'), rupees(t.handling)),
+                  if (t.feesKnown) ...[
+                    BillRow(context.tr('Delivery fee'), t.delivery == 0 ? context.tr('FREE') : rupees(t.delivery), accent: t.delivery == 0),
+                    BillRow(context.tr('Handling fee'), rupees(t.handling)),
+                  ],
                   Divider(color: p.border),
                   BillRow(context.tr('To pay'), rupees(t.total), bold: true),
                   if (t.savings > 0) ...[
@@ -67,14 +86,14 @@ class _Banner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unlocked = t.awayFromFreeDelivery == 0;
+    final unlocked = t.awayFromFreeDelivery <= 0;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rCard)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(unlocked ? context.tr('You unlocked free delivery!') : context.tr('Add {amt} more for free delivery', {'amt': rupees(t.awayFromFreeDelivery)}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 15)),
         const SizedBox(height: 10),
-        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: unlocked ? 1 : (t.subtotal / freeDeliveryThreshold).clamp(0, 1), minHeight: 8, backgroundColor: Pal.ink.withValues(alpha: .15), color: Pal.ink)),
+        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: unlocked ? 1 : (t.subtotal / t.freeDeliveryThreshold).clamp(0, 1), minHeight: 8, backgroundColor: Pal.ink.withValues(alpha: .15), color: Pal.ink)),
       ]),
     );
   }

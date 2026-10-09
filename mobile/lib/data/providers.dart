@@ -9,6 +9,10 @@ import '../features/auth/auth_controller.dart';
 import 'models.dart';
 import 'session_store.dart';
 import 'repositories/auth_repository.dart';
+import 'repositories/cart_repository.dart';
+import 'repositories/local_shop.dart';
+import 'repositories/notification_repository.dart';
+import 'repositories/order_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/health_repository.dart';
 import 'repositories/product_store.dart';
@@ -54,6 +58,24 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
   ref.read(sessionBindingProvider).attach(repo);
   return repo;
+});
+
+/// The in-memory shop behind offline seed mode (cart and orders without a server).
+final localShopProvider = Provider<LocalShop>((ref) => LocalShop());
+
+final cartRepositoryProvider = Provider<CartRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalCartRepository(ref.watch(localShopProvider)) : ApiCartRepository(ref.watch(apiClientProvider));
+});
+
+final orderRepositoryProvider = Provider<OrderRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalOrderRepository(ref.watch(localShopProvider)) : ApiOrderRepository(ref.watch(apiClientProvider));
+});
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalNotificationRepository(ref.watch(localShopProvider)) : ApiNotificationRepository(ref.watch(apiClientProvider));
 });
 
 final healthRepositoryProvider = Provider<HealthRepository>((ref) => HealthRepository(ref.watch(apiClientProvider)));

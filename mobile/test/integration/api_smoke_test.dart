@@ -14,7 +14,12 @@ import 'package:quickcart_customer/core/config/app_config.dart';
 import 'package:quickcart_customer/data/api/api_client.dart';
 import 'package:quickcart_customer/data/api/api_exception.dart';
 import 'package:quickcart_customer/data/dto/catalog_dto.dart';
+import 'package:quickcart_customer/data/models.dart';
+import 'package:quickcart_customer/data/repositories/address_repository.dart';
 import 'package:quickcart_customer/data/repositories/auth_repository.dart';
+import 'package:quickcart_customer/data/repositories/cart_repository.dart';
+import 'package:quickcart_customer/data/repositories/notification_repository.dart';
+import 'package:quickcart_customer/data/repositories/order_repository.dart';
 import 'package:quickcart_customer/data/repositories/catalog_repository.dart';
 import 'package:quickcart_customer/data/repositories/health_repository.dart';
 import 'package:quickcart_customer/data/session_store.dart';
@@ -196,6 +201,122 @@ void main() {
     expect(store.token, isNull);
     await expectLater(auth.profile(), throwsA(isA<UnauthorizedException>()));
     expect((await auth.login(email: email, password: password)).fullName, 'Smoke Renamed');
+    await auth.logout();
+  }, skip: skip ?? (_accounts ? null : 'Set --dart-define=SMOKE_ACCOUNTS=true to create a test customer'));
+
+  test('cart and checkout: server cart, fees, one order for one key, a refusal with a reason, and the order read back', () async {
+    final store = MemorySessionStore();
+    late AuthRepository auth;
+    final api = ApiClient(
+      config: AppConfig.resolve(envName: 'dev', baseUrl: _url, androidDevice: false),
+      tokenProvider: () => auth.accessToken(),
+      onUnauthorized: () => auth.refreshSession(),
+    );
+    auth = AuthRepository(api, store);
+    final catalog = ApiCatalogRepository(api);
+    final carts = ApiCartRepository(api);
+    final orders = ApiOrderRepository(api);
+    final addresses = ApiAddressRepository(api);
+    final email = 'smoke-cart-${DateTime.now().millisecondsSinceEpoch}@example.test';
+    await auth.register(fullName: 'Smoke Cart', email: email, password: 'Sunrise-42x', phoneNumber: '98765 43211');
+
+    // The fee settings are public and the cart starts empty.
+    final pricing = await carts.pricing();
+    expect(pricing.deliveryFee, greaterThanOrEqualTo(0));
+    expect(await carts.current(), isNull);
+
+    // A store near Bandra and a product it carries (with its default pack).
+    final stores = await catalog.stores(latitude: 19.076, longitude: 72.878);
+    expect(stores, isNotEmpty);
+    final shop = stores.first;
+    final products = await catalog.products(storeId: shop.id, carriedOnly: true, pageSize: 5);
+    final product = products.items.firstWhere((p) => p.inStock);
+    final pack = product.defaultPack;
+    CartLineRef line(int quantity) => (productId: product.id, variantId: pack?.id, quantity: quantity);
+
+    // A guest cart merged in: the same pack twice is one line, an unknown product is reported.
+    final merged = await carts.merge(shop.id, [line(1), line(1), (productId: '11111111-1111-1111-1111-111111111111', variantId: null, quantity: 1)]);
+    expect(merged.cart.lines.single.quantity, 2);
+    expect(merged.notes.single.kind, CartNote.unavailable);
+    final unit = merged.cart.lines.single.unitPrice;
+    expect(merged.cart.pricing.subtotal, closeTo(unit * 2, 0.001));
+    expect(merged.cart.pricing.total, closeTo(pricing.price(unit * 2).total, 0.001), reason: 'the app computes fees the way the server does');
+
+    // Change a quantity, read the cart back, find it without naming a store.
+    final changed = await carts.setQuantity(shop.id, line(3));
+    expect(changed.lines.single.quantity, 3);
+    expect((await carts.current())!.storeId, shop.id);
+
+    // Order to a saved address near the store; the same key twice is one order.
+    final address = await addresses.create(const AddressDraft(label: 'Home', line: '12 Marine Drive, Mumbai', flatOrBuilding: 'Flat 4', latitude: 19.076, longitude: 72.8777, receiverName: 'Smoke Cart', receiverPhone: '9876543211'));
+    const key = 'smoke-key-0000000000000001';
+    final first = await orders.place(storeId: shop.id, idempotencyKey: key, addressId: address.id);
+    final again = await orders.place(storeId: shop.id, idempotencyKey: key, addressId: address.id);
+    expect(again.id, first.id, reason: 'the same key returns the same order');
+    expect(first.subtotal, closeTo(unit * 3, 0.001));
+    expect(first.payment, 'CashOnDelivery');
+    expect(first.receiverName, 'Smoke Cart');
+    expect(first.total, closeTo(first.subtotal + first.deliveryFee + first.handlingFee, 0.001));
+    expect(first.lines.single.quantity, 3);
+    expect(first.stage, OrderStage.placed);
+    expect(first.address, contains('Flat 4'));
+
+    // The cart is empty now; a new attempt says so with a reason.
+    final left = await carts.current();
+    expect(left == null || left.lines.isEmpty, isTrue);
+    await expectLater(
+      orders.place(storeId: shop.id, idempotencyKey: 'smoke-key-0000000000000002', addressId: address.id),
+      throwsA(isA<ConflictException>().having((e) => e.reason, 'reason', CheckoutReasons.cartEmpty)),
+    );
+
+    // The order is in the customer's history and can be read by id.
+    expect((await orders.list()).map((o) => o.id), contains(first.id));
+    expect((await orders.get(first.id)).number, first.number);
+
+    await addresses.delete(address.id);
+    await auth.logout();
+  }, skip: skip ?? (_accounts ? null : 'Set --dart-define=SMOKE_ACCOUNTS=true to create a test customer'));
+  test('order tracking: the store and estimate on the order, cancelling while pending, and the notification count', () async {
+    final store = MemorySessionStore();
+    late AuthRepository auth;
+    final api = ApiClient(
+      config: AppConfig.resolve(envName: 'dev', baseUrl: _url, androidDevice: false),
+      tokenProvider: () => auth.accessToken(),
+      onUnauthorized: () => auth.refreshSession(),
+    );
+    auth = AuthRepository(api, store);
+    final catalog = ApiCatalogRepository(api);
+    final carts = ApiCartRepository(api);
+    final orders = ApiOrderRepository(api);
+    final addresses = ApiAddressRepository(api);
+    final notes = ApiNotificationRepository(api);
+    final email = 'smoke-track-${DateTime.now().millisecondsSinceEpoch}@example.test';
+    await auth.register(fullName: 'Smoke Track', email: email, password: 'Sunrise-42x', phoneNumber: '98765 43212');
+
+    final shop = (await catalog.stores(latitude: 19.076, longitude: 72.878)).first;
+    final product = (await catalog.products(storeId: shop.id, carriedOnly: true, pageSize: 5)).items.firstWhere((p) => p.inStock);
+    await carts.add(shop.id, (productId: product.id, variantId: product.defaultPack?.id, quantity: 1));
+    final address = await addresses.create(const AddressDraft(label: 'Home', line: '12 Marine Drive, Mumbai', latitude: 19.076, longitude: 72.8777, receiverName: 'Smoke Track', receiverPhone: '9876543212'));
+    final placed = await orders.place(storeId: shop.id, idempotencyKey: 'smoke-track-0000000000001', addressId: address.id);
+
+    expect(placed.storeName, isNotEmpty);
+    expect(placed.estimatedMinutes, isNotNull);
+    expect(placed.stage, OrderStage.placed);
+    expect(await notes.unreadCount(), 0);
+
+    final cancelled = await orders.cancel(placed.id);
+    expect(cancelled.stage, OrderStage.cancelled);
+    expect((await orders.cancel(placed.id)).stage, OrderStage.cancelled, reason: 'cancelling again is fine');
+    expect((await orders.get(placed.id)).stage, OrderStage.cancelled);
+
+    expect(await notes.unreadCount(), 1);
+    final list = await notes.list();
+    expect(list.single.orderId, placed.id);
+    expect(list.single.title, 'Order cancelled');
+    await notes.markAllRead();
+    expect(await notes.unreadCount(), 0);
+
+    await addresses.delete(address.id);
     await auth.logout();
   }, skip: skip ?? (_accounts ? null : 'Set --dart-define=SMOKE_ACCOUNTS=true to create a test customer'));
 }

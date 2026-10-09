@@ -13,6 +13,7 @@ import 'package:quickcart_customer/data/repositories/catalog_repository.dart';
 import 'package:quickcart_customer/data/repositories/product_store.dart';
 import 'package:quickcart_customer/features/cart/cart_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../support/location_fakes.dart';
 
 Map<String, dynamic> _variant(String id, String label, num price, {num? mrp, bool isDefault = false, bool? inStock, bool? lowStock}) =>
     {'id': id, 'label': label, 'price': price, 'mrp': mrp ?? price, 'discountPercent': 0, 'isDefault': isDefault, 'inStock': inStock, 'lowStock': lowStock};
@@ -135,7 +136,7 @@ void main() {
 
   group('product screen', () {
     Future<ProviderContainer> open(WidgetTester tester, Product product) async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues(deviceLocationPrefs);
       final sp = await SharedPreferences.getInstance();
       tester.view.physicalSize = const Size(390 * 3, 844 * 3);
       tester.view.devicePixelRatio = 3;

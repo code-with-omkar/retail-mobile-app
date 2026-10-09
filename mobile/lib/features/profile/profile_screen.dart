@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../address/address_controller.dart';
 import '../auth/auth_controller.dart';
+import '../festival/festival.dart';
 import '../orders/orders_controller.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -18,7 +19,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.pal;
-    final orderCount = ref.watch(ordersProvider).length;
+    final orderCount = ref.watch(ordersProvider).value?.length ?? 0;
     final auth = ref.watch(authProvider);
     final user = auth.user;
     final place = ref.watch(deliveryPlaceProvider);
@@ -86,6 +87,17 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
               ]),
+            ),
+            const SizedBox(height: 18),
+            Material(
+              type: MaterialType.transparency,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: ref.watch(festivalAnimationProvider),
+                onChanged: ref.read(festivalAnimationProvider.notifier).set,
+                title: Text(context.tr('Festival animations'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
+                subtitle: Text(context.tr('Falling lights and petals on Home during festivals'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+              ),
             ),
           ]),
         ),

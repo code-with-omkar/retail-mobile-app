@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../cart/cart_controller.dart';
+import '../cart/cart_problems.dart';
 
 /// Black pill navigation (Home, Categories, Orders, Profile) with the yellow cart pill beside it.
 class AppShell extends ConsumerWidget {
@@ -21,7 +22,7 @@ class AppShell extends ConsumerWidget {
       (Icons.receipt_long_outlined, Icons.receipt_long, context.tr('Orders')),
       (Icons.person_outline, Icons.person, context.tr('Profile')),
     ];
-    return AppScaffold(
+    return CartChoiceDialogHost(child: AppScaffold(
       body: shell,
       bottom: SafeArea(
         child: Padding(
@@ -65,7 +66,7 @@ class AppShell extends ConsumerWidget {
           ]),
         ),
       ),
-    );
+    ));
   }
 }
 
