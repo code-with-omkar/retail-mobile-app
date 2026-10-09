@@ -1,6 +1,6 @@
 # API contract notes (for clients)
 
-- Machine-readable contract: [openapi.json](./openapi.json), re-exported **2026-10-07** after the P2 account work from a running Development API (`/swagger/v1/swagger.json`, OpenAPI 3.0, 45 paths). Re-export after any API change:
+- Machine-readable contract: [openapi.json](./openapi.json), re-exported **2026-10-09** after the P6 order cancel and notification work from a running Development API (`/swagger/v1/swagger.json`, OpenAPI 3.0, 56 paths). Re-export after any API change:
 
   ```powershell
   dotnet run --project src/QuickCommerce.Api --launch-profile http
@@ -143,3 +143,65 @@ Receiver name and phone are personal data: returned only to the owner, never log
 Database: migration `AddCustomerAddresses` adds the `CustomerAddresses` table only (cascade from the customer, one default per customer, coordinate checks). Its Down drops that table. See `docs/plans/P4-addresses-and-serviceability.md`.
 
 **Secrets:** the Google Maps and Places API key is never committed. It lives in the untracked `mobile/android/secrets.properties` and `mobile/config/local.json`, both git-ignored, and a test (`ApiKeyGuardTests`) fails the build if a Google key appears anywhere in the repository.
+
+## Cart, fees and checkout (P5, tasks 5.3, 5.5, 5.8, 5.9)
+
+Status: built and tested; **not yet applied to the dev database** (needs a backup and your go-ahead). The request and response fields below are additive, so an older app keeps working.
+
+**Fees** come from the `Pricing` configuration section (`DeliveryFee`, `HandlingFee`, `FreeDeliveryThreshold`), one set for the organisation. The API refuses to start without the section, and a negative or absurd value also stops start-up. A subtotal at or above the threshold ships free (a threshold of 0 means delivery is never free). An empty cart has no fees. The app never holds its own copy.
+
+**Fee settings for guests:** `GET api/catalog/pricing` (anonymous) returns `{ deliveryFee, handlingFee, freeDeliveryThreshold }`, so a cart built before signing in shows the same fees the server will charge.
+
+**Cart responses** (`CartResponse`) now also carry `subtotal`, `deliveryFee`, `handlingFee`, `total` (what the customer pays), `freeDeliveryThreshold` and `amountToFreeDelivery`. `totalAmount` is unchanged: the sum of the lines. Each line also carries `available` (what the store can supply now), `unavailable` (the product or pack is gone, so checkout would refuse) and `currentUnitPrice` (the price now, next to `unitPriceSnapshot`, the price when it was added; checkout refuses when they differ). Cart answers are `{ success, data }` with `data` the cart; the merge route is the exception (see below).
+
+| Route | What |
+| --- | --- |
+| `GET api/carts/current` | The customer's cart in whichever store it is; **204** when there is none. |
+| `DELETE api/carts/{storeId}` | Empties the cart (deletes it and its lines). Succeeds when there was none. |
+| `POST api/carts/{storeId}/merge` | Body `{ items: [{ productId, variantId?, quantity }] }`, 1 to 100 lines. Answer `data` is `{ cart, notes }`. Adds a guest's device cart: the same pack asked for twice is one line, quantities are added to what is already there, and each line is capped at what the store has. Existing lines keep their snapshot price. `notes` lists what did not go as asked: `Unavailable` (product or pack gone or unknown), `OutOfStock` (none left), `Reduced` (added fewer; `quantity` is how many were added). A bad line rejects the whole request (400) before anything is added. |
+| `POST api/carts/{storeId}/reprice` | Brings every line to the current price after the customer has accepted the change. A line that is gone is left, marked `unavailable`, for the customer to remove. 404 without a cart. |
+
+**Checkout** (`POST api/checkout/{storeId}`):
+
+- Body is either `{ addressId }` (the customer's own saved address; another customer's or a missing one is **404**; the server copies its text, point, receiver name and phone onto the order, so later edits do not change the order) or, as before, `{ deliveryAddress, latitude, longitude }`.
+- Header **`Idempotency-Key`** (8 to 64 letters, digits, `-` or `_`; anything else is 400): send one new value per attempt to order, and the **same** value when retrying or when the customer taps twice. The first request is **201**; a repeat returns the same order with **200** and `"replayed": true`. A second order is never created and stock is taken once, including when the taps arrive at the same moment. The same key for a different store or address is **409** `IdempotencyKeyReused`. Keys are remembered for 24 hours. Without the header there is no protection (older clients).
+- The order carries `subtotalAmount`, `deliveryFee`, `handlingFee`, `totalAmount` (the amount to pay), `paymentMethod` (`CashOnDelivery`), and `receiverName` / `receiverPhone` (null when a typed address was used). Orders placed before fees existed read back with subtotal equal to total and no fees.
+- Every failure is **409** with `message`, a stable `reason`, and `details`, the cart lines involved (empty when not applicable):
+
+| `reason` | Meaning | `details` (per line) |
+| --- | --- | --- |
+| `OutsideServiceArea` | The store does not deliver to the address. | none |
+| `CartEmpty` | Nothing to order, for example already ordered or emptied on another phone. | none |
+| `ProductUnavailable` | The product or pack is gone. Takes priority over the others. | `productId, variantId, name, label, quantity` |
+| `InventoryConflict` | The store has fewer than the cart asks for. | as above plus `available` |
+| `PriceChanged` | The shop's price differs from the cart's. | as above plus `oldPrice`, `newPrice` |
+| `IdempotencyKeyReused` | See above. | none |
+
+All lines are checked before anything changes, so one answer lists every problem, and when any line fails no stock is taken and the cart is left as it was. After `PriceChanged` the customer is shown the change; `reprice` then updates the cart.
+
+## Order tracking, cancelling and notifications (P6, tasks 6.2, 6.4, 6.8)
+
+Status: built, tested and applied to the dev database (2026-10-09). Everything below is additive, so an older app keeps working.
+
+**Order answers** (`OrderResponse`, for `api/customer/orders`, the checkout answer and a cancel) gain `storeName`, `storePhone` (null until staff fill it in) and `estimatedDeliveryMinutes`. The estimate is the one the customer was given when the order was placed (distance from the store to the delivery point, with the delivery settings); it stays on the order if the store's estimate changes later. Orders placed before this have no estimate (null). The admin order answers do not carry these.
+
+**Cancelling:** `POST api/customer/orders/{orderId}/cancel` (customer token, no body).
+
+| Answer | When |
+| --- | --- |
+| **200** `{ success, data: <order> }` with `status` Cancelled | The order was waiting for the shop (Pending), or it was already cancelled (the same answer as the first time, nothing changes again). |
+| **409** `{ success: false, message, reason: "OrderNotCancellable" }` | The shop has already accepted or finished with it (Accepted, Preparing, Ready, Completed, Rejected). The customer is told to contact the store. |
+| **404** | Not the caller's order, or no such order. |
+
+A successful cancel, in one transaction: the status becomes Cancelled (with a status-history row), the stock of every line goes back to the store, and the customer gets a notification ("Order cancelled" / "Your order was cancelled."). If the shop accepts at the same moment, exactly one of the two wins; staff can no longer accept a cancelled order (the existing transition rule refuses it). No refund is involved while payment is cash on delivery.
+
+**Notifications:**
+
+| Route | What |
+| --- | --- |
+| `GET api/customer/notifications/unread-count` | `{ success, data: { count } }`. Cheap enough to ask every minute for the bell. |
+| `PUT api/customer/notifications/read-all` | Marks all of the caller's unread notifications as read: `{ success, data: { updated } }` (0 when there were none). |
+
+The existing list (`GET api/customer/notifications`, `unreadOnly`) and marking one read are unchanged.
+
+**Store phone:** `Stores.PhoneNumber` (up to 20 characters, optional). The dev stores get numbers from `docs/sql/dev-seed-store-phones.sql`; staff will be able to set it when store editing exists.
