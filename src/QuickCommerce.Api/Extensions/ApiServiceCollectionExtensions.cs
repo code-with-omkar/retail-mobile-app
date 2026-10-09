@@ -24,6 +24,19 @@ public static class ApiServiceCollectionExtensions
             ?? throw new InvalidOperationException("The Pricing section (DeliveryFee, HandlingFee, FreeDeliveryThreshold) must be configured.");
         pricing.Validate();
         services.AddSingleton(pricing);
+        var payments = configuration.GetSection(PaymentSettings.SectionName).Get<PaymentSettings>() ?? new PaymentSettings();
+        payments.Validate();
+        services.AddSingleton(payments);
+        if (payments.Enabled)
+        {
+            services.AddHttpClient<IPaymentGateway, QuickCommerce.Infrastructure.Payments.RazorpayGateway>();
+            services.AddHostedService<QuickCommerce.Api.Hosting.PaymentBackgroundService>();
+        }
+        else
+        {
+            services.AddSingleton<IPaymentGateway, QuickCommerce.Infrastructure.Payments.DisabledPaymentGateway>();
+        }
+
         var addresses = configuration.GetSection(AddressSettings.SectionName).Get<AddressSettings>() ?? new AddressSettings();
         addresses.Validate();
         services.AddSingleton(addresses);

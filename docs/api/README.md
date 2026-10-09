@@ -1,6 +1,6 @@
 # API contract notes (for clients)
 
-- Machine-readable contract: [openapi.json](./openapi.json), re-exported **2026-10-09** after the P6 order cancel and notification work from a running Development API (`/swagger/v1/swagger.json`, OpenAPI 3.0, 56 paths). Re-export after any API change:
+- Machine-readable contract: [openapi.json](./openapi.json), re-exported **2026-10-09** after the P7 payment routes from a running Development API (`/swagger/v1/swagger.json`, OpenAPI 3.0, 59 paths). Re-export after any API change:
 
   ```powershell
   dotnet run --project src/QuickCommerce.Api --launch-profile http
@@ -205,3 +205,22 @@ A successful cancel, in one transaction: the status becomes Cancelled (with a st
 The existing list (`GET api/customer/notifications`, `unreadOnly`) and marking one read are unchanged.
 
 **Store phone:** `Stores.PhoneNumber` (up to 20 characters, optional). The dev stores get numbers from `docs/sql/dev-seed-store-phones.sql`; staff will be able to set it when store editing exists.
+
+## Online payment (P7, tasks 7.2 to 7.5, 7.7)
+
+Status: built and tested (2026-10-09); migration `AddOnlinePayments` applied to the dev database (backup `retail-mobile-app_pre-P7-payments.bak`). The feature is **off** until `Payments:Enabled` is true, so an older app and cash on delivery are unaffected. Provider: Razorpay (hosted checkout; card and UPI details never reach this server).
+
+**Settings** (section `Payments`; the two secrets only in environment variables or user secrets, never in a committed file): `Enabled` (default false), `KeyId`, `KeySecret`, `WebhookSecret`, `HoldMinutes` (default 15, 5 to 60), `ReconcileAfterMinutes` (20), `JobIntervalSeconds` (60). When `Enabled` is true the server refuses to start if a key is missing.
+
+**Choosing online payment:** `POST api/customer/checkout/...` takes an optional `paymentMethod` (`CashOnDelivery`, the default, or `Online`). With `Online` the order is created with status **AwaitingPayment**, its items are held, and `paymentExpiresAt` is set (now + hold). While payments are off the answer is **409** `reason: "PaymentsUnavailable"` and nothing is taken. The idempotency hash includes the method, so one key cannot be reused for the other method (409 `IdempotencyKeyReused`). Order answers gain `paymentStatus` (a number: 0 NotRequired, 1 Created, 2 Failed, 3 Paid, 4 Refunding, 5 Refunded, 6 RefundFailed) and `paymentExpiresAt`; the order status list gains **AwaitingPayment** (last value).
+
+| Route | What |
+| --- | --- |
+| `GET api/payments/options` (anonymous) | `{ cashOnDelivery, online, holdMinutes }`: whether to offer the online choice and how long items are held. |
+| `POST api/customer/orders/{orderId}/payment` | Starts or resumes paying: returns `provider`, `keyId` (public), `providerOrderId`, `amountPaise` (the server's own total), `currency`, `orderNumber`, `expiresAt`. Calling it again reuses the same provider order, so one order can never be charged twice. |
+| `POST api/customer/orders/{orderId}/payment/confirm` | Body `{ providerOrderId, providerPaymentId, signature }` from the checkout screen. The server checks the signature, asks the provider for the payment and requires it captured for the right order and amount, then marks the order paid (status Pending, visible to the shop). Repeating it changes nothing. |
+| `POST api/payments/razorpay/webhook` (anonymous) | The provider's signed notifications (`payment.captured`, `order.paid`, `payment.failed`, `refund.processed`, `refund.failed`). The raw body is verified with the webhook secret; duplicates are ignored by event id; **400** for a bad signature, **500** to make the provider retry. |
+
+Reasons on a **409** from start or confirm: `PaymentsUnavailable`, `NotAnOnlineOrder`, `PaymentHoldExpired`, `AlreadyPaid`, `OrderNotAwaitingPayment`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another customer's order is **404**.
+
+**Rules:** the shop sees an online order only after it is paid. A payment that arrives after the hold ran out, or for a different amount, is refunded automatically and the order stays cancelled. The customer cancelling a paid order (while still Pending) or the shop rejecting it queues a full refund to the original method; an unpaid order cancelled just releases the items. A background job (every `JobIntervalSeconds`) releases the items of unpaid orders after the hold, starts queued refunds (retrying temporary provider errors, marking permanent refusals `RefundFailed`), and looks up payments whose notification never arrived. Every state change is one transaction and safe to run twice or on several servers.

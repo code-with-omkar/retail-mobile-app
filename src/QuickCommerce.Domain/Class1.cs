@@ -14,7 +14,10 @@ public enum OrderStatus
 	Confirmed,
 	OutForDelivery,
 	Delivered,
-	Cancelled
+	Cancelled,
+
+	/// <summary>An online order whose payment has not arrived yet. Its items are held until <see cref="Order.PaymentExpiresAt"/>. Staff do not see it.</summary>
+	AwaitingPayment
 }
 
 public static class OrderStatusTransitions
@@ -398,6 +401,12 @@ public sealed class Order
 
 	/// <summary>The arrival estimate given when the order was placed. Null for orders placed before it was kept.</summary>
 	public int? EstimatedDeliveryMinutes { get; set; }
+
+	/// <summary>Where the money stands. Cash on delivery orders are NotRequired. Mirrors the status of the order's <see cref="Payment"/>.</summary>
+	public PaymentState PaymentStatus { get; set; } = PaymentState.NotRequired;
+
+	/// <summary>For an order awaiting payment: until when its items are held.</summary>
+	public DateTime? PaymentExpiresAt { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
 	public List<OrderItem> Items { get; set; } = [];
@@ -407,6 +416,64 @@ public sealed class Order
 public static class PaymentMethods
 {
 	public const string CashOnDelivery = "CashOnDelivery";
+
+	/// <summary>Paid in the app through the payment provider (UPI, card, netbanking).</summary>
+	public const string Online = "Online";
+}
+
+public enum PaymentState
+{
+	/// <summary>Cash on delivery: nothing is paid in the app.</summary>
+	NotRequired,
+
+	/// <summary>Waiting for the customer to pay (or to try again after a failed attempt).</summary>
+	Created,
+
+	/// <summary>The last attempt failed. The customer may try again until the hold runs out.</summary>
+	Failed,
+	Paid,
+
+	/// <summary>The order was cancelled or declined after payment (or the payment came too late): the refund is to be made or is on its way.</summary>
+	Refunding,
+	Refunded,
+
+	/// <summary>The provider could not make the refund. Retried, and listed for staff.</summary>
+	RefundFailed
+}
+
+/// <summary>One online payment for one order, as the provider reports it. Amounts are in paise, as the provider counts them.</summary>
+public sealed class Payment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public string Provider { get; set; } = "Razorpay";
+
+	/// <summary>The provider's own order id for this payment (created when the customer starts paying).</summary>
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+
+	/// <summary>What the customer owes, worked out by the server when the order was placed. Never taken from the app.</summary>
+	public long AmountPaise { get; set; }
+	public string Currency { get; set; } = "INR";
+	public PaymentState Status { get; set; } = PaymentState.Created;
+
+	/// <summary>How many times the customer has started to pay.</summary>
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A notification from the provider that has been handled, so the same one arriving again does nothing.</summary>
+public sealed class PaymentEvent
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public string Provider { get; set; } = "Razorpay";
+	public required string EventId { get; set; }
+	public required string Type { get; set; }
+	public DateTime ReceivedAt { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>

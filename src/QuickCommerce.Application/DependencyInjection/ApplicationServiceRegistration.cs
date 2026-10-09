@@ -18,6 +18,10 @@ public static class ApplicationServiceRegistration
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(new AddressSettings());
         services.TryAddSingleton(new PricingSettings());
+        services.TryAddSingleton(new PaymentSettings());
+        services.AddScoped<ICustomerPaymentService, PaymentService>();
+        services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
+        services.AddScoped<IPaymentMaintenance, PaymentMaintenance>();
         services.AddScoped<IServiceabilityService, ServiceabilityService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAccountService, AccountService>();

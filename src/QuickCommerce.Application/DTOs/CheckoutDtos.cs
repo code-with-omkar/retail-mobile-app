@@ -8,7 +8,8 @@ public sealed record CheckoutRequest(
     string? DeliveryAddress = null,
     double? Latitude = null,
     double? Longitude = null,
-    Guid? AddressId = null);
+    Guid? AddressId = null,
+    string? PaymentMethod = null);
 
 /// <summary>The delivery details after the server has resolved them: what is stored on the order.</summary>
 public sealed record CheckoutDelivery(
@@ -27,7 +28,9 @@ public sealed record CheckoutCommit(
     Services.PricingSettings Pricing,
     string? IdempotencyKey = null,
     string? RequestHash = null,
-    int? EstimatedDeliveryMinutes = null);
+    int? EstimatedDeliveryMinutes = null,
+    string PaymentMethod = Domain.PaymentMethods.CashOnDelivery,
+    DateTime? PaymentExpiresAt = null);
 
 public enum CheckoutCommitStatus
 {
@@ -69,6 +72,7 @@ public static class CheckoutReasons
     public const string PriceChanged = "PriceChanged";
     public const string InventoryConflict = "InventoryConflict";
     public const string IdempotencyKeyReused = "IdempotencyKeyReused";
+    public const string PaymentsUnavailable = "PaymentsUnavailable";
 }
 
 public enum CheckoutOperationStatus

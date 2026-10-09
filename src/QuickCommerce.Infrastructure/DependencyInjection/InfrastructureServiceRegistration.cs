@@ -41,6 +41,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPasswordHashing, IdentityPasswordHashing>();
         services.AddScoped<IAccountStore, EfAccountStore>();
         services.AddScoped<IAddressStore, EfAddressStore>();
+        services.AddScoped<IPaymentStore, EfPaymentStore>();
         // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.
         services.TryAddSingleton(new EmailSettings());
         services.TryAddSingleton(new RegistrationSettings());

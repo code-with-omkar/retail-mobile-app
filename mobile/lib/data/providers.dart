@@ -12,7 +12,9 @@ import 'repositories/auth_repository.dart';
 import 'repositories/cart_repository.dart';
 import 'repositories/local_shop.dart';
 import 'repositories/notification_repository.dart';
+import 'payment_launcher.dart';
 import 'repositories/order_repository.dart';
+import 'repositories/payment_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/health_repository.dart';
 import 'repositories/product_store.dart';
@@ -72,6 +74,14 @@ final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   final config = ref.watch(appConfigProvider);
   return config.useSeedData ? LocalOrderRepository(ref.watch(localShopProvider)) : ApiOrderRepository(ref.watch(apiClientProvider));
 });
+
+final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalPaymentRepository() : ApiPaymentRepository(ref.watch(apiClientProvider));
+});
+
+/// Opens the payment provider screen. Tests replace it.
+final paymentLauncherProvider = Provider<PaymentLauncher>((ref) => RazorpayLauncher());
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   final config = ref.watch(appConfigProvider);

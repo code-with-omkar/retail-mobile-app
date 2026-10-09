@@ -81,7 +81,7 @@ void main() {
       expect(orderStageFrom(9), OrderStage.cancelled);
       expect(orderStageFrom('Cancelled'), OrderStage.cancelled);
       expect(orderStageFrom(5), OrderStage.rejected);
-      expect(OrderStage.values.where((s) => s.isActive), [OrderStage.placed, OrderStage.packed, OrderStage.onTheWay]);
+      expect(OrderStage.values.where((s) => s.isActive), [OrderStage.awaitingPayment, OrderStage.placed, OrderStage.packed, OrderStage.onTheWay]);
     });
   });
 

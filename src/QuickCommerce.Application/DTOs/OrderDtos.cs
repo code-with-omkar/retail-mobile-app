@@ -36,7 +36,9 @@ public sealed record OrderResponse(
     string? ReceiverPhone = null,
     string? StoreName = null,
     string? StorePhone = null,
-    int? EstimatedDeliveryMinutes = null);
+    int? EstimatedDeliveryMinutes = null,
+    PaymentState PaymentStatus = PaymentState.NotRequired,
+    DateTime? PaymentExpiresAt = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,

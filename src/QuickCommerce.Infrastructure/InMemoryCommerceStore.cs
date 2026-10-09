@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -19,6 +19,8 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     public List<ProductVariant> Variants { get; } = [];
     public List<StoreVariantInventory> Inventory { get; } = [];
     public List<Cart> Carts { get; } = [];
+    public List<Payment> Payments { get; } = [];
+    public List<PaymentEvent> PaymentEvents { get; } = [];
     public List<Order> Orders { get; } = [];
     public object SyncRoot { get; } = new();
 
@@ -26,7 +28,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore
     {
         var scopedStores = Stores.Where(store => store.IsActive && store.OrganizationId == organizationId && (isApplicationAdmin || storeIds.Contains(store.Id))).ToArray();
         var scopedStoreIds = scopedStores.Select(store => store.Id).ToHashSet();
-        var scopedOrders = Orders.Where(order => scopedStoreIds.Contains(order.StoreId)).OrderByDescending(order => order.CreatedAt).ToArray();
+        var scopedOrders = Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && scopedStoreIds.Contains(order.StoreId)).OrderByDescending(order => order.CreatedAt).ToArray();
         var today = DateTime.UtcNow.Date;
         var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Confirmed, OrderStatus.OutForDelivery };
         var activeOrders = scopedOrders.Where(order => activeStatuses.Contains(order.Status)).Select(order => new ActiveOrderSummary(
@@ -146,13 +148,13 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
     public Task<IReadOnlyList<StoreVariantInventory>> GetVariantInventoryAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<StoreVariantInventory>>(Inventory.ToArray());
 
-    public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.ToArray());
+    public Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment).ToArray());
 
-    public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
+    public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
 
-    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
+    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
 
-    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id));
+    public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id && order.Status != OrderStatus.AwaitingPayment));
 
     public Task<IReadOnlyList<Order>> GetCustomerOrdersAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders
         .Where(order => order.UserId == userId && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId))
@@ -318,11 +320,20 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 DeliveryFee = price.DeliveryFee,
                 HandlingFee = price.HandlingFee,
                 TotalAmount = price.Total,
-                PaymentMethod = PaymentMethods.CashOnDelivery,
+                PaymentMethod = commit.PaymentMethod,
+                Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
+                PaymentStatus = commit.PaymentMethod == PaymentMethods.Online ? PaymentState.Created : PaymentState.NotRequired,
+                PaymentExpiresAt = commit.PaymentMethod == PaymentMethods.Online ? commit.PaymentExpiresAt : null,
                 Items = orderItems
             };
-            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
+            // An online order waits for its payment, holding its items; the shop sees it only once it is paid.
+            order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
             Orders.Add(order);
+            if (order.Status == OrderStatus.AwaitingPayment)
+            {
+                Payments.Add(new Payment { OrderId = order.Id, AmountPaise = PaymentTransitions.ToPaise(order.TotalAmount) });
+            }
+
             if (commit.IdempotencyKey is not null)
             {
                 CheckoutRequests.Add(new CheckoutRequestRecord { CustomerId = customerId, IdempotencyKey = commit.IdempotencyKey, RequestHash = commit.RequestHash!, OrderId = order.Id });
@@ -355,6 +366,11 @@ public sealed class InMemoryCommerceStore : ICommerceStore
 
             order.Status = targetStatus;
             order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
+            if (targetStatus == OrderStatus.Rejected)
+            {
+                EndPayment(order, wasAwaitingPayment: false);
+            }
+
             var customer = Customers.FirstOrDefault(customer => customer.UserId == order.UserId);
             if (customer is not null)
             {
@@ -406,7 +422,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore
         order.PaymentMethod,
         order.ReceiverName,
         order.ReceiverPhone,
-        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
+        PaymentStatus: order.PaymentStatus,
+        PaymentExpiresAt: order.PaymentExpiresAt);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
@@ -441,13 +459,15 @@ public sealed class InMemoryCommerceStore : ICommerceStore
                 return Task.FromResult(new CancelCommitResult(CancelCommitStatus.AlreadyCancelled, MapOrder(order)));
             }
 
-            if (order.Status != OrderStatus.Pending)
+            if (order.Status is not (OrderStatus.Pending or OrderStatus.AwaitingPayment))
             {
                 return Task.FromResult(new CancelCommitResult(CancelCommitStatus.NotCancellable, CurrentStatus: order.Status));
             }
 
+            var wasAwaitingPayment = order.Status == OrderStatus.AwaitingPayment;
             order.Status = OrderStatus.Cancelled;
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            EndPayment(order, wasAwaitingPayment);
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
             {
                 var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
@@ -464,6 +484,236 @@ public sealed class InMemoryCommerceStore : ICommerceStore
             }
 
             return Task.FromResult(new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order)));
+        }
+    }
+
+    // ---------------- payments ----------------
+
+    private void EndPayment(Order order, bool wasAwaitingPayment)
+    {
+        var payment = Payments.FirstOrDefault(item => item.OrderId == order.Id);
+        var now = DateTime.UtcNow;
+        if (wasAwaitingPayment)
+        {
+            order.PaymentStatus = PaymentState.Failed;
+            if (payment is not null && payment.Status is PaymentState.Created or PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Failed;
+                payment.FailureReason = "Cancelled";
+                payment.UpdatedAt = now;
+            }
+
+            return;
+        }
+
+        PaymentTransitions.QueueRefundIfPaid(order, payment, now);
+    }
+
+    private void ReturnStock(Order order)
+    {
+        foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+        {
+            var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+            if (row is not null)
+            {
+                row.AvailableQuantity += line.Sum(item => item.Quantity);
+            }
+        }
+    }
+
+    private void NotePayment(Order order, NoteText? note)
+    {
+        var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
+        if (note is not null && customer is not null)
+        {
+            Notifications.Add(new Notification { CustomerId = customer.Id, OrderId = order.Id, Type = "PaymentUpdate", Title = note.Title, Message = note.Message });
+        }
+    }
+
+    public Task<PaymentOrderView?> GetOrderAsync(Guid orderId, Guid userId, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.UserId == userId && Stores.Any(store => store.Id == item.StoreId && store.OrganizationId == organizationId));
+            return Task.FromResult(order is null ? null : new PaymentOrderView(order.Id, order.OrderNumber, order.Status, order.PaymentMethod, order.PaymentStatus, order.TotalAmount, order.PaymentExpiresAt));
+        }
+    }
+
+    public Task<Payment?> GetPaymentAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Payments.FirstOrDefault(item => item.OrderId == orderId));
+        }
+    }
+
+    public Task<Payment?> BeginAttemptAsync(Guid orderId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId);
+            var payment = Payments.FirstOrDefault(item => item.OrderId == orderId);
+            if (order is null || payment is null || order.Status != OrderStatus.AwaitingPayment)
+            {
+                return Task.FromResult<Payment?>(null);
+            }
+
+            payment.Attempts++;
+            payment.UpdatedAt = now;
+            if (payment.Status == PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Created;
+                order.PaymentStatus = PaymentState.Created;
+            }
+
+            return Task.FromResult<Payment?>(payment);
+        }
+    }
+
+    public Task<bool> AttachProviderOrderAsync(Guid paymentId, string providerOrderId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            if (payment.ProviderOrderId is not null)
+            {
+                return Task.FromResult(false);
+            }
+
+            payment.ProviderOrderId = providerOrderId;
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<CapturedOutcome> ApplyCapturedAsync(string providerOrderId, string providerPaymentId, long paidPaise, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (payment is null)
+            {
+                return Task.FromResult(CapturedOutcome.UnknownPayment);
+            }
+
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            var result = PaymentTransitions.ApplyCaptured(order, payment, providerPaymentId, paidPaise, now);
+            NotePayment(order, result.Note);
+            return Task.FromResult(result.Outcome);
+        }
+    }
+
+    public Task<bool> ApplyFailedAsync(string providerOrderId, string? providerPaymentId, string reason, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (payment is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            PaymentTransitions.ApplyFailed(Orders.Single(item => item.Id == payment.OrderId), payment, providerPaymentId, reason, now);
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<Guid>> ReleaseExpiredAsync(DateTime now, int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var released = new List<Guid>();
+            foreach (var order in Orders.Where(item => item.Status == OrderStatus.AwaitingPayment && item.PaymentExpiresAt <= now).Take(max).ToArray())
+            {
+                var note = PaymentTransitions.ExpireHold(order, Payments.FirstOrDefault(item => item.OrderId == order.Id), now);
+                ReturnStock(order);
+                NotePayment(order, note);
+                released.Add(order.Id);
+            }
+
+            return Task.FromResult<IReadOnlyList<Guid>>(released);
+        }
+    }
+
+    public Task<IReadOnlyList<Payment>> GetRefundsToStartAsync(int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Payment>>(Payments.Where(item => item.Status == PaymentState.Refunding && item.RefundId is null).Take(max).ToArray());
+        }
+    }
+
+    public Task SetRefundStartedAsync(Guid paymentId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            payment.RefundId = refundId;
+            payment.UpdatedAt = now;
+            if (processed)
+            {
+                NotePayment(order, PaymentTransitions.ApplyRefundResult(order, payment, refundId, true, now));
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task SetRefundFailedAsync(Guid paymentId, string reason, bool permanent, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.First(item => item.Id == paymentId);
+            payment.FailureReason = reason.Length <= 200 ? reason : reason[..200];
+            payment.UpdatedAt = now;
+            if (permanent)
+            {
+                payment.Status = PaymentState.RefundFailed;
+                Orders.Single(item => item.Id == payment.OrderId).PaymentStatus = PaymentState.RefundFailed;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    public Task<bool> ApplyRefundResultAsync(string providerPaymentId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = Payments.FirstOrDefault(item => item.ProviderPaymentId == providerPaymentId);
+            if (payment is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            var order = Orders.Single(item => item.Id == payment.OrderId);
+            NotePayment(order, PaymentTransitions.ApplyRefundResult(order, payment, refundId, processed, now));
+            return Task.FromResult(true);
+        }
+    }
+
+    public Task<IReadOnlyList<Payment>> GetUnsettledAsync(DateTime olderThan, int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Payment>>(Payments
+                .Where(item => item.UpdatedAt < olderThan && item.CreatedAt > olderThan.AddDays(-7) &&
+                    ((item.Status is PaymentState.Created or PaymentState.Failed && item.ProviderOrderId is not null) || (item.Status == PaymentState.Refunding && item.RefundId is not null)))
+                .Take(max).ToArray());
+        }
+    }
+
+    public Task<bool> TryRecordEventAsync(string provider, string eventId, string type, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            if (PaymentEvents.Any(item => item.Provider == provider && item.EventId == eventId))
+            {
+                return Task.FromResult(false);
+            }
+
+            PaymentEvents.Add(new PaymentEvent { Provider = provider, EventId = eventId, Type = type, ReceivedAt = now });
+            return Task.FromResult(true);
         }
     }
 

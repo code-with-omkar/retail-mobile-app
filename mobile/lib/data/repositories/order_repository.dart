@@ -13,7 +13,10 @@ abstract interface class OrderRepository {
   /// attempt made instead of a second one. Use a new key for each new attempt to order.
   ///
   /// A [ConflictException] with a `reason` says why the order cannot be placed (see [CheckoutReasons]).
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place});
+  ///
+  /// [online] asks to pay now through the payment provider: the order then comes back [OrderStage.awaitingPayment] and must be paid
+  /// (see PaymentRepository) before the store sees it. The default is cash on delivery.
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false});
 
   /// The customer's orders, newest first.
   Future<List<Order>> list();
@@ -31,12 +34,15 @@ class ApiOrderRepository implements OrderRepository {
   final ApiClient _api;
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place}) {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false}) {
     assert(addressId != null || place != null, 'Delivery needs a saved address or a place');
     return _api.post(
       '/api/checkout/$storeId',
       headers: {'Idempotency-Key': idempotencyKey},
-      body: addressId != null ? {'addressId': addressId} : {'deliveryAddress': place!.line, 'latitude': place.latitude, 'longitude': place.longitude},
+      body: {
+        ...(addressId != null ? {'addressId': addressId} : {'deliveryAddress': place!.line, 'latitude': place.latitude, 'longitude': place.longitude}),
+        if (online) 'paymentMethod': 'Online',
+      },
       parse: (d) => orderFromJson(asObject(d)),
     );
   }
@@ -60,7 +66,8 @@ class LocalOrderRepository implements OrderRepository {
   final LocalShop _shop;
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place}) async {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false}) async {
+    if (online) throw const ConflictException('Online payment is not available', statusCode: 409, reason: 'PaymentsUnavailable');
     if (_shop.cart() == null) throw const ConflictException('Cart is empty', statusCode: 409, reason: CheckoutReasons.cartEmpty);
     return _shop.placeOrder(address: place?.line ?? 'Saved address');
   }

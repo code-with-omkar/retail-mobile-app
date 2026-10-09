@@ -13,6 +13,7 @@ import '../auth/auth_widgets.dart';
 import 'orders_controller.dart';
 
 String stageLabel(BuildContext context, OrderStage s) => context.tr(switch (s) {
+      OrderStage.awaitingPayment => 'Awaiting payment',
       OrderStage.placed => 'Order placed',
       OrderStage.packed => 'Packed',
       OrderStage.onTheWay => 'Out for delivery',

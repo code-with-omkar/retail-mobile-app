@@ -14,10 +14,14 @@ public sealed partial class CheckoutService(
     IValidator<CheckoutRequest> validator,
     PricingSettings? pricingSettings = null,
     IAddressStore? addresses = null,
-    IDeliveryEstimator? deliveryEstimator = null) : ICheckoutService
+    IDeliveryEstimator? deliveryEstimator = null,
+    PaymentSettings? paymentSettings = null,
+    TimeProvider? timeProvider = null) : ICheckoutService
 {
     private const int MaxDeliveryAddressLength = 500;
     private readonly PricingSettings pricing = pricingSettings ?? new PricingSettings();
+    private readonly PaymentSettings payments = paymentSettings ?? new PaymentSettings();
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
     [GeneratedRegex("^[A-Za-z0-9_-]{8,64}$")]
     private static partial Regex KeyPattern();
@@ -28,6 +32,17 @@ public sealed partial class CheckoutService(
         if (!validation.IsValid)
         {
             return CheckoutOperationResult.Invalid(string.Join("; ", validation.Errors.Select(error => error.ErrorMessage)));
+        }
+
+        var method = request.PaymentMethod ?? PaymentMethods.CashOnDelivery;
+        if (method is not (PaymentMethods.CashOnDelivery or PaymentMethods.Online))
+        {
+            return CheckoutOperationResult.Invalid("The payment method must be CashOnDelivery or Online.");
+        }
+
+        if (method == PaymentMethods.Online && !payments.Enabled)
+        {
+            return CheckoutOperationResult.Conflict("Online payment is not available right now.", CheckoutReasons.PaymentsUnavailable);
         }
 
         if (idempotencyKey is not null && !KeyPattern().IsMatch(idempotencyKey))
@@ -62,7 +77,7 @@ public sealed partial class CheckoutService(
 
         // The estimate the customer is given now stays on the order, whatever the store's estimate becomes later.
         int? estimate = deliveryEstimator is null ? null : deliveryEstimator.EstimateMinutes(StoreSelectionService.DistanceKm(delivery.Latitude, delivery.Longitude, store.Latitude, store.Longitude));
-        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery), estimate);
+        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null);
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, commit, cancellationToken);
         return result.Status switch
         {
@@ -105,9 +120,9 @@ public sealed partial class CheckoutService(
     }
 
     /// <summary>The same store and place always give the same hash, so a retry matches and a different order does not.</summary>
-    private static string HashOf(Guid storeId, CheckoutDelivery delivery)
+    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method)
     {
         var where = delivery.AddressId is { } id ? id.ToString("N") : $"{delivery.Address}|{delivery.Latitude:F5}|{delivery.Longitude:F5}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}")));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}")));
     }
 }

@@ -91,5 +91,7 @@ public sealed class CustomerOrderService(
         order.PaymentMethod,
         order.ReceiverName,
         order.ReceiverPhone,
-        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
+        PaymentStatus: order.PaymentStatus,
+        PaymentExpiresAt: order.PaymentExpiresAt);
 }

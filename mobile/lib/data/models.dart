@@ -145,6 +145,8 @@ class NearestStore {
 
 /// How the shop has got on with an order.
 enum OrderStage {
+  /// An online order waiting for its payment: the items are held for a short while, and the shop has not seen it yet.
+  awaitingPayment,
   placed,
   packed,
   onTheWay,
@@ -157,7 +159,18 @@ enum OrderStage {
   cancelled;
 
   /// Still on its way to being delivered, so its status can still change.
-  bool get isActive => this == placed || this == packed || this == onTheWay;
+  bool get isActive => this == awaitingPayment || this == placed || this == packed || this == onTheWay;
+}
+
+/// Where the payment of an order stands. Cash on delivery orders are [notRequired].
+enum PaymentState {
+  notRequired,
+  created,
+  failed,
+  paid,
+  refunding,
+  refunded,
+  refundFailed,
 }
 
 /// One line of a placed order, as it was when the order was placed: later price or name changes never touch it.
@@ -194,6 +207,8 @@ class Order {
     this.storeName,
     this.storePhone,
     this.estimatedMinutes,
+    this.paymentState = PaymentState.notRequired,
+    this.paymentExpiresAt,
   });
 
   /// The server's id (used in routes). [number] is what the customer sees and quotes.
@@ -210,11 +225,24 @@ class Order {
   /// The arrival estimate given when the order was placed; null for orders placed before it was kept.
   final int? estimatedMinutes;
 
+  /// For online orders: how the payment stands, and until when the items are held while it is unpaid.
+  final PaymentState paymentState;
+  final DateTime? paymentExpiresAt;
+
+  bool get isOnline => payment == 'Online';
+
+  /// A copy with another payment state (and status), for example once an online order is paid.
+  Order withPayment({required OrderStage stage, required PaymentState state}) => Order(
+        id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
+        placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
+        storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
+      );
+
   /// A copy with another status (used when the customer cancels, before the next read).
   Order withStage(OrderStage next) => Order(
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
-        storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes,
+        storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);

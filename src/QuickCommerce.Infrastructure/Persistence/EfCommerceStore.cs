@@ -21,7 +21,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         var totalStores = isApplicationAdmin
             ? await organizationStores.CountAsync(cancellationToken)
             : await organizationStores.CountAsync(store => storeIds.Contains(store.Id), cancellationToken);
-        var orders = db.Orders.AsNoTracking().Where(order => scopedStoreIds.Contains(order.StoreId));
+        var orders = db.Orders.AsNoTracking().Where(order => scopedStoreIds.Contains(order.StoreId) && order.Status != OrderStatus.AwaitingPayment);
         var today = DateTime.UtcNow.Date;
         var activeStatuses = new[] { OrderStatus.Pending, OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Confirmed, OrderStatus.OutForDelivery };
 
@@ -145,6 +145,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public async Task<IReadOnlyList<Order>> GetOrdersAsync(CancellationToken cancellationToken = default) => await db.Orders
         .AsNoTracking()
+        .Where(order => order.Status != OrderStatus.AwaitingPayment) // unpaid online orders are not the shop's yet
         .Include(order => order.Items)
         .Include(order => order.StatusHistory)
         .ToListAsync(cancellationToken);
@@ -152,7 +153,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
     public async Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
     {
         var query = db.Orders.AsNoTracking()
-            .Where(order => db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
+            .Where(order => order.Status != OrderStatus.AwaitingPayment && db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
         if (!isApplicationAdmin)
         {
             query = query.Where(order => storeIds.Contains(order.StoreId));
@@ -164,6 +165,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
     public async Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default)
     {
         var query = db.Orders.AsNoTracking()
+            .Where(order => order.Status != OrderStatus.AwaitingPayment)
             .Join(db.Users.AsNoTracking(), order => order.UserId, user => user.Id, (order, user) => new { order, customer = user.DisplayName })
             .Join(db.Stores.AsNoTracking().Where(store => store.OrganizationId == organizationId && store.IsActive), row => row.order.StoreId, store => store.Id, (row, store) => new { row.order, row.customer, store });
         if (!isApplicationAdmin)
@@ -176,6 +178,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
         .AsNoTracking()
+        .Where(order => order.Status != OrderStatus.AwaitingPayment)
         .Include(order => order.Items)
         .Include(order => order.StatusHistory)
         .FirstOrDefaultAsync(order => order.Id == id, cancellationToken);
@@ -392,12 +395,22 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 DeliveryFee = price.DeliveryFee,
                 HandlingFee = price.HandlingFee,
                 TotalAmount = price.Total,
-                PaymentMethod = PaymentMethods.CashOnDelivery,
+                PaymentMethod = commit.PaymentMethod,
+                Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
+                PaymentStatus = commit.PaymentMethod == PaymentMethods.Online ? PaymentState.Created : PaymentState.NotRequired,
+                PaymentExpiresAt = commit.PaymentMethod == PaymentMethods.Online ? commit.PaymentExpiresAt : null,
                 Items = orderItems
             };
-            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
+            // An online order waits for its payment, holding its items; the shop sees it only once it is paid.
+            order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
 
             db.Orders.Add(order);
+            if (order.Status == OrderStatus.AwaitingPayment)
+            {
+                // The amount is the one worked out here, in the same transaction as the order. The app never sends an amount.
+                db.Payments.Add(new Payment { OrderId = order.Id, AmountPaise = PaymentTransitions.ToPaise(order.TotalAmount), CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+            }
+
             if (commit.IdempotencyKey is not null)
             {
                 // Same transaction as the order: either both exist or neither does.
@@ -429,6 +442,30 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             await transaction.RollbackAsync(cancellationToken);
             return new CheckoutCommitResult(CheckoutCommitStatus.InventoryConflict);
         }
+    }
+
+    /// <summary>
+    /// The order has ended (the customer cancelled it, or the shop declined it). One that was still awaiting payment can no longer be paid; one that was paid
+    /// is queued for a full refund, which the refund job makes with the provider. Part of the same transaction as the status change.
+    /// </summary>
+    private async Task EndPaymentAsync(Order order, bool wasAwaitingPayment, CancellationToken cancellationToken)
+    {
+        var payment = await db.Payments.SingleOrDefaultAsync(item => item.OrderId == order.Id, cancellationToken);
+        var now = DateTime.UtcNow;
+        if (wasAwaitingPayment)
+        {
+            order.PaymentStatus = PaymentState.Failed;
+            if (payment is not null && payment.Status is PaymentState.Created or PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Failed;
+                payment.FailureReason = "Cancelled";
+                payment.UpdatedAt = now;
+            }
+
+            return;
+        }
+
+        PaymentTransitions.QueueRefundIfPaid(order, payment, now);
     }
 
     private Task LockCheckoutAsync(Guid customerId, CancellationToken cancellationToken) => db.Database.ExecuteSqlInterpolatedAsync($@"
@@ -485,6 +522,11 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
 
         order.Status = targetStatus;
         order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
+        if (targetStatus == OrderStatus.Rejected)
+        {
+            // A paid order the shop declines is refunded in full.
+            await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+        }
         var customerId = await db.Customers
             .Where(customer => customer.UserId == order.UserId)
             .Select(customer => (Guid?)customer.Id)
@@ -574,7 +616,9 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         order.PaymentMethod,
         order.ReceiverName,
         order.ReceiverPhone,
-        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
+        PaymentStatus: order.PaymentStatus,
+        PaymentExpiresAt: order.PaymentExpiresAt);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);
@@ -621,14 +665,16 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
                 return new CancelCommitResult(CancelCommitStatus.AlreadyCancelled, MapOrder(order));
             }
 
-            if (order.Status != OrderStatus.Pending)
+            if (order.Status is not (OrderStatus.Pending or OrderStatus.AwaitingPayment))
             {
                 await transaction.RollbackAsync(cancellationToken);
                 return new CancelCommitResult(CancelCommitStatus.NotCancellable, CurrentStatus: order.Status);
             }
 
+            var wasAwaitingPayment = order.Status == OrderStatus.AwaitingPayment;
             order.Status = OrderStatus.Cancelled;
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            await EndPaymentAsync(order, wasAwaitingPayment, cancellationToken);
 
             // The stock the order took goes back to the store, line by line. Orders from before packs existed have no variant and took none from here.
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))

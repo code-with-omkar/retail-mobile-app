@@ -18,6 +18,10 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.ReceiverName).HasMaxLength(120);
         builder.Property(order => order.ReceiverPhone).HasMaxLength(20);
         builder.Property(order => order.EstimatedDeliveryMinutes);
+        builder.Property(order => order.PaymentStatus).HasConversion<string>().HasMaxLength(20).IsRequired().HasDefaultValue(PaymentState.NotRequired);
+        builder.Property(order => order.PaymentExpiresAt).HasColumnType("datetime2");
+        // The job that releases held items looks for these.
+        builder.HasIndex(order => order.PaymentExpiresAt).HasFilter("[PaymentExpiresAt] IS NOT NULL").HasDatabaseName("IX_Orders_PaymentExpiresAt");
         builder.Property(order => order.DeliveryAddress).HasMaxLength(500).IsRequired();
         builder.Property(order => order.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(order => order.CreatedAt).HasColumnType("datetime2").IsRequired();

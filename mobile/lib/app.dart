@@ -22,6 +22,7 @@ import 'features/home/home_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/orders/order_detail_screen.dart';
 import 'features/orders/orders_screen.dart';
+import 'features/payment/pay_screen.dart';
 import 'features/product/product_screen.dart';
 import 'features/profile/account_screens.dart';
 import 'features/profile/profile_screen.dart';
@@ -70,6 +71,7 @@ GoRouter createRouter({AuthState Function()? auth, Listenable? refresh}) => GoRo
         GoRoute(path: '/addresses/new', builder: (_, s) => AddressEditorScreen(args: s.extra as AddressEditorArgs?)),
         GoRoute(path: '/addresses/:id/edit', builder: (_, s) => _EditAddressRoute(s.pathParameters['id']!, s.extra as AddressEditorArgs?)),
         GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
+        GoRoute(path: '/pay/:id', builder: (_, s) => PayScreen(s.pathParameters['id']!, auto: s.uri.queryParameters['auto'] == '1')),
         GoRoute(path: '/order-success/:id', builder: (_, s) => OrderSuccessScreen(s.pathParameters['id']!)),
         GoRoute(path: '/order/:id', builder: (_, s) => OrderDetailScreen(s.pathParameters['id']!)),
       ],

@@ -45,7 +45,7 @@ class OrderSuccessScreen extends ConsumerWidget {
             }),
             if (mine != null) ...[
               const SizedBox(height: 6),
-              Text(context.tr('Pay {amt} in cash on delivery.', {'amt': rupees(mine.total)}), textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w800)),
+              Text(mine.isOnline ? context.tr('Paid {amt} online.', {'amt': rupees(mine.total)}) : context.tr('Pay {amt} in cash on delivery.', {'amt': rupees(mine.total)}), textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w800)),
             ],
             const Spacer(),
             PillButton(context.tr('Track order'), arrow: true, onPressed: () {
@@ -105,7 +105,7 @@ class _DetailState extends ConsumerState<_Detail> {
       context: context,
       builder: (dialog) => AlertDialog(
         title: Text(dialog.tr('Cancel this order?')),
-        content: Text(dialog.tr('The store has not accepted it yet. If you cancel, nothing is charged and the items go back to the store.')),
+        content: Text(dialog.tr(order.paymentState == PaymentState.paid ? 'The store has not accepted it yet. If you cancel, the items go back to the store and your payment is refunded to the original payment method.' : order.stage == OrderStage.awaitingPayment ? 'You have not paid yet, so nothing is charged. The items go back to the store.' : 'The store has not accepted it yet. If you cancel, nothing is charged and the items go back to the store.')),
         actions: [
           TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(dialog.tr('Keep order'))),
           TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(dialog.tr('Cancel order'))),
@@ -201,7 +201,46 @@ class _DetailState extends ConsumerState<_Detail> {
             ),
             const SizedBox(height: 12),
           ],
-          Surface(child: _Timeline(order.stage)),
+          if (order.stage == OrderStage.awaitingPayment)
+            Surface(
+              color: Pal.yellow,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.payments_outlined, color: Pal.ink),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(context.tr('Payment pending. The store will see your order once it is paid.'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, height: 1.3))),
+                ]),
+                const SizedBox(height: 12),
+                PillButton('${context.tr('Pay now')} · ${rupees(order.total)}', height: 52, onPressed: () => context.push('/pay/${order.id}')),
+              ]),
+            )
+          else
+            Surface(child: _Timeline(order.stage)),
+          if (order.isOnline && order.paymentState != PaymentState.notRequired && order.paymentState != PaymentState.created) ...[
+            const SizedBox(height: 12),
+            Surface(
+              color: switch (order.paymentState) {
+                PaymentState.refundFailed || PaymentState.failed => Pal.pink,
+                _ => null,
+              },
+              child: Row(children: [
+                Icon(switch (order.paymentState) { PaymentState.paid => Icons.check_circle_outline, PaymentState.refunded => Icons.undo, PaymentState.refunding => Icons.hourglass_top, _ => Icons.error_outline }, color: (order.paymentState == PaymentState.refundFailed || order.paymentState == PaymentState.failed) ? Colors.white : p.onCard),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.tr(switch (order.paymentState) {
+                      PaymentState.paid => 'Payment received',
+                      PaymentState.refunding => 'Your refund is on its way to your original payment method.',
+                      PaymentState.refunded => 'Your payment was refunded to your original payment method.',
+                      PaymentState.refundFailed => 'We could not refund your payment automatically. Please contact the store.',
+                      _ => 'Payment not completed',
+                    }),
+                    style: TextStyle(color: (order.paymentState == PaymentState.refundFailed || order.paymentState == PaymentState.failed) ? Colors.white : p.onCard, fontWeight: FontWeight.w800, height: 1.3),
+                  ),
+                ),
+              ]),
+            ),
+          ],
           if (failing && order.stage.isActive)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(height: 16),
@@ -238,7 +277,7 @@ class _DetailState extends ConsumerState<_Detail> {
               BillRow(context.tr('Delivery fee'), order.deliveryFee == 0 ? context.tr('FREE') : rupees(order.deliveryFee), accent: order.deliveryFee == 0),
               BillRow(context.tr('Handling fee'), rupees(order.handlingFee)),
               Divider(color: p.border),
-              BillRow(context.tr('Payment'), context.tr(order.payment == 'CashOnDelivery' ? 'Cash on delivery' : order.payment)),
+              BillRow(context.tr('Payment'), context.tr(order.payment == 'CashOnDelivery' ? 'Cash on delivery' : order.isOnline ? 'Online payment' : order.payment)),
               BillRow(context.tr('Total'), rupees(order.total), bold: true),
             ]),
           ),
@@ -260,7 +299,7 @@ class _DetailState extends ConsumerState<_Detail> {
           ),
           const SizedBox(height: 16),
           // Only while the store has not accepted it.
-          if (order.stage == OrderStage.placed) ...[
+          if (order.stage == OrderStage.placed || order.stage == OrderStage.awaitingPayment) ...[
             SoftPillButton(_cancelling ? context.tr('Cancelling…') : context.tr('Cancel order'), height: 60, onPressed: () {
               if (!_cancelling) _cancel();
             }),

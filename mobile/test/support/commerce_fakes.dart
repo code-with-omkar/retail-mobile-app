@@ -169,7 +169,7 @@ class FakeCartRepository implements CartRepository {
 /// Orders in memory. Records each attempt (key, store, delivery) and fails or answers as told.
 class FakeOrderRepository implements OrderRepository {
   final orders = <Order>[];
-  final attempts = <({String storeId, String key, String? addressId, DeliveryPlace? place})>[];
+  final attempts = <({String storeId, String key, String? addressId, DeliveryPlace? place, bool online})>[];
 
   /// The next calls to [place] throw these, one each, in order.
   final failures = <Object>[];
@@ -187,8 +187,8 @@ class FakeOrderRepository implements OrderRepository {
   final _byKey = <String, Order>{};
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place}) async {
-    attempts.add((storeId: storeId, key: idempotencyKey, addressId: addressId, place: place));
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false}) async {
+    attempts.add((storeId: storeId, key: idempotencyKey, addressId: addressId, place: place, online: online));
     if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (_byKey[idempotencyKey] case final known?) return known;
     if (failures.isNotEmpty) throw failures.removeAt(0);
@@ -203,9 +203,11 @@ class FakeOrderRepository implements OrderRepository {
       handlingFee: 5,
       total: 58,
       placedAt: DateTime(2026, 10, 9, 18, 30),
-      stage: OrderStage.placed,
+      stage: online ? OrderStage.awaitingPayment : OrderStage.placed,
       address: addressId == null ? place!.line : 'Flat 4, 12 Marine Drive, Mumbai',
-      payment: 'CashOnDelivery',
+      payment: online ? 'Online' : 'CashOnDelivery',
+      paymentState: online ? PaymentState.created : PaymentState.notRequired,
+      paymentExpiresAt: online ? DateTime.now().add(const Duration(minutes: 15)) : null,
       receiverName: addressId == null ? null : 'Asha Patil',
       receiverPhone: addressId == null ? null : '9876543210',
     );

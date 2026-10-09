@@ -10,10 +10,12 @@ import '../../core/widgets.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../address/address_controller.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_problems.dart';
 import '../orders/orders_controller.dart';
+import '../payment/payment_controller.dart';
 
 /// A fresh name for one attempt to order. The server returns the same order for the same name, which is what makes a retry or a
 /// double tap safe, so the screen keeps it until the attempt has a definite answer.
@@ -29,6 +31,9 @@ enum _Failure {
   cartEmpty,
   outsideArea,
 
+  /// Online payment was chosen but is switched off or unreachable: cash on delivery still works.
+  paymentsOff,
+
   /// No answer: the order may or may not exist.
   unconfirmed,
   other,
@@ -43,6 +48,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _key;
   bool _busy = false;
+  bool _online = false;
   _Failure? _failure;
 
   @override
@@ -66,12 +72,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final storeId = ref.read(serverCartProvider)?.storeId ?? (await ref.read(selectedStoreProvider.future))?.id;
       if (storeId == null) throw const ConflictException('No store', statusCode: 409, reason: 'OutsideServiceArea');
       _key ??= newIdempotencyKey();
-      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place);
+      final online = _online && (ref.read(paymentOptionsProvider).value?.online ?? false);
+      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online);
       _key = null;
       ref.read(lastPlacedOrderProvider.notifier).set(order);
       ref.read(ordersProvider.notifier).placed(order);
       cart.orderPlaced();
-      if (mounted) context.go('/order-success/${order.id}');
+      // An online order is not placed until it is paid: on to the payment, with the provider's screen opening at once.
+      if (mounted) context.go(order.stage == OrderStage.awaitingPayment ? '/pay/${order.id}?auto=1' : '/order-success/${order.id}');
     } on ConflictException catch (e) {
       // A definite "no": the next attempt is a new one.
       _key = null;
@@ -103,6 +111,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (mounted) setState(() => _failure = _Failure.cartEmpty);
       case ServiceabilityReasons.outsideServiceArea:
         if (mounted) setState(() => _failure = _Failure.outsideArea);
+      case PaymentReasons.unavailable:
+        if (mounted) {
+          setState(() {
+            _online = false;
+            _failure = _Failure.paymentsOff;
+          });
+        }
       default:
         if (mounted) setState(() => _failure = _Failure.other);
     }
@@ -116,6 +131,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _Failure.cartEmpty => ('Your cart is empty. If you already placed this order, you will find it in Your orders.', 'View your orders', () => context.go('/orders')),
       _Failure.outsideArea => ('We do not deliver to this address yet. Choose another address to place your order.', 'Choose another address', () => context.push('/addresses')),
       _Failure.unconfirmed => ('We could not confirm your order. Check Your orders before trying again; if it is not there, tap Place order again.', 'View your orders', () => context.go('/orders')),
+      _Failure.paymentsOff => ('Online payment is not available right now. You can pay cash on delivery instead.', null, null),
       _Failure.other => ('We could not place your order. Please try again.', null, null),
     };
     return Padding(
@@ -140,6 +156,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final place = ref.watch(deliveryPlaceProvider);
     final blocked = place == null || ref.watch(deliveryServiceableProvider) == false || t.hasProblems || _busy;
     final eta = ref.watch(selectedStoreProvider).value?.estimatedMinutes;
+    final offersOnline = ref.watch(paymentOptionsProvider).value?.online ?? false;
+    final online = _online && offersOnline;
     final p = context.pal;
     return AppScaffold(
       appBar: appTopBar(context, context.tr('Checkout')),
@@ -185,23 +203,23 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 24),
               Text(context.tr('Payment method'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
-              // Cash on delivery is the only way to pay until online payment arrives.
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rCard), border: Border.all(color: Pal.yellow, width: 2.5)),
-                child: Row(children: [
-                  Icon(Icons.payments_outlined, color: p.onCard),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(context.tr('Cash on delivery'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
-                      Text(context.tr('Pay with cash when your order arrives.'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                    ]),
-                  ),
-                  Icon(Icons.radio_button_checked, color: p.dark ? Pal.yellow : Pal.ink),
-                ]),
+              _MethodTile(
+                icon: Icons.payments_outlined,
+                title: context.tr('Cash on delivery'),
+                subtitle: context.tr('Pay with cash when your order arrives.'),
+                selected: !online,
+                onTap: () => setState(() => _online = false),
               ),
+              if (offersOnline) ...[
+                const SizedBox(height: 12),
+                _MethodTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: context.tr('Pay online'),
+                  subtitle: context.tr('UPI, card or net banking. Your items are held for {n} minutes while you pay.', {'n': '${ref.watch(paymentOptionsProvider).value?.holdMinutes ?? 15}'}),
+                  selected: online,
+                  onTap: () => setState(() => _online = true),
+                ),
+              ],
               const SizedBox(height: 24),
               Text(context.tr('Order summary'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
@@ -218,7 +236,45 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ]),
               ),
             ]),
-      bottom: t.isEmpty ? null : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton(_busy ? context.tr('Placing your order…') : '${context.tr('Place order')} · ${rupees(t.total)}', arrow: !_busy, onPressed: blocked ? null : _place))),
+      bottom: t.isEmpty ? null : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton(_busy ? context.tr('Placing your order…') : '${context.tr(online ? 'Pay online' : 'Place order')} · ${rupees(t.total)}', arrow: !_busy, onPressed: blocked ? null : _place))),
+    );
+  }
+}
+
+/// One way of paying, as a card the customer taps to choose.
+class _MethodTile extends StatelessWidget {
+  const _MethodTile({required this.icon, required this.title, required this.subtitle, required this.selected, required this.onTap});
+  final IconData icon;
+  final String title, subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(QC.rCard),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rCard), border: Border.all(color: selected ? Pal.yellow : p.border, width: 2.5)),
+          child: Row(children: [
+            Icon(icon, color: p.onCard),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+              ]),
+            ),
+            Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, color: selected ? (p.dark ? Pal.yellow : Pal.ink) : p.mutedOnCard),
+          ]),
+        ),
+      ),
     );
   }
 }

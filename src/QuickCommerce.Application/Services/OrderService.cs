@@ -116,5 +116,7 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
         order.PaymentMethod,
         order.ReceiverName,
         order.ReceiverPhone,
-        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes);
+        EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
+        PaymentStatus: order.PaymentStatus,
+        PaymentExpiresAt: order.PaymentExpiresAt);
 }

@@ -17,9 +17,9 @@ double _double(Map<String, dynamic> j, String key) {
 }
 
 /// The API sends the order status as a number (the enum's position) unless configured otherwise; accept both.
-/// Pending, Accepted, Preparing, Ready, Completed, Rejected, Confirmed, OutForDelivery, Delivered, Cancelled.
+/// Pending, Accepted, Preparing, Ready, Completed, Rejected, Confirmed, OutForDelivery, Delivered, Cancelled, AwaitingPayment.
 OrderStage orderStageFrom(Object? status) {
-  const names = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Completed', 'Rejected', 'Confirmed', 'OutForDelivery', 'Delivered', 'Cancelled'];
+  const names = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Completed', 'Rejected', 'Confirmed', 'OutForDelivery', 'Delivered', 'Cancelled', 'AwaitingPayment'];
   final name = status is num ? (status.toInt() >= 0 && status.toInt() < names.length ? names[status.toInt()] : null) : status as String?;
   return switch (name) {
     'Pending' => OrderStage.placed,
@@ -28,8 +28,16 @@ OrderStage orderStageFrom(Object? status) {
     'Completed' || 'Delivered' => OrderStage.delivered,
     'Rejected' => OrderStage.rejected,
     'Cancelled' => OrderStage.cancelled,
+    'AwaitingPayment' => OrderStage.awaitingPayment,
     _ => throw FormatException('Unknown order status "$status"'),
   };
+}
+
+/// NotRequired, Created, Failed, Paid, Refunding, Refunded, RefundFailed; a number or a name. Missing means cash on delivery.
+PaymentState paymentStateFrom(Object? value) {
+  if (value == null) return PaymentState.notRequired;
+  final name = value is num ? (value.toInt() >= 0 && value.toInt() < PaymentState.values.length ? PaymentState.values[value.toInt()].name : null) : (value as String).toLowerCase();
+  return PaymentState.values.where((s) => s.name.toLowerCase() == name?.toLowerCase()).firstOrNull ?? PaymentState.notRequired;
 }
 
 OrderLine orderLineFromJson(Map<String, dynamic> j) => OrderLine(
@@ -62,6 +70,8 @@ Order orderFromJson(Map<String, dynamic> j) {
     storeName: j['storeName'] as String?,
     storePhone: (j['storePhone'] as String?)?.trim().isEmpty == true ? null : j['storePhone'] as String?,
     estimatedMinutes: (j['estimatedDeliveryMinutes'] as num?)?.toInt(),
+    paymentState: paymentStateFrom(j['paymentStatus']),
+    paymentExpiresAt: j['paymentExpiresAt'] == null ? null : DateTime.parse(j['paymentExpiresAt'] as String).toLocal(),
   );
 }
 

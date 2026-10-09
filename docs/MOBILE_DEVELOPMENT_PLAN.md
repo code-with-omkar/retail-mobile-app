@@ -52,7 +52,7 @@ Full list with notes: the **Gaps and risks** tab in the dashboard.
 | # | Needed before | Question |
 | --- | --- | --- |
 | D7 | P8 | Approve extending authentication for OTP and social login. `copilot-instructions.md` requires confirmation before changing authentication. |
-| D9 | P7 | Payment provider. |
+| D9 | P7 | Payment provider: **Razorpay** (chosen 2026-10-09). |
 | D10 | P6 | Push notifications (FCM) in v1? It is a new external service. |
 | D11 | P9 | Crash reporting tool (Firebase Crashlytics or Sentry). |
 
