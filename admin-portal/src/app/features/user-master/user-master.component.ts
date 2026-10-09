@@ -4,7 +4,9 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonComponent } from '../../shared/components/button/button.component';
 import { InputComponent } from '../../shared/components/input/input.component';
 import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
-import { TableColumn, TableComponent } from '../../shared/components/table/table.component';
+import { LoadingComponent } from '../../shared/components/loading/loading.component';
+import { Accent, accentFor, initialsOf, roleAccent } from '../../shared/utils/palette';
+import { permissionGroup } from '../../shared/utils/palette';
 import { Organization, Permission, Role, StaffCategory, Store, User, UserStatus } from '../../core/models/domain.model';
 import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../core/services/user-master.service';
 
@@ -17,7 +19,7 @@ import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../c
     ButtonComponent,
     InputComponent,
     SelectComponent,
-    TableComponent,
+    LoadingComponent,
   ],
   templateUrl: './user-master.component.html',
   styleUrls: ['./user-master.component.css'],
@@ -135,20 +137,9 @@ export class UserMasterComponent implements OnInit {
     return this.filteredUsers().slice(start, end);
   });
 
-  readonly tableColumns = computed<TableColumn<User>[]>(() => [
-    { key: 'fullName', label: 'User', sortable: true, formatter: (_, row) => `${row.firstName} ${row.lastName}` },
-    { key: 'email', label: 'Email', sortable: true },
-    { key: 'organizationId', label: 'Organization', sortable: false, formatter: (_, row) => this.getOrganizationName(row.organizationId) },
-    { key: 'storeId', label: 'Store', sortable: false, formatter: (_, row) => this.getStoreName(row.storeId) },
-    { key: 'role', label: 'Role', sortable: true },
-    { key: 'status', label: 'Status', sortable: true, formatter: (value) => String(value) },
-    {
-      key: 'id',
-      label: 'Actions',
-      sortable: false,
-      formatter: (_, row) => `${row.status === UserStatus.Active ? 'Deactivate' : 'Activate'} / View / Edit`,
-    },
-  ]);
+  readonly activeCount = computed(() => this.users().filter(user => this.isActive(user)).length);
+  readonly inactiveCount = computed(() => this.users().length - this.activeCount());
+  readonly roleCount = computed(() => new Set(this.users().map(user => user.role)).size);
 
   form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.minLength(2)]],
@@ -178,6 +169,39 @@ export class UserMasterComponent implements OnInit {
 
   onPageChange(page: number): void {
     this.page.set(Math.min(Math.max(1, page), this.totalPages()));
+  }
+
+  sortHeader(key: string): void {
+    const sameKey = this.sortBy() === key;
+    this.onSortChange({ sortBy: key, sortOrder: sameKey && this.sortOrder() === 'asc' ? 'desc' : 'asc' });
+  }
+
+  sortMark(key: string): string {
+    return this.sortBy() === key ? (this.sortOrder() === 'asc' ? '▲' : '▼') : '';
+  }
+
+  isActive(user: User): boolean {
+    return user.status === UserStatus.Active;
+  }
+
+  initials(user: User): string {
+    return initialsOf(`${user.firstName} ${user.lastName}`);
+  }
+
+  avatarAccent(user: User): Accent {
+    return accentFor(user.email || user.id);
+  }
+
+  roleAccent(role: string): Accent {
+    return roleAccent(role);
+  }
+
+  roleLabel(code: string): string {
+    return this.roleDefinitions().find(role => role.code === code)?.name ?? code;
+  }
+
+  permAccent(permission: Permission): Accent {
+    return accentFor(permissionGroup(permission.code));
   }
 
   onSortChange(event: { sortBy: string; sortOrder: 'asc' | 'desc' }): void {
@@ -446,12 +470,12 @@ export class UserMasterComponent implements OnInit {
     control.updateValueAndValidity({ emitEvent: false });
   }
 
-  private getOrganizationName(organizationId: string): string {
+  getOrganizationName(organizationId: string): string {
     const organization = this.organizations().find(item => item.id === organizationId);
     return organization?.name ?? '—';
   }
 
-  private getStoreName(storeId?: string): string {
+  getStoreName(storeId?: string): string {
     if (!storeId) {
       return '—';
     }

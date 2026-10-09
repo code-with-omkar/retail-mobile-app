@@ -46,6 +46,7 @@ dependencies:
   geocoding: ^5.0.0
   url_launcher: ^6.3.3
   razorpay_flutter: ^1.4.7
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:

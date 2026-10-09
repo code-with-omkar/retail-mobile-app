@@ -62,54 +62,57 @@ import { ToastService } from '../../../shared/services/toast.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #172523 0%, #1a2b27 100%);
+      background: linear-gradient(145deg, #2A1BFF 0%, #6A11E8 50%, #B00699 100%);
       padding: 20px;
     }
 
     .login-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 40px;
+      background: transparent;
+      padding: 24px 8px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
 
     .login-header {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 36px;
     }
 
     .logo {
       display: grid;
       place-items: center;
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      background: #d8f16e;
-      color: #172523;
-      margin: 0 auto 16px;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: #FFD400;
+      color: #141118;
+      margin: 0 auto 18px;
       font-weight: 800;
-      font-size: 24px;
+      font-size: 26px;
+      font-family: 'Space Grotesk', sans-serif;
+      box-shadow: 0 8px 24px rgba(255,212,0,0.35);
     }
 
     h1 {
       margin: 0 0 8px;
       font-size: 22px;
-      font-family: Manrope, sans-serif;
-      color: #172523;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
     }
 
     h1 span {
-      color: #d8f16e;
+      color: #FFD400;
     }
 
     .login-header p {
       margin: 0;
-      color: #82908b;
-      font-size: 12px;
+      color: #E9E4FF;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
+      font-family: 'Inter', sans-serif;
     }
 
     .login-form {
@@ -122,14 +125,15 @@ import { ToastService } from '../../../shared/services/toast.service';
     .login-footer {
       text-align: center;
       padding-top: 24px;
-      border-top: 1px solid #e3eae5;
+      border-top: 1px solid rgba(255,255,255,0.25);
     }
 
     .demo-notice {
       margin: 0;
       font-size: 10px;
-      color: #99a39f;
+      color: #E9E4FF;
       line-height: 1.5;
+      font-family: 'Inter', sans-serif;
     }
   `],
 })

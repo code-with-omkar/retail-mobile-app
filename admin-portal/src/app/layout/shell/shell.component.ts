@@ -54,43 +54,76 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       height: 100vh;
       align-items: flex-start;
       display: flex;
-      background: #f6f8f5;
+      background: linear-gradient(165deg, #2A1BFF 0%, #6A11E8 45%, #B00699 100%);
       overflow: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: #34433f transparent;
     }
 
     .content {
       width: min(100%, 1440px);
       height: 100vh;
       min-height: 0;
-      padding: 38px 52px 56px;
+      padding: 38px 52px 56px 28px;
       margin: auto;
       flex: 1;
       overflow-y: auto;
       position: relative;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.3) transparent;
     }
 
-    .profile-menu { position: absolute; z-index: 2; top: 78px; right: 52px; display: grid; gap: 8px; min-width: 210px; padding: 16px; background: #fff; border: 1px solid #e5ebe6; border-radius: 8px; box-shadow: 0 10px 30px rgba(23,37,35,.12); }
-    .profile-menu span { color: #82908b; font-size: 11px; }
-    .profile-menu button { border: 0; background: transparent; padding: 6px 0; text-align: left; color: #49645b; cursor: pointer; }
+    .profile-menu {
+      position: absolute;
+      z-index: 100;
+      top: 78px;
+      right: 52px;
+      display: grid;
+      gap: 8px;
+      min-width: 220px;
+      padding: 18px;
+      background: var(--card-bg, #EAE4FF);
+      border-radius: 24px;
+      box-shadow: 0 12px 32px rgba(20,17,24,0.18);
+    }
+
+    .profile-menu strong {
+      color: var(--on-card, #141118);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .profile-menu span {
+      color: var(--on-card-muted, #5E5A66);
+      font-size: 11px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .profile-menu button {
+      border: 0;
+      background: transparent;
+      padding: 7px 0;
+      text-align: left;
+      color: var(--on-card, #141118);
+      cursor: pointer;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      transition: color 0.15s;
+    }
+
+    .profile-menu button:hover { color: #B0008A; }
+    .profile-menu button:last-child:hover { color: #FB1A8E; }
 
     @media (max-width: 1000px) {
-      .content {
-        padding: 30px 25px 45px;
-      }
+      .content { padding: 30px 25px 45px 16px; }
     }
 
     @media (max-width: 720px) {
-      .content {
-        padding: 24px 16px;
-      }
+      .content { padding: 24px 16px; }
     }
 
     @media (max-width: 460px) {
-      .content {
-        padding: 22px 13px;
-      }
+      .content { padding: 22px 13px; }
     }
   `],
 })
@@ -147,12 +180,10 @@ export class ShellComponent implements OnInit {
   }
 
   onSearch(): void {
-    // TODO: Implement search
     console.log('Search clicked');
   }
 
   onNotifications(): void {
-    // TODO: Navigate to notifications or open notification panel
     console.log('Notifications clicked');
   }
 

@@ -17,16 +17,16 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
       <app-error-state *ngIf="error() && !isLoading()" title="Unable to load dashboard" [message]="error() || ''" retryLabel="Retry" (onRetry)="loadData()"></app-error-state>
       <ng-container *ngIf="dashboard() as data">
         <section class="stats-grid">
-          <article class="stat-card"><span class="stat-icon mint">↗</span><div><p>Total orders</p><strong>{{ data.totalOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon gold">▦</span><div><p>Total products</p><strong>{{ data.totalProducts }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon blue">◎</span><div><p>Total customers</p><strong>{{ data.totalCustomers }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon rose">⌂</span><div><p>Active stores</p><strong>{{ data.activeStores }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon mint">◷</span><div><p>Today's orders</p><strong>{{ data.todaysOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon gold">●</span><div><p>Active orders</p><strong>{{ data.activeOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon blue">✓</span><div><p>Completed orders</p><strong>{{ data.completedOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon blue">◷</span><div><p>Pending orders</p><strong>{{ data.pendingOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon rose">×</span><div><p>Cancelled orders</p><strong>{{ data.cancelledOrders }}</strong></div></article>
-          <article class="stat-card"><span class="stat-icon rose">₹</span><div><p>Total sales</p><strong>{{ data.totalSales | currency:'INR':'symbol':'1.0-0' }}</strong></div></article>
+          <article class="stat-card yellow"><span class="stat-icon">↗</span><div><p>Total orders</p><strong>{{ data.totalOrders }}</strong></div></article>
+          <article class="stat-card green"><span class="stat-icon">▦</span><div><p>Total products</p><strong>{{ data.totalProducts }}</strong></div></article>
+          <article class="stat-card lavender"><span class="stat-icon">◎</span><div><p>Total customers</p><strong>{{ data.totalCustomers }}</strong></div></article>
+          <article class="stat-card pink"><span class="stat-icon">⌂</span><div><p>Active stores</p><strong>{{ data.activeStores }}</strong></div></article>
+          <article class="stat-card yellow"><span class="stat-icon">◷</span><div><p>Today's orders</p><strong>{{ data.todaysOrders }}</strong></div></article>
+          <article class="stat-card green"><span class="stat-icon">●</span><div><p>Active orders</p><strong>{{ data.activeOrders }}</strong></div></article>
+          <article class="stat-card lavender"><span class="stat-icon">✓</span><div><p>Completed orders</p><strong>{{ data.completedOrders }}</strong></div></article>
+          <article class="stat-card pink"><span class="stat-icon">◷</span><div><p>Pending orders</p><strong>{{ data.pendingOrders }}</strong></div></article>
+          <article class="stat-card yellow"><span class="stat-icon">×</span><div><p>Cancelled orders</p><strong>{{ data.cancelledOrders }}</strong></div></article>
+          <article class="stat-card green"><span class="stat-icon">₹</span><div><p>Total sales</p><strong>{{ data.totalSales | currency:'INR':'symbol':'1.0-0' }}</strong></div></article>
         </section>
         <section class="panel live-orders"><div class="panel-heading"><div><span class="eyebrow">LIVE ORDERS</span><h3>Currently active</h3></div><strong>{{ data.activeOrders }} active</strong></div>
           <div *ngIf="data.activeOrdersList.length === 0" class="empty-state">No active orders</div>
@@ -36,7 +36,42 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
     </div>
   `,
   styles: [`
-    .dashboard{margin-bottom:40px}.hero-row{display:flex;justify-content:space-between;align-items:flex-end;margin:0 0 26px;gap:16px}.eyebrow{color:#899a94;font-size:10px;font-weight:700;letter-spacing:1.5px;margin:0 0 7px;display:block}.eyebrow.accent{color:#6c9d1e}h2{font-size:30px;letter-spacing:-1.3px;margin:0 0 4px;font-family:Manrope,sans-serif}h3{font-size:17px;letter-spacing:-.5px;margin:0;font-family:Manrope,sans-serif}.muted,.refresh-label{color:#82908b;font-size:12px;margin:0}.refresh-label{white-space:nowrap}.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}.stat-card{background:#fff;border:1px solid #e5ebe6;border-radius:10px;padding:18px;display:flex;gap:12px;min-height:78px}.stat-card p{color:#82908b;font-size:11px;margin:2px 0 8px}.stat-card strong{display:block;font-size:20px;font-family:Manrope,sans-serif}.stat-icon{display:grid;place-items:center;border-radius:7px;width:29px;height:29px;font-weight:700;font-size:15px;flex-shrink:0}.mint{background:#e4f4d8;color:#66a744}.gold{background:#fff1cf;color:#c09137}.blue{background:#deedf3;color:#4c9bb3}.rose{background:#fae4d9;color:#cf7c4e}.panel{background:#fff;border:1px solid #e5ebe6;border-radius:10px;padding:22px}.panel-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.panel-heading>strong{color:#6c9d1e;font-size:12px}.orders-table{overflow-x:auto}.order-row{display:grid;grid-template-columns:1.1fr 1.2fr 1.1fr 1fr 1.1fr .9fr 1fr;gap:12px;align-items:center;min-width:760px;padding:12px 0;border-top:1px solid #eff2ef;color:#586963;font-size:11px}.order-header{color:#899a94;font-size:10px;font-weight:700;text-transform:uppercase}.order-row strong{color:#172523}.status{color:#6c9d1e;font-weight:700}.empty-state{border-top:1px solid #eff2ef;padding:28px 0 8px;color:#82908b;font-size:12px;text-align:center}@media(max-width:1000px){.stats-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.hero-row{display:block}.refresh-label{display:block;margin-top:12px}.stats-grid{grid-template-columns:1fr}}
+    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
+    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
+    .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
+
+    .dashboard{margin-bottom:40px}
+    .hero-row{display:flex;justify-content:space-between;align-items:flex-end;margin:0 0 26px;gap:16px}
+    .eyebrow{color:#E9E4FF;font-size:10px;font-weight:700;letter-spacing:1.5px;margin:0 0 7px;display:block}
+    .eyebrow.accent{color:#FFD400}
+    h2{font-size:30px;letter-spacing:-1.3px}
+    .muted{margin:0}
+    h3{font-size:17px;letter-spacing:-.5px;margin:0;font-family:'Space Grotesk',sans-serif;color:var(--on-card,#141118)}
+    .refresh-label{color:#E9E4FF;font-size:12px;margin:0;white-space:nowrap}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+    .stat-card{border-radius:24px;padding:18px;display:flex;gap:12px;min-height:90px;color:var(--tile-ink,#141118)}
+    .stat-card.yellow{background:var(--card-yellow,#FFF1A8)}
+    .stat-card.green{background:var(--card-green,#B9FFCF)}
+    .stat-card.lavender{background:var(--card-lavender,#EAE4FF)}
+    .stat-card.pink{background:var(--card-pink,#FFC6E2)}
+    .stat-card p{color:var(--tile-ink-muted,rgba(20,17,24,.7));font-size:11px;margin:2px 0 8px}
+    .stat-card strong{display:block;font-size:22px;letter-spacing:-.8px;font-family:'Space Grotesk',sans-serif;color:var(--tile-ink,#141118)}
+    .stat-icon{display:grid;place-items:center;border-radius:12px;width:32px;height:32px;font-weight:700;font-size:15px;flex-shrink:0;color:#141118}
+    .yellow .stat-icon{background:#FFD400}
+    .green .stat-icon{background:#02F34C}
+    .lavender .stat-icon{background:#B9A8FF}
+    .pink .stat-icon{background:#FB1A8E}
+    .panel{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:22px;color:var(--on-card,#141118)}
+    .panel-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .panel-heading>strong{color:var(--on-card,#141118);font-size:12px}
+    .orders-table{overflow-x:auto}
+    .order-row{display:grid;grid-template-columns:1.1fr 1.2fr 1.1fr 1fr 1.1fr .9fr 1fr;gap:12px;align-items:center;min-width:760px;padding:12px 0;border-top:1px solid var(--row-line,rgba(20,17,24,.12));color:var(--on-card-muted,#5E5A66);font-size:11px}
+    .order-header{font-size:10px;font-weight:700;text-transform:uppercase}
+    .order-row strong{color:var(--on-card,#141118)}
+    .order-row .status{justify-self:start;background:#02F34C;color:#141118;font-weight:700;padding:3px 10px;border-radius:999px}
+    .empty-state{border-top:1px solid var(--row-line,rgba(20,17,24,.12));padding:28px 0 8px;color:var(--on-card-muted,#5E5A66);font-size:12px;text-align:center}
+    @media(max-width:1000px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.hero-row{display:block}.refresh-label{display:block;margin-top:12px}.stats-grid{grid-template-columns:1fr}}
   `],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
