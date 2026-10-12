@@ -11,7 +11,9 @@ public sealed class CampaignAdminService(
     ICampaignStore store,
     IAuthorizationScopeService scopeService,
     ICurrentUserContextResolver userContext,
-    TimeProvider? timeProvider = null) : ICampaignAdminService
+    TimeProvider? timeProvider = null,
+    IOfferFeeStore? fees = null,
+    PaymentSettings? payments = null) : ICampaignAdminService
 {
     private const int TitleMax = 160;
     private const int BodyMax = 500;
@@ -43,7 +45,7 @@ public sealed class CampaignAdminService(
 
         var campaigns = await store.ListCampaignsAsync(cancellationToken);
         var visible = actor.Admin ? campaigns : campaigns.Where(campaign => campaign.Stores.Any(link => link.StoreId == actor.StoreId));
-        return new(CampaignOperationStatus.Succeeded, visible.OrderByDescending(item => item.StartsAt).Select(Map).ToArray());
+        return new(CampaignOperationStatus.Succeeded, visible.OrderByDescending(item => item.StartsAt).Select(CampaignMapping.ToResponse).ToArray());
     }
 
     public async Task<CampaignOperationResult<CampaignResponse>> CreateAsync(CampaignRequest request, CancellationToken cancellationToken = default)
@@ -81,6 +83,13 @@ public sealed class CampaignAdminService(
             }
         }
 
+        // Store staff pay a fee to publish (their store's own setting, else the default); an administrator announces for the business, free.
+        var fee = !actor.Admin && fees is not null ? await OfferFeeService.EffectiveAsync(fees, actor.StoreId!.Value, cancellationToken) : 0;
+        if (fee > 0 && payments?.Enabled != true)
+        {
+            return new(CampaignOperationStatus.Conflict, Message: "Online payment is not available right now, so an offer with a fee cannot be published.", Reason: PaymentReasons.PaymentsUnavailable);
+        }
+
         var now = clock.GetUtcNow().UtcDateTime;
         var startsAt = request.StartsAt is { } at ? at.ToUniversalTime() : now;
         var campaign = new Campaign
@@ -92,11 +101,13 @@ public sealed class CampaignAdminService(
             // A start time already past means "now".
             StartsAt = startsAt < now ? now : startsAt,
             CreatedAt = now,
-            Stores = wanted.Select(id => new CampaignStore { StoreId = id }).ToList()
+            Stores = wanted.Select(id => new CampaignStore { StoreId = id }).ToList(),
+            FeePaise = fee,
+            PaymentStatus = fee > 0 ? PaymentState.Created : PaymentState.NotRequired
         };
         await store.AddCampaignAsync(campaign, cancellationToken);
         var saved = await store.GetCampaignAsync(campaign.Id, cancellationToken) ?? campaign;
-        return new(CampaignOperationStatus.Succeeded, Map(saved));
+        return new(CampaignOperationStatus.Succeeded, CampaignMapping.ToResponse(saved));
     }
 
     public async Task<CampaignOperationResult<CampaignResponse>> CancelAsync(Guid id, CancellationToken cancellationToken = default)
@@ -116,8 +127,8 @@ public sealed class CampaignAdminService(
 
         var campaign = await store.TryCancelCampaignAsync(id, cancellationToken) ?? existing;
         return campaign.PublishedAt is not null
-            ? new(CampaignOperationStatus.Conflict, Map(campaign), "This offer was already sent and cannot be taken back.", CampaignReasons.AlreadySent)
-            : new(CampaignOperationStatus.Succeeded, Map(campaign));
+            ? new(CampaignOperationStatus.Conflict, CampaignMapping.ToResponse(campaign), "This offer was already sent and cannot be taken back.", CampaignReasons.AlreadySent)
+            : new(CampaignOperationStatus.Succeeded, CampaignMapping.ToResponse(campaign));
     }
 
     private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
@@ -151,17 +162,4 @@ public sealed class CampaignAdminService(
 
         return null;
     }
-
-    private static CampaignResponse Map(Campaign campaign) => new(
-        campaign.Id,
-        campaign.TitleEn,
-        campaign.BodyEn,
-        campaign.TitleMr,
-        campaign.BodyMr,
-        DateTime.SpecifyKind(campaign.StartsAt, DateTimeKind.Utc),
-        !campaign.IsActive ? CampaignStatuses.Cancelled : campaign.PublishedAt is null ? CampaignStatuses.Scheduled : CampaignStatuses.Sent,
-        campaign.RecipientCount,
-        DateTime.SpecifyKind(campaign.CreatedAt, DateTimeKind.Utc),
-        campaign.Stores.Select(link => new CampaignStoreInfo(link.StoreId, link.Store?.Name ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
-        campaign.Stores.Count == 0);
 }

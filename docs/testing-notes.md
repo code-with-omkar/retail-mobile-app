@@ -31,6 +31,13 @@ Place a cash order on the phone, then in the portal Orders page:
 - [x] Store staff login (e.g. storemanager): Offers page has no store picker; an offer created goes to the store's own customers.
 - [x] Store staff cannot see or cancel another store's offers or an all-stores offer.
 
+## A4. Offer fee (P14 applied; fee settings confirmed working by you 2026-10-12; card payment still to verify)
+- [x] Admin, Offers page: set a default fee (e.g. 10) and a different fee for one store; the page shows them.
+- [ ] Store staff: Offers page shows the fee; "Create and pay" opens Razorpay; after a test payment the offer shows Scheduled and is sent at its start time.
+- [ ] Close Razorpay without paying: the offer shows Awaiting payment and is not sent; "Pay" retries without a second charge.
+- [ ] Cancel a paid offer before it is sent: fee refunded (check the Razorpay dashboard).
+- [ ] Admin-created offers need no payment. A store with fee 0 pays nothing.
+
 ## B. Online payment (blocked until Razorpay methods are enabled), task 7.10
 - [ ] Razorpay dashboard (Test mode): enable payment methods / finish activation.
 - [ ] Checkout shows "Pay online"; pay with test UPI `success@razorpay` or test card; order ends "Paid".

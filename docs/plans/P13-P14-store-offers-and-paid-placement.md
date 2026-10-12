@@ -1,6 +1,6 @@
 # Store offers, offer fees and paid store placement
 
-Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and confirmed working by you (backend 490, mobile 427, portal Offers page for admin and store staff); migration `AddCampaignStores` applied to the dev database; P14 and P15 not started.** Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
+Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and confirmed working by you (backend 490, mobile 427, portal Offers page for admin and store staff); migration `AddCampaignStores` applied to the dev database; P14 (offer fee) built and tested (backend 519, portal fee display, Razorpay checkout and admin fee settings); migration `AddOfferFees` applied to the dev database; real-provider payment test still needs Razorpay methods enabled; P15 not started.** Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
 
 ## Requests
 1. Offers should be announced **by the store**, or the admin chooses **which stores** an offer is for.
@@ -30,6 +30,11 @@ Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and
 
 ## Suggested order
 P13 store-owned offers (1), P14 offer fees (2), P15 paid placement (3).
+
+## P14 as built
+- Fee settings: one default row and one row per store (`OfferFees`); the offer keeps the fee it was created with (`Campaigns.FeePaise`). Offers an administrator creates are free (assumption: the business does not pay itself).
+- Payment: `CampaignPayments` (one per offer), same Razorpay flow as order payments: the portal opens Razorpay Checkout, the server verifies the signature and asks the provider. The webhook is not used for offers; a background lookup settles a confirmation that never arrived.
+- An offer with an unpaid fee is never sent. Cancelling before it is sent refunds a paid fee.
 
 ## Decisions
 1. Store staff create offers for their own store; an admin can create for chosen stores.

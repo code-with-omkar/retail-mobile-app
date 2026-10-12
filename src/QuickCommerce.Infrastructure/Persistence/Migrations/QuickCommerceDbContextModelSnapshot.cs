@@ -329,8 +329,20 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("FeePaise")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("NotRequired");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime2");
@@ -357,7 +369,88 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Campaigns", t =>
                         {
-                            t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0");
+                            t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderOrderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CampaignPayments_ProviderOrderId")
+                        .HasFilter("[ProviderOrderId] IS NOT NULL");
+
+                    b.HasIndex("ProviderPaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CampaignPayments_ProviderPaymentId")
+                        .HasFilter("[ProviderPaymentId] IS NOT NULL");
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("CampaignPayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CampaignPayments_Amount", "[AmountPaise] > 0 AND [Attempts] >= 0");
                         });
                 });
 
@@ -722,6 +815,37 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasIndex("CustomerId", "IsRead", "CreatedAt");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OfferFee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AmountPaise")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("OfferFees", t =>
+                        {
+                            t.HasCheckConstraint("CK_OfferFees_Amount", "[AmountPaise] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Order", b =>
@@ -2192,6 +2316,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignPayment", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Campaign", null)
@@ -2326,6 +2459,14 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Campaign");
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OfferFee", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Order", b =>

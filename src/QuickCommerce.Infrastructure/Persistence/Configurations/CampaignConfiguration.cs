@@ -17,8 +17,10 @@ public sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(campaign => campaign.PublishedAt).HasColumnType("datetime2");
         builder.Property(campaign => campaign.CreatedAt).HasColumnType("datetime2").IsRequired();
         builder.Property(campaign => campaign.CreatedBy).HasMaxLength(200);
+        builder.Property(campaign => campaign.FeePaise).HasDefaultValue(0);
+        builder.Property(campaign => campaign.PaymentStatus).HasConversion<string>().HasMaxLength(20).IsRequired().HasDefaultValue(PaymentState.NotRequired);
         // The sender looks for campaigns that are due and not sent yet.
         builder.HasIndex(campaign => campaign.StartsAt).HasFilter("[PublishedAt] IS NULL AND [IsActive] = 1");
-        builder.ToTable(table => table.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0"));
+        builder.ToTable(table => table.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0"));
     }
 }

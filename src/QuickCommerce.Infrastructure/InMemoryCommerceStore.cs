@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -199,6 +199,194 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
     }
 
     public List<Campaign> Campaigns { get; } = [];
+    public List<CampaignPayment> CampaignPayments { get; } = [];
+    public List<OfferFee> OfferFees { get; } = [];
+
+    // ---- offer fees ----
+
+    public Task<int> GetDefaultAsync(CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(OfferFees.FirstOrDefault(fee => fee.StoreId is null)?.AmountPaise ?? 0);
+        }
+    }
+
+    public Task<IReadOnlyDictionary<Guid, int>> GetOverridesAsync(CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyDictionary<Guid, int>>(OfferFees.Where(fee => fee.StoreId is not null).ToDictionary(fee => fee.StoreId!.Value, fee => fee.AmountPaise));
+        }
+    }
+
+    public Task SetAsync(Guid? storeId, int? amountPaise, string? by, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var row = OfferFees.FirstOrDefault(fee => fee.StoreId == storeId);
+            if (amountPaise is null)
+            {
+                if (row is not null)
+                {
+                    OfferFees.Remove(row);
+                }
+            }
+            else if (row is null)
+            {
+                OfferFees.Add(new OfferFee { StoreId = storeId, AmountPaise = amountPaise.Value, UpdatedAt = now, UpdatedBy = by });
+            }
+            else
+            {
+                row.AmountPaise = amountPaise.Value;
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<Store>> GetStoresAsync(Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Store>>(Stores.Where(store => store.OrganizationId == organizationId && store.IsActive).ToArray());
+        }
+    }
+
+    // ---- offer fee payments ----
+
+    Task<CampaignPayment?> ICampaignPaymentStore.GetPaymentAsync(Guid campaignId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(CampaignPayments.FirstOrDefault(payment => payment.CampaignId == campaignId));
+        }
+    }
+
+    Task<CampaignPayment?> ICampaignPaymentStore.BeginAttemptAsync(Guid campaignId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var campaign = Campaigns.FirstOrDefault(item => item.Id == campaignId);
+            if (campaign is null || !CampaignMapping.AwaitsPayment(campaign))
+            {
+                return Task.FromResult<CampaignPayment?>(null);
+            }
+
+            var payment = CampaignPayments.FirstOrDefault(item => item.CampaignId == campaignId);
+            if (payment is null)
+            {
+                payment = new CampaignPayment { CampaignId = campaignId, AmountPaise = campaign.FeePaise, CreatedAt = now, UpdatedAt = now };
+                CampaignPayments.Add(payment);
+            }
+
+            payment.Attempts++;
+            payment.UpdatedAt = now;
+            if (payment.Status == PaymentState.Failed)
+            {
+                payment.Status = PaymentState.Created;
+                campaign.PaymentStatus = PaymentState.Created;
+            }
+
+            return Task.FromResult<CampaignPayment?>(payment);
+        }
+    }
+
+    Task<bool> ICampaignPaymentStore.AttachProviderOrderAsync(Guid paymentId, string providerOrderId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = CampaignPayments.First(item => item.Id == paymentId);
+            if (payment.ProviderOrderId is not null)
+            {
+                return Task.FromResult(false);
+            }
+
+            payment.ProviderOrderId = providerOrderId;
+            return Task.FromResult(true);
+        }
+    }
+
+    Task<CapturedOutcome> ICampaignPaymentStore.ApplyCapturedAsync(string providerOrderId, string providerPaymentId, long paidPaise, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = CampaignPayments.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (payment is null)
+            {
+                return Task.FromResult(CapturedOutcome.UnknownPayment);
+            }
+
+            return Task.FromResult(CampaignPaymentTransitions.ApplyCaptured(Campaigns.Single(item => item.Id == payment.CampaignId), payment, providerPaymentId, paidPaise, now));
+        }
+    }
+
+    Task<IReadOnlyList<CampaignPayment>> ICampaignPaymentStore.GetRefundsToStartAsync(int max, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<CampaignPayment>>(CampaignPayments.Where(payment => payment.Status == PaymentState.Refunding && payment.RefundId is null).OrderBy(payment => payment.UpdatedAt).Take(max).ToArray());
+        }
+    }
+
+    Task ICampaignPaymentStore.SetRefundStartedAsync(Guid paymentId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var payment = CampaignPayments.First(item => item.Id == paymentId);
+            payment.RefundId = refundId;
+            payment.UpdatedAt = now;
+            if (processed)
+            {
+                CampaignPaymentTransitions.ApplyRefunded(Campaigns.Single(item => item.Id == payment.CampaignId), payment, now);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task ICampaignPaymentStore.SetRefundFailedAsync(Guid paymentId, string reason, bool permanent, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var payment = CampaignPayments.First(item => item.Id == paymentId);
+            if (permanent)
+            {
+                CampaignPaymentTransitions.ApplyRefundFailed(Campaigns.Single(item => item.Id == payment.CampaignId), payment, reason, now);
+            }
+            else
+            {
+                payment.FailureReason = reason;
+                payment.UpdatedAt = now;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task SetRefundedAsync(Guid paymentId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var payment = CampaignPayments.First(item => item.Id == paymentId);
+            CampaignPaymentTransitions.ApplyRefunded(Campaigns.Single(item => item.Id == payment.CampaignId), payment, now);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task<IReadOnlyList<CampaignPayment>> ICampaignPaymentStore.GetUnsettledAsync(DateTime olderThan, int max, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<CampaignPayment>>(CampaignPayments
+                .Where(payment => payment.UpdatedAt < olderThan &&
+                    (((payment.Status is PaymentState.Created or PaymentState.Failed) && payment.ProviderOrderId is not null) || (payment.Status == PaymentState.Refunding && payment.RefundId is not null)))
+                .OrderBy(payment => payment.UpdatedAt).Take(max).ToArray());
+        }
+    }
 
     public Task<IReadOnlyList<Campaign>> ListCampaignsAsync(CancellationToken cancellationToken = default)
     {
@@ -245,9 +433,10 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         lock (SyncRoot)
         {
             var campaign = Campaigns.FirstOrDefault(item => item.Id == id);
-            if (campaign is not null && campaign.PublishedAt is null)
+            if (campaign is not null && campaign.PublishedAt is null && campaign.IsActive)
             {
                 campaign.IsActive = false;
+                CampaignPaymentTransitions.ApplyCancelled(campaign, CampaignPayments.FirstOrDefault(item => item.CampaignId == id), DateTime.UtcNow);
             }
 
             return Task.FromResult(campaign);
@@ -259,7 +448,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         lock (SyncRoot)
         {
             var sent = 0;
-            foreach (var campaign in Campaigns.Where(item => item.IsActive && item.PublishedAt is null && item.StartsAt <= now).ToArray())
+            foreach (var campaign in Campaigns.Where(item => item.IsActive && item.PublishedAt is null && item.StartsAt <= now && item.PaymentStatus is PaymentState.NotRequired or PaymentState.Paid).ToArray())
             {
                 campaign.PublishedAt = now;
                 var storeIds = campaign.Stores.Select(link => link.StoreId).ToHashSet();

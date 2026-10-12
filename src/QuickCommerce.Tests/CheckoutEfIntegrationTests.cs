@@ -126,6 +126,23 @@ public sealed class CheckoutEfIntegrationTests
 
         public async ValueTask DisposeAsync()
         {
+            // Many SQL tests run at once on one database, so the cleanup itself can be picked as a deadlock victim: it is safe to repeat.
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await CleanupOnceAsync();
+                    return;
+                }
+                catch (Exception) when (attempt < 4)
+                {
+                    await Task.Delay(150 * attempt);
+                }
+            }
+        }
+
+        private async Task CleanupOnceAsync()
+        {
             await using var cleanup = Db();
             var userIds = await cleanup.Users.Where(user => Emails.Contains(user.ExternalSubject)).Select(user => user.Id).ToListAsync();
             var cartIds = await cleanup.Carts.Where(cart => cart.StoreId == Store.Id).Select(cart => cart.Id).ToListAsync();

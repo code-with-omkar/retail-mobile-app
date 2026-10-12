@@ -9,7 +9,7 @@ namespace QuickCommerce.Api.Controllers;
 [ApiController]
 [Route("api/admin/campaigns")]
 [Authorize(Policy = SecurityPolicies.OfferManagement)]
-public sealed class CampaignsController(ICampaignAdminService campaigns) : ControllerBase
+public sealed class CampaignsController(ICampaignAdminService campaigns, ICampaignPaymentService payments) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken) => Respond(await campaigns.ListAsync(cancellationToken));
@@ -23,6 +23,24 @@ public sealed class CampaignsController(ICampaignAdminService campaigns) : Contr
 
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) => Respond(await campaigns.CancelAsync(id, cancellationToken));
+
+    /// <summary>Starts or resumes paying the fee of an offer: returns what the payment screen needs. No secrets.</summary>
+    [HttpPost("{id:guid}/payment")]
+    public async Task<IActionResult> StartPayment(Guid id, CancellationToken cancellationToken) => Respond(await payments.StartAsync(id, cancellationToken));
+
+    /// <summary>The portal reports the result of the payment screen. Repeating it changes nothing.</summary>
+    [HttpPost("{id:guid}/payment/confirm")]
+    public async Task<IActionResult> ConfirmPayment(Guid id, ConfirmPaymentRequest request, CancellationToken cancellationToken) => Respond(await payments.ConfirmAsync(id, request, cancellationToken));
+
+    private IActionResult Respond<T>(PaymentOperationResult<T> result) => result.Status switch
+    {
+        PaymentOperationStatus.Succeeded => Ok(new { success = true, data = result.Value }),
+        PaymentOperationStatus.InvalidRequest => BadRequest(new { success = false, message = result.Message, reason = result.Reason, errors = Array.Empty<string>() }),
+        PaymentOperationStatus.Unauthorized => Forbid(),
+        PaymentOperationStatus.NotFound => NotFound(new { success = false, message = result.Message, reason = result.Reason, errors = Array.Empty<string>() }),
+        PaymentOperationStatus.Conflict => Conflict(new { success = false, message = result.Message, reason = result.Reason, errors = Array.Empty<string>() }),
+        _ => StatusCode(StatusCodes.Status500InternalServerError)
+    };
 
     private IActionResult Respond<T>(CampaignOperationResult<T> result) => result.Status switch
     {

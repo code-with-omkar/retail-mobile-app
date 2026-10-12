@@ -6,7 +6,7 @@ namespace QuickCommerce.Api.Hosting;
 /// Every half minute, sends the offers whose start time has come. Safe on several servers at once (the store claims each campaign
 /// with one conditional update), and a failure is logged and tried again on the next round.
 /// </summary>
-public sealed class CampaignBackgroundService(IServiceScopeFactory scopes, ILogger<CampaignBackgroundService> log) : BackgroundService
+public sealed class CampaignBackgroundService(IServiceScopeFactory scopes, QuickCommerce.Application.Services.PaymentSettings payments, ILogger<CampaignBackgroundService> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -20,6 +20,14 @@ public sealed class CampaignBackgroundService(IServiceScopeFactory scopes, ILogg
                 if (sent > 0)
                 {
                     log.LogInformation("Sent {Count} offer campaign(s)", sent);
+                }
+
+                // The fee upkeep: refunds of cancelled offers and fees whose confirmation never arrived. Only while online payment is on.
+                if (payments.Enabled)
+                {
+                    var upkeep = scope.ServiceProvider.GetRequiredService<ICampaignPaymentMaintenance>();
+                    await upkeep.StartRefundsAsync(stoppingToken);
+                    await upkeep.ReconcileAsync(stoppingToken);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

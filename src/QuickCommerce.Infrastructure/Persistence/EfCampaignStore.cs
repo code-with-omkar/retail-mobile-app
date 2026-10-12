@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Application.Services;
 using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure.Persistence;
@@ -28,15 +29,40 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore
     public async Task<Campaign?> TryCancelCampaignAsync(Guid id, CancellationToken cancellationToken = default)
     {
         // Only a campaign nobody has sent yet can be cancelled; if the sender wins the race, the answer below says it was sent.
-        await db.Campaigns.Where(campaign => campaign.Id == id && campaign.PublishedAt == null && campaign.IsActive)
-            .ExecuteUpdateAsync(set => set.SetProperty(campaign => campaign.IsActive, false), cancellationToken);
+        // A fee already paid is queued for a refund in the same step, an unpaid one is closed.
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+                var cancelled = await db.Campaigns.Where(campaign => campaign.Id == id && campaign.PublishedAt == null && campaign.IsActive)
+                    .ExecuteUpdateAsync(set => set.SetProperty(campaign => campaign.IsActive, false), cancellationToken);
+                if (cancelled > 0)
+                {
+                    var tracked = await db.Campaigns.SingleAsync(campaign => campaign.Id == id, cancellationToken);
+                    var payment = await db.CampaignPayments.FirstOrDefaultAsync(item => item.CampaignId == id, cancellationToken);
+                    CampaignPaymentTransitions.ApplyCancelled(tracked, payment, DateTime.UtcNow);
+                    await db.SaveChangesAsync(cancellationToken);
+                }
+
+                await transaction.CommitAsync(cancellationToken);
+                break;
+            }
+            catch (Exception ex) when ((ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex)) && attempt < 5)
+            {
+                // A payment landed at the same moment (or the database chose this request as a deadlock victim): look again on fresh data.
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        db.ChangeTracker.Clear();
         return await GetCampaignAsync(id, cancellationToken);
     }
 
     public async Task<int> PublishDueCampaignsAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         var due = await db.Campaigns.AsNoTracking()
-            .Where(campaign => campaign.IsActive && campaign.PublishedAt == null && campaign.StartsAt <= now)
+            .Where(campaign => campaign.IsActive && campaign.PublishedAt == null && campaign.StartsAt <= now && (campaign.PaymentStatus == PaymentState.NotRequired || campaign.PaymentStatus == PaymentState.Paid))
             .OrderBy(campaign => campaign.StartsAt)
             .Select(campaign => campaign.Id)
             .Take(20)
@@ -46,7 +72,7 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             var claimed = await db.Campaigns
-                .Where(campaign => campaign.Id == id && campaign.IsActive && campaign.PublishedAt == null && campaign.StartsAt <= now)
+                .Where(campaign => campaign.Id == id && campaign.IsActive && campaign.PublishedAt == null && campaign.StartsAt <= now && (campaign.PaymentStatus == PaymentState.NotRequired || campaign.PaymentStatus == PaymentState.Paid))
                 .ExecuteUpdateAsync(set => set.SetProperty(campaign => campaign.PublishedAt, now), cancellationToken);
             if (claimed == 0)
             {

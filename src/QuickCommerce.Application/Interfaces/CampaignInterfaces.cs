@@ -22,12 +22,17 @@ public sealed record CampaignResponse(
     int RecipientCount,
     DateTime CreatedAt,
     IReadOnlyList<CampaignStoreInfo> Stores,
-    bool AllStores);
+    bool AllStores,
+    int FeePaise = 0,
+    PaymentState PaymentStatus = PaymentState.NotRequired);
 
 /// <summary>Where a campaign is: waiting for its start time, sent (to <see cref="CampaignResponse.RecipientCount"/> customers) or cancelled before it was sent.</summary>
 public static class CampaignStatuses
 {
     public const string Scheduled = "Scheduled";
+
+    /// <summary>An offer with a fee that has not been paid yet: it is sent only once it is paid.</summary>
+    public const string AwaitingPayment = "AwaitingPayment";
     public const string Sent = "Sent";
     public const string Cancelled = "Cancelled";
 }
@@ -46,6 +51,7 @@ public sealed record CampaignOperationResult<T>(CampaignOperationStatus Status, 
 public static class CampaignReasons
 {
     public const string AlreadySent = "CampaignAlreadySent";
+    public const string NotAwaitingPayment = "OfferNotAwaitingPayment";
 }
 
 public interface ICampaignAdminService
@@ -73,11 +79,11 @@ public interface ICampaignStore
     /// <summary>The active stores of the organization with these ids (an unknown or other organization's id is simply missing).</summary>
     Task<IReadOnlyList<Store>> GetStoresAsync(IReadOnlyCollection<Guid> ids, Guid organizationId, CancellationToken cancellationToken = default);
 
-    /// <summary>Marks a campaign cancelled unless it was already sent. Returns the campaign as it now is, or null when there is none.</summary>
+    /// <summary>Marks a campaign cancelled unless it was already sent. A fee already paid is queued for a refund; an unpaid one is closed. Returns the campaign as it now is, or null when there is none.</summary>
     Task<Campaign?> TryCancelCampaignAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Sends every campaign whose start time has come and has not been sent: one notification per customer who has offers on, once only
+    /// Sends every campaign whose start time has come, that has not been sent and (when it has a fee) is paid: one notification per customer who has offers on, once only
     /// (safe to run on several servers at once). An offer for chosen stores goes to the customers of those stores (who have ordered from
     /// one of them or have shopped there); an offer for no store in particular goes to every customer. Returns how many campaigns were sent.
     /// </summary>

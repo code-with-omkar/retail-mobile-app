@@ -257,3 +257,22 @@ Offers belong to stores (`CampaignStores`; none means every store). Routes are t
 | Store staff | always for their own store (empty `storeIds` means their store; another store is **403**) | offers that are for their store | only offers for their store alone (others look like **404**) |
 
 The request gains optional `storeIds`; the answer gains `stores` (id and name) and `allStores`. **Audience:** an offer for chosen stores goes to customers of those stores who have offers on, where a customer of a store has ordered from it or has a cart there; an offer for no store goes to every customer with offers on. Each notification carries the store name; `GET api/customer/notifications` returns it as `storeName` (null for an offer from the whole business), and the app shows "From {store}".
+
+## Offer publishing fee (P14)
+
+Status: built and tested (2026-10-12); migration `AddOfferFees` applied to the dev database (backup `retail-mobile-app_pre-P14-offer-fees.bak`).
+
+**Who pays what.** Store staff pay a fee to publish an offer: their store's own fee if an administrator set one, otherwise the default; 0 is free. Offers an administrator creates are always free. The fee is fixed on the offer when it is created (`feePaise`), so later changes do not touch it. While the fee is unpaid the offer's status is `AwaitingPayment` and it is **never sent**; once paid it is `Scheduled` and goes out at its start time. Creating an offer with a fee while online payment is off is **409** `PaymentsUnavailable` (a free offer still works).
+
+| Route | What |
+| --- | --- |
+| `GET api/admin/offer-fees` (admin) | `{ defaultPaise, stores: [{ storeId, name, overridePaise, effectivePaise }] }` |
+| `PUT api/admin/offer-fees/default` (admin) | `{ amountPaise }`, 0 to 1,00,00,000 (₹1,00,000) |
+| `PUT api/admin/offer-fees/stores/{storeId}` (admin) | `{ amountPaise }`, or `null` to remove the store's own fee |
+| `GET api/admin/offer-fees/mine` | What an offer would cost the person asking (staff: their store's fee; admin: 0) and whether online payment is on |
+| `POST api/admin/campaigns/{id}/payment` | Starts or resumes paying: `provider`, `keyId`, `providerOrderId`, `amountPaise`, `currency`. Asking again reuses the same provider order, so the fee is never charged twice |
+| `POST api/admin/campaigns/{id}/payment/confirm` | `{ providerOrderId, providerPaymentId, signature }` from the checkout. The server checks the signature and asks the provider itself; repeating it changes nothing |
+
+Reasons on a **409**: `PaymentsUnavailable`, `OfferNotAwaitingPayment`, `AlreadyPaid`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another store's offer is **404**.
+
+**Cancel and refund.** Cancelling an offer before it is sent refunds a paid fee in full to the original payment method (a background step, retried when the provider is busy; a refusal marks it `RefundFailed`); an unpaid one is just closed. A payment that arrives after the offer was cancelled, or for the wrong amount, is refunded automatically. A fee whose confirmation never arrived is found by a background lookup. Payment status uses the same numbers as order payments (0 NotRequired, 1 Created, 2 Failed, 3 Paid, 4 Refunding, 5 Refunded, 6 RefundFailed).

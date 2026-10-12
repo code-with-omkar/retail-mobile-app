@@ -568,6 +568,44 @@ public sealed class Campaign
 
 	/// <summary>The stores this offer is from. Empty means every store (an offer from the whole business).</summary>
 	public List<CampaignStore> Stores { get; set; } = [];
+
+	/// <summary>What the store pays to publish this offer, in paise, as it was when the offer was created. 0 means free (and offers an administrator creates are free).</summary>
+	public int FeePaise { get; set; }
+
+	/// <summary>NotRequired while free; otherwise the offer is sent only once this is Paid. Refunding or Refunded after a paid offer is cancelled before it was sent.</summary>
+	public PaymentState PaymentStatus { get; set; } = PaymentState.NotRequired;
+}
+
+/// <summary>
+/// The fee a store pays to publish an offer. One row with no store is the default for every store; a row with a store overrides it for that
+/// store (0 makes that store's offers free). The most specific row wins.
+/// </summary>
+public sealed class OfferFee
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid? StoreId { get; set; }
+	public int AmountPaise { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
+}
+
+/// <summary>The online payment of an offer's fee (one per offer), made through the payment provider like an order's payment.</summary>
+public sealed class CampaignPayment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CampaignId { get; set; }
+	public string Provider { get; set; } = "Razorpay";
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+	public long AmountPaise { get; set; }
+	public string Currency { get; set; } = "INR";
+	public PaymentState Status { get; set; } = PaymentState.Created;
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
 }
 
 /// <summary>One store an offer is from.</summary>
