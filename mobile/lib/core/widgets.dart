@@ -42,7 +42,7 @@ class LabeledField extends StatelessWidget {
 }
 
 class Surface extends StatelessWidget {
-  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.color, this.radius = QC.rCard});
+  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.color, this.radius = QC.rCard});
   final Widget child;
   final EdgeInsets padding;
   final Color? color;
@@ -275,9 +275,9 @@ class ProductCard extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
-            height: 80,
+            height: 72,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(12),
               child: Stack(fit: StackFit.expand, children: [
                 Opacity(opacity: product.inStock ? 1 : .45, child: ProductVisual(product)),
                 if (product.discountPct > 0) Positioned(top: 6, left: 6, child: DiscountSticker(product.discountPct)),
@@ -293,7 +293,7 @@ class ProductCard extends StatelessWidget {
               ]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: p.onCard, fontSize: 14),
+              style: TextStyle(color: p.onCard, fontSize: 13),
             ),
           ),
           Padding(

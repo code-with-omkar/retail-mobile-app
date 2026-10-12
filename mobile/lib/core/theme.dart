@@ -87,8 +87,8 @@ extension PalContext on BuildContext {
 }
 
 class QC {
-  static const rCard = 28.0, rField = 20.0, rPill = 999.0;
-  static const gutter = 20.0;
+  static const rCard = 16.0, rField = 14.0, rPill = 999.0;
+  static const gutter = 16.0;
   static const minTap = 48.0;
 
   static ThemeData theme(Brightness b) {

@@ -94,7 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 0), sliver: SliverToBoxAdapter(child: _Header())),
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 12),
-          sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900, height: 1.1))),
+          sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1))),
         ),
         if (!_searching) const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: FestivalBanner())),
         SliverPadding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _searchBar(context))),
@@ -125,7 +125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       SliverPadding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), sliver: SliverToBoxAdapter(child: SectionHeader(context.tr('Popular near you')))),
       SliverToBoxAdapter(
         child: SizedBox(
-          height: 188,
+          height: 168,
           child: popular.when(
             loading: () => ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -133,7 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
               itemCount: 3,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (_, _) => const SkeletonBox(width: 160, height: 188, radius: QC.rCard),
+              itemBuilder: (_, _) => const SkeletonBox(width: 140, height: 168, radius: QC.rCard),
             ),
             error: (e, _) => Padding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), child: Align(alignment: Alignment.topCenter, child: ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(popularProductsProvider)))),
             data: (items) => items.isEmpty
@@ -143,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
                     itemCount: items.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) => SizedBox(width: 160, child: ProductCard(items[i])),
+                    itemBuilder: (_, i) => SizedBox(width: 140, child: ProductCard(items[i])),
                   ),
           ),
         ),
@@ -202,8 +202,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final p = context.pal;
     final store = ref.watch(selectedStoreProvider).value;
     return Container(
-      height: 60,
-      padding: const EdgeInsets.only(left: 20, right: 6),
+      height: 48,
+      padding: const EdgeInsets.only(left: 14, right: 6),
       decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rPill)),
       child: Row(children: [
         Icon(Icons.search, color: p.mutedOnCard),
@@ -230,7 +230,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           message: context.tr('Voice search'),
           child: GestureDetector(
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Voice search is coming soon')))),
-            child: Container(width: 48, height: 48, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.mic_none_rounded, color: Pal.ink)),
+            child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.mic_none_rounded, size: 20, color: Pal.ink)),
           ),
         ),
       ]),
@@ -283,14 +283,14 @@ class _HeroRow extends ConsumerWidget {
     final p = context.pal;
     final last = ref.watch(ordersProvider).value?.firstOrNull;
     return SizedBox(
-      height: 76,
+      height: 56,
       child: Row(children: [
         Expanded(
           child: maxOff > 0
               ? _Tile(color: Pal.pink, onTap: onOffers, title: context.tr('Today’s deals'), subtitle: context.tr('Up to {n}% off', {'n': '$maxOff'}), fg: Pal.ink)
               : _Tile(color: Pal.pink, onTap: onOffers, title: context.tr('All items'), subtitle: context.tr('Browse the full catalogue'), fg: Pal.ink),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: _Tile(
                 color: p.soft,
@@ -316,12 +316,12 @@ class _Tile extends StatelessWidget {
         onTap: onTap,
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(QC.rCard)),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontSize: 17, fontWeight: FontWeight.w900)),
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontSize: 15, fontWeight: FontWeight.w900)),
             const SizedBox(height: 2),
-            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontSize: 12)),
+            Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontSize: 11)),
           ]),
         ),
       );
@@ -335,7 +335,7 @@ class _CategoryRow extends ConsumerWidget {
     final p = context.pal;
     final cats = ref.watch(categoriesProvider);
     return cats.when(
-      loading: () => Row(children: [for (var i = 0; i < 4; i++) ...[if (i > 0) const SizedBox(width: 10), const Expanded(child: SkeletonBox(height: 76, radius: QC.rCard))]]),
+      loading: () => Row(children: [for (var i = 0; i < 4; i++) ...[if (i > 0) const SizedBox(width: 10), const Expanded(child: SkeletonBox(height: 64, radius: QC.rCard))]]),
       error: (e, _) => ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(categoriesProvider)),
       data: (list) {
         final shown = list.take(4).toList();
@@ -344,16 +344,16 @@ class _CategoryRow extends ConsumerWidget {
             if (i > 0) const SizedBox(width: 10),
             Expanded(
               child: i >= shown.length
-                  ? const SizedBox(height: 76)
+                  ? const SizedBox(height: 64)
                   : GestureDetector(
                       onTap: () => context.push('/category/${shown[i].id}'),
                       child: Container(
-                        height: 76,
+                        height: 64,
                         decoration: BoxDecoration(color: p.tiles[i], borderRadius: BorderRadius.circular(QC.rCard)),
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(shown[i].icon, size: 28, color: Pal.ink),
-                          const SizedBox(height: 6),
-                          Text(categoryLabel(context, shown[i]), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800, fontSize: 13)),
+                          Icon(shown[i].icon, size: 22, color: Pal.ink),
+                          const SizedBox(height: 4),
+                          Text(categoryLabel(context, shown[i]), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800, fontSize: 12)),
                         ]),
                       ),
                     ),
