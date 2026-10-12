@@ -25,6 +25,12 @@ Place a cash order on the phone, then in the portal Orders page:
 - [x] Switch Offers off in the app (Notifications screen); a new offer does not arrive, order messages still do.
 - [x] Schedule an offer for a few minutes ahead, then cancel it before it is sent: it never arrives.
 
+## A3. Store-owned offers (P13 applied; confirmed working by you 2026-10-12)
+- [x] Admin: create an offer for one chosen store; only customers who ordered from or shopped at that store get it, with "From <store>" on the card.
+- [x] Admin: create an offer with no store ticked; every customer with offers on gets it.
+- [x] Store staff login (e.g. storemanager): Offers page has no store picker; an offer created goes to the store's own customers.
+- [x] Store staff cannot see or cancel another store's offers or an all-stores offer.
+
 ## B. Online payment (blocked until Razorpay methods are enabled), task 7.10
 - [ ] Razorpay dashboard (Test mode): enable payment methods / finish activation.
 - [ ] Checkout shows "Pay online"; pay with test UPI `success@razorpay` or test card; order ends "Paid".

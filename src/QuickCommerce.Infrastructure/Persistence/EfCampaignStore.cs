@@ -7,8 +7,10 @@ namespace QuickCommerce.Infrastructure.Persistence;
 /// <summary>Campaigns on SQL Server. Sending is claimed with one conditional update, so only one server sends a campaign, and each customer gets it once.</summary>
 public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore
 {
+    private IQueryable<Campaign> WithStores() => db.Campaigns.AsNoTracking().Include(campaign => campaign.Stores).ThenInclude(link => link.Store);
+
     public async Task<IReadOnlyList<Campaign>> ListCampaignsAsync(CancellationToken cancellationToken = default) =>
-        await db.Campaigns.AsNoTracking().OrderByDescending(campaign => campaign.StartsAt).ToListAsync(cancellationToken);
+        await WithStores().OrderByDescending(campaign => campaign.StartsAt).ToListAsync(cancellationToken);
 
     public async Task AddCampaignAsync(Campaign campaign, CancellationToken cancellationToken = default)
     {
@@ -18,7 +20,10 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore
     }
 
     public Task<Campaign?> GetCampaignAsync(Guid id, CancellationToken cancellationToken = default) =>
-        db.Campaigns.AsNoTracking().FirstOrDefaultAsync(campaign => campaign.Id == id, cancellationToken);
+        WithStores().FirstOrDefaultAsync(campaign => campaign.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<Store>> GetStoresAsync(IReadOnlyCollection<Guid> ids, Guid organizationId, CancellationToken cancellationToken = default) =>
+        await db.Stores.AsNoTracking().Where(item => ids.Contains(item.Id) && item.OrganizationId == organizationId && item.IsActive).ToListAsync(cancellationToken);
 
     public async Task<Campaign?> TryCancelCampaignAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -50,13 +55,27 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore
             }
 
             var campaign = await db.Campaigns.AsNoTracking().SingleAsync(item => item.Id == id, cancellationToken);
-            // One notification for every customer who has offers on. The unique (campaign, customer) index guards against a second send.
+            // One notification for every customer who has offers on and is a customer of the campaign's stores (or every customer when the
+            // campaign names no store). "A customer of a store" = has ordered from it or has a cart there. The unique (campaign, customer)
+            // index guards against a second send. The notification carries the name of one store the customer knows from the campaign.
             var recipients = await db.Database.ExecuteSqlInterpolatedAsync($"""
                 INSERT INTO Notifications (Id, CustomerId, OrderId, Type, Title, Message, IsRead, CreatedAt, Category, DataJson, CampaignId)
-                SELECT NEWID(), c.Id, NULL, {NotificationTypes.Offer}, {campaign.TitleEn}, {campaign.BodyEn}, 0, {now}, {NotificationCategories.Offer}, NULL, {id}
+                SELECT NEWID(), c.Id, NULL, {NotificationTypes.Offer}, {campaign.TitleEn}, {campaign.BodyEn}, 0, {now}, {NotificationCategories.Offer},
+                    (SELECT TOP 1 CONCAT(CHAR(123), '"store":"', REPLACE(REPLACE(s.Name, '\', '\\'), '"', '\"'), '"', CHAR(125))
+                     FROM CampaignStores cs JOIN Stores s ON s.Id = cs.StoreId
+                     WHERE cs.CampaignId = {id}
+                       AND (EXISTS (SELECT 1 FROM Orders o WHERE o.UserId = c.UserId AND o.StoreId = cs.StoreId)
+                            OR EXISTS (SELECT 1 FROM Carts ca WHERE ca.CustomerId = c.Id AND ca.StoreId = cs.StoreId))
+                     ORDER BY s.Name),
+                    {id}
                 FROM Customers c
                 WHERE c.IsActive = 1 AND c.OffersEnabled = 1
                   AND NOT EXISTS (SELECT 1 FROM Notifications n WHERE n.CampaignId = {id} AND n.CustomerId = c.Id)
+                  AND (NOT EXISTS (SELECT 1 FROM CampaignStores cs WHERE cs.CampaignId = {id})
+                       OR EXISTS (SELECT 1 FROM CampaignStores cs
+                                  WHERE cs.CampaignId = {id}
+                                    AND (EXISTS (SELECT 1 FROM Orders o WHERE o.UserId = c.UserId AND o.StoreId = cs.StoreId)
+                                         OR EXISTS (SELECT 1 FROM Carts ca WHERE ca.CustomerId = c.Id AND ca.StoreId = cs.StoreId))))
                 """, cancellationToken);
             await db.Campaigns.Where(item => item.Id == id).ExecuteUpdateAsync(set => set.SetProperty(item => item.RecipientCount, recipients), cancellationToken);
             await transaction.CommitAsync(cancellationToken);

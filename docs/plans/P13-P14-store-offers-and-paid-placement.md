@@ -1,6 +1,6 @@
 # Store offers, offer fees and paid store placement
 
-Status: **decisions accepted 2026-10-10 (all recommended); waiting for go-ahead to build P13.** No code or data change yet. Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
+Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and confirmed working by you (backend 490, mobile 427, portal Offers page for admin and store staff); migration `AddCampaignStores` applied to the dev database; P14 and P15 not started.** Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
 
 ## Requests
 1. Offers should be announced **by the store**, or the admin chooses **which stores** an offer is for.

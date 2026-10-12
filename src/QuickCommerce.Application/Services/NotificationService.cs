@@ -75,6 +75,7 @@ public sealed class NotificationService(
             message,
             notification.IsRead,
             DateTime.SpecifyKind(notification.CreatedAt, DateTimeKind.Utc),
-            notification.Category);
+            notification.Category,
+            NotificationCatalog.ReadStore(notification.DataJson));
     }
 }

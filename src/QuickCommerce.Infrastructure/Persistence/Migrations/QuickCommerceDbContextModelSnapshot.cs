@@ -361,6 +361,21 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
+                {
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CampaignId", "StoreId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("CampaignStores");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2177,6 +2192,23 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany("Stores")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Store");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Customer", "Customer")
@@ -2536,6 +2568,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("RolePermissions");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.Campaign", b =>
+                {
+                    b.Navigation("Stores");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>

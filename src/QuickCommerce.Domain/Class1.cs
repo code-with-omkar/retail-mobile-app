@@ -565,6 +565,17 @@ public sealed class Campaign
 	public int RecipientCount { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public string? CreatedBy { get; set; }
+
+	/// <summary>The stores this offer is from. Empty means every store (an offer from the whole business).</summary>
+	public List<CampaignStore> Stores { get; set; } = [];
+}
+
+/// <summary>One store an offer is from.</summary>
+public sealed class CampaignStore
+{
+	public Guid CampaignId { get; set; }
+	public Guid StoreId { get; set; }
+	public Store Store { get; set; } = null!;
 }
 
 public sealed class OrderItem

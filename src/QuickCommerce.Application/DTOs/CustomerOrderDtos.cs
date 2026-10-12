@@ -8,7 +8,8 @@ public sealed record NotificationResponse(
     string Message,
     bool IsRead,
     DateTime CreatedAt,
-    string Category = "Order");
+    string Category = "Order",
+    string? StoreName = null);
 
 public sealed record MarkNotificationReadRequest(bool IsRead = true);
 

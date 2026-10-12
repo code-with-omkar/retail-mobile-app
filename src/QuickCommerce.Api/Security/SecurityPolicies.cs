@@ -6,4 +6,7 @@ public static class SecurityPolicies
     public const string StoreOrderOperations = "StoreOrderOperations";
     public const string AdminManagement = "AdminManagement";
     public const string AdminDataRead = "AdminDataRead";
+
+    /// <summary>Offers for customers: administrators, and store staff for their own store.</summary>
+    public const string OfferManagement = "OfferManagement";
 }

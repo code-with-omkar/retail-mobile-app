@@ -86,6 +86,12 @@ public static class ApiServiceCollectionExtensions
                     context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "users:manage") ||
                     context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "roles:manage") ||
                     context.User.Claims.Any(claim => claim.Type == "permission" && claim.Value == "permissions:manage")));
+            options.AddPolicy(SecurityPolicies.OfferManagement, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context =>
+                    context.User.IsInRole("ApplicationAdmin") ||
+                    context.User.IsInRole("Admin") ||
+                    context.User.IsInRole("StoreStaff")));
             options.AddPolicy(SecurityPolicies.AdminDataRead, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireAssertion(context =>

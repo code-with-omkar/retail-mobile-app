@@ -323,6 +323,9 @@ void main() {
     testWidgets('browsing a category keeps the store visible with how many items it carries', (tester) async {
       await pump(tester);
       await tester.scrollUntilVisible(find.text('Dairy'), 200, scrollable: find.byType(Scrollable).first);
+      // Clear of the bottom bar, which the larger festival card now pushes the tile under.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -150));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Dairy').first);
       await tester.pumpAndSettle();
 

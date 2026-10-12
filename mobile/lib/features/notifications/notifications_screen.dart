@@ -131,7 +131,14 @@ class _NotificationCard extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (notification.category == 'Offer') Padding(padding: const EdgeInsets.only(bottom: 4), child: Chip2(context.tr('Offer'), dot: Pal.pink)),
+                if (notification.category == 'Offer')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                      Chip2(context.tr('Offer'), dot: Pal.pink),
+                      if (notification.storeName != null) Text(context.tr('From {store}', {'store': notification.storeName!}), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
+                    ]),
+                  ),
                 Text(texts.title, style: TextStyle(color: p.onCard, fontWeight: unread ? FontWeight.w900 : FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
                 Text(texts.message, style: TextStyle(color: p.mutedOnCard, height: 1.3)),

@@ -81,6 +81,12 @@ void main() {
       expect(notificationFromJson(_json(category: null)).category, 'Order');
     });
 
+    test('an offer carries the store it is from, and one from the whole business carries none', () {
+      expect(notificationFromJson({..._json(type: 'Offer', category: 'Offer'), 'storeName': 'Kharghar Fresh Hub'}).storeName, 'Kharghar Fresh Hub');
+      expect(notificationFromJson(_json(type: 'Offer', category: 'Offer')).storeName, isNull);
+      expect(notificationFromJson({..._json(type: 'Offer', category: 'Offer'), 'storeName': 'Kharghar Fresh Hub'}).asRead().storeName, 'Kharghar Fresh Hub');
+    });
+
     test('the list asks for the customer language, and sends none when none is given', () async {
       final adapter = FakeAdapter()
         ..replyJson({'success': true, 'data': [_json()]})
@@ -141,6 +147,12 @@ void main() {
       expect(find.text('Festival sale'), findsOneWidget);
       expect(find.text('Offer'), findsOneWidget);
       expect(find.byIcon(Icons.local_offer_outlined), findsOneWidget);
+    });
+
+    testWidgets('an offer names the store it is from', (tester) async {
+      await _open(tester, notifications: [AppNotification(id: 'o', type: 'Offer', title: 'Fruit day', message: '20% off', isRead: false, createdAt: DateTime(2026, 10, 9), category: 'Offer', storeName: 'Kharghar Fresh Hub')]);
+
+      expect(find.text('From Kharghar Fresh Hub'), findsOneWidget);
     });
 
     testWidgets('the list is asked for in the customer language, and again in the new one after a switch', (tester) async {

@@ -244,3 +244,16 @@ Status: built and tested (2026-10-09); migration `AddNotificationSystem` applied
 **Preferences.** `GET` and `PUT api/customer/notifications/preferences` with `{ "offers": true|false }`. Only offers can be switched off; order and payment messages are always sent.
 
 **Offers (admin).** `GET api/admin/campaigns`, `POST api/admin/campaigns` (`titleEn`, `bodyEn` required up to 160 and 500 characters; `titleMr` and `bodyMr` both or neither; `startsAt` optional, a past or empty time means now), `POST api/admin/campaigns/{id}/cancel` (409 `CampaignAlreadySent` once sent). Admin only. A background job (every 30 seconds, safe on several servers) sends each due campaign once to every active customer with offers on; the count is kept on the campaign. Status is `Scheduled`, `Sent` or `Cancelled`. Push (FCM) will reuse the same types later.
+
+## Store-owned offers (P13)
+
+Status: built and tested (2026-10-12); migration `AddCampaignStores` applied to the dev database (backup `retail-mobile-app_pre-P13-campaign-stores.bak`).
+
+Offers belong to stores (`CampaignStores`; none means every store). Routes are the same, `api/admin/campaigns` (list, create, `{id}/cancel`), now open to administrators and store staff (policy `OfferManagement`):
+
+| Who | Create | List | Cancel |
+| --- | --- | --- | --- |
+| Administrator | for any chosen stores, or none = every store (`storeIds`) | every offer | any |
+| Store staff | always for their own store (empty `storeIds` means their store; another store is **403**) | offers that are for their store | only offers for their store alone (others look like **404**) |
+
+The request gains optional `storeIds`; the answer gains `stores` (id and name) and `allStores`. **Audience:** an offer for chosen stores goes to customers of those stores who have offers on, where a customer of a store has ordered from it or has a cart there; an offer for no store goes to every customer with offers on. Each notification carries the store name; `GET api/customer/notifications` returns it as `storeName` (null for an offer from the whole business), and the app shows "From {store}".

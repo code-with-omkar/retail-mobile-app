@@ -103,6 +103,25 @@ public static class NotificationCatalog
 
     private static string Fill(string text, string orderNumber) => text.Replace("{orderNumber}", orderNumber, StringComparison.Ordinal);
 
+    /// <summary>The name of the store an offer is from, when the notification carries one.</summary>
+    public static string? ReadStore(string? dataJson)
+    {
+        if (string.IsNullOrWhiteSpace(dataJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var json = JsonDocument.Parse(dataJson);
+            return json.RootElement.TryGetProperty("store", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static string? ReadOrderNumber(string? dataJson)
     {
         if (string.IsNullOrWhiteSpace(dataJson))

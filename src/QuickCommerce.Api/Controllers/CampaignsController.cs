@@ -5,10 +5,10 @@ using QuickCommerce.Application.Interfaces;
 
 namespace QuickCommerce.Api.Controllers;
 
-/// <summary>Offers and announcements for customers, written and scheduled by administrators.</summary>
+/// <summary>Offers and announcements for customers: written and scheduled by administrators, or by store staff for their own store.</summary>
 [ApiController]
 [Route("api/admin/campaigns")]
-[Authorize(Policy = SecurityPolicies.AdminManagement)]
+[Authorize(Policy = SecurityPolicies.OfferManagement)]
 public sealed class CampaignsController(ICampaignAdminService campaigns) : ControllerBase
 {
     [HttpGet]

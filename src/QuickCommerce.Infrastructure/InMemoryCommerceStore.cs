@@ -212,10 +212,24 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
     {
         lock (SyncRoot)
         {
+            foreach (var link in campaign.Stores)
+            {
+                link.CampaignId = campaign.Id;
+                link.Store = Stores.First(item => item.Id == link.StoreId);
+            }
+
             Campaigns.Add(campaign);
         }
 
         return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<Store>> GetStoresAsync(IReadOnlyCollection<Guid> ids, Guid organizationId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Store>>(Stores.Where(item => ids.Contains(item.Id) && item.OrganizationId == organizationId && item.IsActive).ToArray());
+        }
     }
 
     public Task<Campaign?> GetCampaignAsync(Guid id, CancellationToken cancellationToken = default)
@@ -248,10 +262,28 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             foreach (var campaign in Campaigns.Where(item => item.IsActive && item.PublishedAt is null && item.StartsAt <= now).ToArray())
             {
                 campaign.PublishedAt = now;
-                var recipients = Customers.Where(customer => customer.IsActive && customer.OffersEnabled).ToArray();
+                var storeIds = campaign.Stores.Select(link => link.StoreId).ToHashSet();
+                // A customer of a store: has ordered from it or has a cart there.
+                string? KnownStore(Customer customer) => campaign.Stores
+                    .Where(link => Orders.Any(order => order.UserId == customer.UserId && order.StoreId == link.StoreId) || Carts.Any(cart => cart.CustomerId == customer.Id && cart.StoreId == link.StoreId))
+                    .Select(link => link.Store.Name)
+                    .Order()
+                    .FirstOrDefault();
+                var recipients = Customers.Where(customer => customer.IsActive && customer.OffersEnabled && (storeIds.Count == 0 || KnownStore(customer) is not null)).ToArray();
                 foreach (var customer in recipients)
                 {
-                    Notifications.Add(new Notification { CustomerId = customer.Id, Type = NotificationTypes.Offer, Category = NotificationCategories.Offer, Title = campaign.TitleEn, Message = campaign.BodyEn, CampaignId = campaign.Id, Campaign = campaign });
+                    var store = KnownStore(customer);
+                    Notifications.Add(new Notification
+                    {
+                        CustomerId = customer.Id,
+                        Type = NotificationTypes.Offer,
+                        Category = NotificationCategories.Offer,
+                        Title = campaign.TitleEn,
+                        Message = campaign.BodyEn,
+                        DataJson = store is null ? null : System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string> { ["store"] = store }),
+                        CampaignId = campaign.Id,
+                        Campaign = campaign
+                    });
                 }
 
                 campaign.RecipientCount = recipients.Length;

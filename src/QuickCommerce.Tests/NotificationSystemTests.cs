@@ -45,7 +45,12 @@ public sealed class NotificationSystemTests
         return new Rig { Payments = rig, Service = new NotificationService(rig.Data, new CurrentUserContextResolver(current, rig.Data)) };
     }
 
-    private static CampaignAdminService Admin(InMemoryCommerceStore data, bool admin = true, TimeProvider? clock = null) => new(data, new FixedScope(admin), clock);
+    private sealed class NoContext : ICurrentUserContextResolver
+    {
+        public Task<UserContext?> ResolveAsync(CancellationToken cancellationToken = default) => Task.FromResult<UserContext?>(null);
+    }
+
+    private static CampaignAdminService Admin(InMemoryCommerceStore data, bool admin = true, TimeProvider? clock = null) => new(data, new FixedScope(admin), new NoContext(), clock);
 
     // ---------------- the catalogue ----------------
 
