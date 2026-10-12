@@ -165,6 +165,27 @@ void main() {
       expect(find.text('Nearest'), findsOneWidget);
     });
 
+    testWidgets('a sponsored store is tagged Sponsored on Home and in the list, and only that store', (tester) async {
+      await pump(tester, overrides: [
+        serviceableStoresProvider.overrideWith((ref) async => const [
+              NearestStore(id: 'a', name: 'Paid Mart', distanceKm: 3, estimatedMinutes: 15, address: 'A', sponsored: true),
+              NearestStore(id: 'b', name: 'Close Mart', distanceKm: 1, estimatedMinutes: 9, address: 'B'),
+            ]),
+      ]);
+
+      expect(find.text('Sponsored'), findsOneWidget);
+      expect(find.text('Nearest'), findsOneWidget, reason: 'the closest store keeps its own tag');
+
+      await tester.tap(find.text('See all 2'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sponsored'), findsOneWidget);
+    });
+
+    testWidgets('with no sponsored store nothing is tagged Sponsored', (tester) async {
+      await pump(tester);
+      expect(find.text('Sponsored'), findsNothing);
+    });
+
     testWidgets('tapping a store in the rail switches to it, remembers it, and the bar follows', (tester) async {
       await pump(tester);
 

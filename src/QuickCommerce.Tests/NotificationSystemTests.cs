@@ -287,6 +287,7 @@ public sealed class NotificationSystemTests
 }
 
 /// <summary>The same on SQL Server: one offer per customer even when several servers send at once, opt-out, and the cancel race.</summary>
+[Collection("SqlServer")]
 public sealed class NotificationEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

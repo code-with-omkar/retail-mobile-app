@@ -448,4 +448,10 @@ const marathi = <String, String>{
   'Offers and announcements': 'ऑफर आणि सूचना',
   'Order and payment updates are always sent.': 'ऑर्डर आणि पेमेंटच्या सूचना नेहमी पाठवल्या जातात.',
   'Could not save your choice. Please try again.': 'तुमची निवड जतन झाली नाही. कृपया पुन्हा प्रयत्न करा.',
+  'Sponsored': 'प्रायोजित',
+  'Delivery partner': 'डिलिव्हरी पार्टनर',
+  'On the way': 'वाटेत आहे',
+  'Call': 'कॉल करा',
+  'Your delivery code': 'तुमचा डिलिव्हरी कोड',
+  'Give this code to the delivery partner only when your order arrives.': 'ऑर्डर पोहोचल्यावरच हा कोड डिलिव्हरी पार्टनरला सांगा.',
 };

@@ -43,7 +43,7 @@ class _GeoCatalog implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) => _seed.categories();
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async => FakeAddressRepository.servesPoint(latitude, longitude) ? _seed.stores(latitude: latitude, longitude: longitude) : const [];
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => FakeAddressRepository.servesPoint(latitude, longitude) ? _seed.stores(latitude: latitude, longitude: longitude) : const [];
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) async => (await stores(latitude: latitude, longitude: longitude)).firstOrNull;

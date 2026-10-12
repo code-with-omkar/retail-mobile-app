@@ -1,6 +1,6 @@
 # Three requests: order numbers, notification system, delivery partner app
 
-Status: **decisions accepted 2026-10-09. P10 backend built and tested (442 tests); migration applied to the dev database; P11 built, tested and confirmed working by you (backend 477 tests, mobile 425, portal Offers page); P11 migration applied to the dev database; P12 not started.** Phases: P10 order numbers, P11 notifications, P12 delivery app.
+Status: **decisions accepted 2026-10-09. P10 backend built and tested (442 tests); migration applied to the dev database; P11 built, tested and confirmed working by you (backend 477 tests, mobile 425, portal Offers page); P11 migration applied to the dev database; P12 built and tested (backend 588, mobile customer app code card, portal partner picker, new delivery_app with 17 tests); migration `AddDeliveryAssignment` applied to the dev database.** Phases: P10 order numbers, P11 notifications, P12 delivery app.
 
 ## Today
 - Order number: `ORD-yyyyMMddHHmmss-<guid>` cut to 32 characters. Hard to read out or remember.

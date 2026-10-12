@@ -22,6 +22,14 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.PaymentExpiresAt).HasColumnType("datetime2");
         // The job that releases held items looks for these.
         builder.HasIndex(order => order.PaymentExpiresAt).HasFilter("[PaymentExpiresAt] IS NOT NULL").HasDatabaseName("IX_Orders_PaymentExpiresAt");
+        builder.Property(order => order.DeliveryOtp).HasMaxLength(4);
+        builder.Property(order => order.AssignedAt).HasColumnType("datetime2");
+        builder.Property(order => order.OtpLockedUntil).HasColumnType("datetime2");
+        builder.Property(order => order.PickedUpAt).HasColumnType("datetime2");
+        builder.Property(order => order.DeliveredAt).HasColumnType("datetime2");
+        builder.Property(order => order.CashCollected).HasPrecision(18, 2);
+        builder.HasIndex(order => new { order.DeliveryPartnerId, order.Status }).HasFilter("[DeliveryPartnerId] IS NOT NULL").HasDatabaseName("IX_Orders_DeliveryPartner");
+        builder.HasOne<User>().WithMany().HasForeignKey(order => order.DeliveryPartnerId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(order => order.DeliveryAddress).HasMaxLength(500).IsRequired();
         builder.Property(order => order.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
         builder.Property(order => order.CreatedAt).HasColumnType("datetime2").IsRequired();

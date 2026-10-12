@@ -292,10 +292,10 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  ]},
 {"id":"P12","name":"Delivery partner app","goal":"Delivery partners have their own app to see assigned orders, collect cash and mark delivered.","deps":["P6","P10"],"exit":["Store staff assign a Ready order to a partner in the portal","A partner sees only their own orders","Delivered by the partner updates the customer"],
  "tasks":[
- {"id":"12.1","t":"Assignment: order gets a delivery partner; partner policy and endpoints (authorization change, needs approval)","l":["D","A"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":[],"st":"todo"},
- {"id":"12.2","t":"Portal: assign a partner to a Ready order; partner list per store","l":["W"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"todo"},
- {"id":"12.3","t":"Separate Flutter delivery app: login, my deliveries, order detail, call, navigate","l":["M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"todo"},
- {"id":"12.4","t":"Mark picked up and delivered (cash collected, optional OTP); customer sees partner name and phone","l":["A","M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.3"],"st":"todo"}
+ {"id":"12.1","t":"Assignment: order gets a delivery partner; partner policy and endpoints (authorization change, needs approval)","l":["D","A"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":[],"st":"doing"},
+ {"id":"12.2","t":"Portal: assign a partner to a Ready order; partner list per store","l":["W"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"doing"},
+ {"id":"12.3","t":"Separate Flutter delivery app: login, my deliveries, order detail, call, navigate","l":["M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"doing"},
+ {"id":"12.4","t":"Mark picked up and delivered (cash collected, optional OTP); customer sees partner name and phone","l":["A","M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.3"],"st":"doing"}
  ]},
 {"id":"P13","name":"Store-owned offers","goal":"Store staff announce offers for their own store; an admin can create an offer for chosen stores. Customers see the store on the offer.","deps":["P11"],"exit":["Offers belong to stores","Store staff cannot post for other stores","Audience is customers who use that store"],
  "tasks":[
@@ -311,10 +311,10 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  ]},
 {"id":"P15","name":"Paid store placement (bidding)","goal":"Stores bid for first place in a pincode for a week; the highest confirmed and paid bid is shown first, marked Sponsored. An outbid store is refunded.","deps":["P14"],"exit":["Highest paid bid shows first in that pincode for the week","Sponsored label shown to customers","Outbid stores are refunded","Bidding rules are configurable"],
  "tasks":[
- {"id":"15.1","t":"Slots table (pincode, week, store, amount, status), bidding rules service, minimum bid and increment settings","l":["D","A"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":[],"st":"todo"},
- {"id":"15.2","t":"Store pays to confirm a winning bid; outbid refunds; ties and closing time rules; tests incl. parallel bids","l":["A","Q"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.1"],"st":"todo"},
- {"id":"15.3","t":"Apply placement in catalog/stores for the customer pincode; Sponsored label in the app","l":["A","M"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"todo"},
- {"id":"15.4","t":"Portal: store bidding page, admin controls and reports","l":["W"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"todo"}
+ {"id":"15.1","t":"Slots table (pincode, week, store, amount, status), bidding rules service, minimum bid and increment settings","l":["D","A"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":[],"st":"doing"},
+ {"id":"15.2","t":"Store pays to confirm a winning bid; outbid refunds; ties and closing time rules; tests incl. parallel bids","l":["A","Q"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.1"],"st":"doing"},
+ {"id":"15.3","t":"Apply placement in catalog/stores for the customer pincode; Sponsored label in the app","l":["A","M"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"doing"},
+ {"id":"15.4","t":"Portal: store bidding page, admin controls and reports","l":["W"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"doing"}
  ]}
 ],
 "backlog":["iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Favourites and ratings","Deals/coupons rule engine behind Today's deals","Delivery slots and scheduled delivery (configurable rules)","Multi-organization store switching","Product analytics"],

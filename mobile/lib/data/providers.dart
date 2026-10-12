@@ -110,10 +110,23 @@ final deliveryLocationProvider = Provider<({double latitude, double longitude})?
 });
 
 /// Every store that delivers to the delivery location, nearest first.
-final serviceableStoresProvider = FutureProvider<List<NearestStore>>((ref) {
+/// The pincode of the delivery point, found on the phone (null when it cannot be found, which only means no paid placement applies).
+final deliveryPincodeProvider = FutureProvider<String?>((ref) async {
+  final where = ref.watch(deliveryLocationProvider);
+  if (where == null) return null;
+  try {
+    return await ref.watch(geocodingServiceProvider).pincode(latitude: where.latitude, longitude: where.longitude).timeout(const Duration(seconds: 3));
+  } catch (_) {
+    return null;
+  }
+});
+
+final serviceableStoresProvider = FutureProvider<List<NearestStore>>((ref) async {
   final where = ref.watch(deliveryLocationProvider);
   if (where == null) return const <NearestStore>[]; // no place chosen: nothing to look up
-  return ref.watch(catalogRepositoryProvider).stores(latitude: where.latitude, longitude: where.longitude);
+  // With the pincode the store that paid for first place there comes first, marked sponsored.
+  final pincode = await ref.watch(deliveryPincodeProvider.future);
+  return ref.watch(catalogRepositoryProvider).stores(latitude: where.latitude, longitude: where.longitude, pincode: pincode);
 });
 
 /// The store the customer chose (id), remembered between launches. Null means "use the nearest".

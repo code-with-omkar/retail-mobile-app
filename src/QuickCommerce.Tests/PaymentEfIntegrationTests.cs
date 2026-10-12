@@ -11,6 +11,7 @@ namespace QuickCommerce.Tests;
 /// Phase P7 against a real SQL Server: the amounts, the unique indexes, and the cases where two things reach the same order at once.
 /// Opt-in like the other SQL tests (QUICKCOMMERCE_TEST_CONNECTION_STRING, a DISPOSABLE database). Everything added is removed again.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class PaymentEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

@@ -100,6 +100,11 @@ class _DetailState extends ConsumerState<_Detail> {
     if (!ok && mounted) _say(context.tr('Could not open the phone app.'));
   }
 
+  Future<void> _callPartner() async {
+    final ok = await ref.read(phoneLauncherProvider).dial(order.deliveryPartnerPhone!);
+    if (!ok && mounted) _say(context.tr('Could not open the phone app.'));
+  }
+
   Future<void> _cancel() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -244,6 +249,28 @@ class _DetailState extends ConsumerState<_Detail> {
           if (failing && order.stage.isActive)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(height: 16),
+          if (order.deliveryOtp != null) ...[
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(width: 44, height: 44, decoration: const BoxDecoration(color: Pal.green, shape: BoxShape.circle), child: const Icon(Icons.delivery_dining_outlined, color: Pal.ink)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(context.tr('Delivery partner'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                      Text(order.deliveryPartnerName ?? context.tr('On the way'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
+                    ]),
+                  ),
+                  if (order.deliveryPartnerPhone != null) TextButton.icon(onPressed: _callPartner, icon: const Icon(Icons.call_outlined), label: Text(context.tr('Call'))),
+                ]),
+                const SizedBox(height: 12),
+                Text(context.tr('Your delivery code'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                Text(order.deliveryOtp!, key: const Key('delivery-code'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 32, letterSpacing: 8)),
+                Text(context.tr('Give this code to the delivery partner only when your order arrives.'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, height: 1.3)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (order.storeName != null) ...[
             Surface(
               child: Row(children: [

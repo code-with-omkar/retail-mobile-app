@@ -81,6 +81,9 @@ abstract interface class GeocodingService {
   /// A readable address for a point, or null when none is known.
   Future<String?> reverse({required double latitude, required double longitude});
 
+  /// The six-digit pincode of a point, or null when it is not known.
+  Future<String?> pincode({required double latitude, required double longitude});
+
   /// The point for typed address text, or null when nothing matches. Throws [GeocodingUnavailable] when the lookup cannot run.
   Future<({double latitude, double longitude})?> forward(String address);
 }
@@ -105,6 +108,17 @@ class PluginGeocodingService implements GeocodingService {
       return parts.isEmpty ? null : parts.join(', ');
     } catch (_) {
       return null; // a missing address text is not an error: the pin still works
+    }
+  }
+
+  @override
+  Future<String?> pincode({required double latitude, required double longitude}) async {
+    try {
+      final places = await _geocoding.placemarkFromCoordinates(latitude, longitude);
+      final code = places.map((p) => p.postalCode?.replaceAll(RegExp(r'\s'), '')).firstWhere((c) => c != null && RegExp(r'^[1-9][0-9]{5}$').hasMatch(c), orElse: () => null);
+      return code;
+    } catch (_) {
+      return null; // no pincode is fine: the stores come in their usual order
     }
   }
 

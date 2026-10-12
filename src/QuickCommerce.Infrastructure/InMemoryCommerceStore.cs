@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -152,7 +152,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
 
     public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
 
-    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt)).ToArray());
+    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId, order.DeliveryPartnerId.HasValue ? Users.FirstOrDefault(user => user.Id == order.DeliveryPartnerId)?.DisplayName : null)).ToArray());
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id && order.Status != OrderStatus.AwaitingPayment));
 
@@ -200,6 +200,212 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
 
     public List<Campaign> Campaigns { get; } = [];
     public List<CampaignPayment> CampaignPayments { get; } = [];
+    public List<PlacementBid> PlacementBids { get; } = [];
+    private PlacementRules? placementRules;
+
+    // ---- paid placement ----
+
+    public Task<PlacementRules> GetRulesAsync(CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var rules = placementRules ?? new PlacementRules();
+            return Task.FromResult(new PlacementRules { Id = rules.Id, Enabled = rules.Enabled, MinBidPaise = rules.MinBidPaise, MinStepPaise = rules.MinStepPaise, MaxWeeksAhead = rules.MaxWeeksAhead, UpdatedAt = rules.UpdatedAt, UpdatedBy = rules.UpdatedBy });
+        }
+    }
+
+    public Task SetRulesAsync(PlacementRules rules, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            placementRules = rules;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task<Store?> IPlacementStore.GetStoreAsync(Guid storeId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Stores.FirstOrDefault(store => store.Id == storeId && store.OrganizationId == organizationId && store.IsActive));
+        }
+    }
+
+    public Task<PlacementBid?> GetLeadingAsync(string pincode, DateOnly weekStart, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(PlacementBids.FirstOrDefault(bid => bid.Pincode == pincode && bid.WeekStart == weekStart && bid.Status == PlacementBidStatus.Leading));
+        }
+    }
+
+    public async Task<Guid?> GetLeadingStoreAsync(string pincode, DateTime nowUtc, CancellationToken cancellationToken = default)
+    {
+        if (!PlacementWeeks.IsPincode(pincode) || !(await GetRulesAsync(cancellationToken)).Enabled)
+        {
+            return null;
+        }
+
+        return (await GetLeadingAsync(pincode, PlacementWeeks.WeekStartOf(nowUtc), cancellationToken))?.StoreId;
+    }
+
+    public Task<PlacementBid?> GetBidAsync(Guid bidId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(PlacementBids.FirstOrDefault(bid => bid.Id == bidId));
+        }
+    }
+
+    public Task<IReadOnlyList<PlacementBid>> ListBidsAsync(Guid? storeId, int max, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<PlacementBid>>(PlacementBids.Where(bid => storeId is null || bid.StoreId == storeId).OrderByDescending(bid => bid.CreatedAt).Take(max).ToArray());
+        }
+    }
+
+    public Task<int> CountOpenBidsAsync(Guid storeId, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(PlacementBids.Count(bid => bid.StoreId == storeId && bid.Status == PlacementBidStatus.AwaitingPayment));
+        }
+    }
+
+    public Task AddBidAsync(PlacementBid bid, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            bid.Store = Stores.First(store => store.Id == bid.StoreId);
+            PlacementBids.Add(bid);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<PlacementBid?> CancelBidAsync(Guid bidId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.FirstOrDefault(item => item.Id == bidId);
+            if (bid is not null)
+            {
+                PlacementTransitions.ApplyCancelled(bid, now);
+            }
+
+            return Task.FromResult(bid);
+        }
+    }
+
+    Task<PlacementBid?> IPlacementStore.BeginAttemptAsync(Guid bidId, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.FirstOrDefault(item => item.Id == bidId);
+            if (bid is null || bid.Status != PlacementBidStatus.AwaitingPayment)
+            {
+                return Task.FromResult<PlacementBid?>(null);
+            }
+
+            bid.Attempts++;
+            bid.UpdatedAt = now;
+            return Task.FromResult<PlacementBid?>(bid);
+        }
+    }
+
+    Task<bool> IPlacementStore.AttachProviderOrderAsync(Guid bidId, string providerOrderId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.First(item => item.Id == bidId);
+            if (bid.ProviderOrderId is not null)
+            {
+                return Task.FromResult(false);
+            }
+
+            bid.ProviderOrderId = providerOrderId;
+            return Task.FromResult(true);
+        }
+    }
+
+    Task<PlacementCaptureOutcome> IPlacementStore.ApplyCapturedAsync(string providerOrderId, string providerPaymentId, long paidPaise, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.FirstOrDefault(item => item.ProviderOrderId == providerOrderId);
+            if (bid is null)
+            {
+                return Task.FromResult(PlacementCaptureOutcome.UnknownPayment);
+            }
+
+            var current = PlacementBids.FirstOrDefault(item => item.Pincode == bid.Pincode && item.WeekStart == bid.WeekStart && item.Status == PlacementBidStatus.Leading && item.Id != bid.Id);
+            return Task.FromResult(PlacementTransitions.ApplyCaptured(bid, current, providerPaymentId, paidPaise, now));
+        }
+    }
+
+    Task<IReadOnlyList<PlacementBid>> IPlacementStore.GetRefundsToStartAsync(int max, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<PlacementBid>>(PlacementBids.Where(bid => bid.PaymentStatus == PaymentState.Refunding && bid.RefundId is null).OrderBy(bid => bid.UpdatedAt).Take(max).ToArray());
+        }
+    }
+
+    Task IPlacementStore.SetRefundStartedAsync(Guid bidId, string refundId, bool processed, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.First(item => item.Id == bidId);
+            bid.RefundId = refundId;
+            bid.UpdatedAt = now;
+            if (processed)
+            {
+                bid.PaymentStatus = PaymentState.Refunded;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task IPlacementStore.SetRefundFailedAsync(Guid bidId, string reason, bool permanent, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.First(item => item.Id == bidId);
+            bid.FailureReason = reason;
+            bid.UpdatedAt = now;
+            if (permanent)
+            {
+                bid.PaymentStatus = PaymentState.RefundFailed;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task IPlacementStore.SetRefundedAsync(Guid bidId, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var bid = PlacementBids.First(item => item.Id == bidId);
+            bid.PaymentStatus = PaymentState.Refunded;
+            bid.UpdatedAt = now;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task<IReadOnlyList<PlacementBid>> IPlacementStore.GetUnsettledAsync(DateTime olderThan, int max, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<PlacementBid>>(PlacementBids
+                .Where(bid => bid.UpdatedAt < olderThan && ((bid.Status == PlacementBidStatus.AwaitingPayment && bid.ProviderOrderId is not null) || (bid.PaymentStatus == PaymentState.Refunding && bid.RefundId is not null)))
+                .OrderBy(bid => bid.UpdatedAt).Take(max).ToArray());
+        }
+    }
     public List<OfferFee> OfferFees { get; } = [];
 
     // ---- offer fees ----
@@ -662,7 +868,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.NotFound));
             }
 
-            if (!OrderStatusTransitions.IsValid(order.Status, targetStatus))
+            if (!OrderStatusTransitions.IsValid(order.Status, targetStatus) || (order.DeliveryPartnerId.HasValue && targetStatus == OrderStatus.Completed))
             {
                 return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition));
             }
@@ -688,6 +894,111 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, targetStatus));
             }
             return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order)));
+        }
+    }
+
+    Task<User?> IDeliveryLookup.GetPartnerAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Users.FirstOrDefault(user => user.Id == userId && user.Role == Role.DeliveryPartner));
+        }
+    }
+
+    Task<IReadOnlyList<User>> IDeliveryStore.ListPartnersAsync(Guid organizationId, Guid storeId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<User>>(Users.Where(user => user.Role == Role.DeliveryPartner && user.IsActive && user.OrganizationId == organizationId && user.StoreId == storeId).ToArray());
+        }
+    }
+
+    Task<IReadOnlyDictionary<Guid, int>> IDeliveryStore.CountActiveAsync(IReadOnlyCollection<Guid> partnerIds, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyDictionary<Guid, int>>(Orders
+                .Where(order => order.DeliveryPartnerId.HasValue && partnerIds.Contains(order.DeliveryPartnerId.Value) && (order.Status == OrderStatus.Ready || order.Status == OrderStatus.OutForDelivery))
+                .GroupBy(order => order.DeliveryPartnerId!.Value)
+                .ToDictionary(group => group.Key, group => group.Count()));
+        }
+    }
+
+    Task<DeliveryChange> IDeliveryStore.AssignAsync(Guid orderId, Guid organizationId, Guid? scopeStoreId, Guid partnerId, string otp, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && (!scopeStoreId.HasValue || item.StoreId == scopeStoreId.Value) &&
+                Stores.Any(store => store.Id == item.StoreId && store.OrganizationId == organizationId));
+            if (order is null)
+            {
+                return Task.FromResult(new DeliveryChange(DeliveryChangeStatus.NotFound));
+            }
+
+            var partnerOk = Users.Any(user => user.Id == partnerId && user.Role == Role.DeliveryPartner && user.IsActive && user.OrganizationId == organizationId && user.StoreId == order.StoreId);
+            return Task.FromResult(partnerOk ? new DeliveryChange(DeliveryRules.Assign(order, partnerId, otp, now), order) : new DeliveryChange(DeliveryChangeStatus.PartnerInvalid));
+        }
+    }
+
+    Task<IReadOnlyList<(Order Order, Store Store)>> IDeliveryStore.ListForPartnerAsync(Guid partnerId, DateTime deliveredSince, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<(Order Order, Store Store)>>(Orders
+                .Where(order => order.DeliveryPartnerId == partnerId &&
+                    (order.Status == OrderStatus.Ready || order.Status == OrderStatus.OutForDelivery || (order.Status == OrderStatus.Delivered && order.DeliveredAt >= deliveredSince)))
+                .OrderByDescending(order => order.AssignedAt)
+                .Select(order => (order, Stores.First(store => store.Id == order.StoreId)))
+                .ToArray());
+        }
+    }
+
+    Task<DeliveryChange> IDeliveryStore.PickUpAsync(Guid orderId, Guid partnerId, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.DeliveryPartnerId == partnerId);
+            if (order is null)
+            {
+                return Task.FromResult(new DeliveryChange(DeliveryChangeStatus.NotFound));
+            }
+
+            var status = DeliveryRules.PickUp(order, partnerId, now);
+            if (status == DeliveryChangeStatus.Succeeded)
+            {
+                NotifyDelivery(order, OrderStatus.OutForDelivery);
+            }
+
+            return Task.FromResult(new DeliveryChange(status, order));
+        }
+    }
+
+    Task<DeliveryChange> IDeliveryStore.DeliverAsync(Guid orderId, Guid partnerId, string otp, decimal cashCollected, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.DeliveryPartnerId == partnerId);
+            if (order is null)
+            {
+                return Task.FromResult(new DeliveryChange(DeliveryChangeStatus.NotFound));
+            }
+
+            var status = DeliveryRules.Deliver(order, partnerId, otp, cashCollected, now);
+            if (status == DeliveryChangeStatus.Succeeded)
+            {
+                NotifyDelivery(order, OrderStatus.Delivered);
+            }
+
+            return Task.FromResult(new DeliveryChange(status, order));
+        }
+    }
+
+    private void NotifyDelivery(Order order, OrderStatus status)
+    {
+        var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
+        if (customer is not null)
+        {
+            Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, status));
         }
     }
 

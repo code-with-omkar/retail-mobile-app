@@ -73,6 +73,7 @@ public sealed class OrderNumberTests
 }
 
 /// <summary>The same rules on SQL Server: no repeats under parallel orders, a new day starts again at 1, and the store code index.</summary>
+[Collection("SqlServer")]
 public sealed class OrderNumberEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

@@ -36,6 +36,8 @@ public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbConte
     public DbSet<CampaignStore> CampaignStores => Set<CampaignStore>();
     public DbSet<OfferFee> OfferFees => Set<OfferFee>();
     public DbSet<CampaignPayment> CampaignPayments => Set<CampaignPayment>();
+    public DbSet<PlacementBid> PlacementBids => Set<PlacementBid>();
+    public DbSet<PlacementRules> PlacementRules => Set<PlacementRules>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();

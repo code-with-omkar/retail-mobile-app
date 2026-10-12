@@ -134,9 +134,12 @@ String cartKey(Product p, [PackOption? pack]) => (pack ?? p.defaultPack)?.id ?? 
 
 /// A store that delivers to the delivery location, with distance and delivery estimate from the API.
 class NearestStore {
-  const NearestStore({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, this.address = '', this.serviceRadiusKm = 0});
+  const NearestStore({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, this.address = '', this.serviceRadiusKm = 0, this.sponsored = false});
   final String id, name, address;
   final double distanceKm;
+
+  /// Paid first place in the customer's pincode this week: shown first, with a Sponsored label.
+  final bool sponsored;
 
   /// How far this store delivers; 0 when unknown.
   final double serviceRadiusKm;
@@ -209,6 +212,9 @@ class Order {
     this.estimatedMinutes,
     this.paymentState = PaymentState.notRequired,
     this.paymentExpiresAt,
+    this.deliveryPartnerName,
+    this.deliveryPartnerPhone,
+    this.deliveryOtp,
   });
 
   /// The server's id (used in routes). [number] is what the customer sees and quotes.
@@ -229,6 +235,9 @@ class Order {
   final PaymentState paymentState;
   final DateTime? paymentExpiresAt;
 
+  /// While the order is out for delivery: who has it, and the four digits to tell them at the door. Null at every other time.
+  final String? deliveryPartnerName, deliveryPartnerPhone, deliveryOtp;
+
   bool get isOnline => payment == 'Online';
 
   /// A copy with another payment state (and status), for example once an online order is paid.
@@ -236,6 +245,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
@@ -243,6 +253,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);

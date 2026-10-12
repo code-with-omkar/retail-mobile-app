@@ -413,6 +413,20 @@ public sealed class Order
 
 	/// <summary>For an order awaiting payment: until when its items are held.</summary>
 	public DateTime? PaymentExpiresAt { get; set; }
+
+	/// <summary>The delivery partner the store gave a Ready order to. Null until assigned (and for orders the customer collects).</summary>
+	public Guid? DeliveryPartnerId { get; set; }
+	public DateTime? AssignedAt { get; set; }
+
+	/// <summary>Four digits the customer tells the partner at the door. Only the customer and the partner who holds the order ever see it.</summary>
+	public string? DeliveryOtp { get; set; }
+	public int OtpFailures { get; set; }
+	public DateTime? OtpLockedUntil { get; set; }
+	public DateTime? PickedUpAt { get; set; }
+	public DateTime? DeliveredAt { get; set; }
+
+	/// <summary>What the partner reports collecting. Cash on delivery orders must equal the total; online orders are 0.</summary>
+	public decimal? CashCollected { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
 	public List<OrderItem> Items { get; set; } = [];
@@ -660,4 +674,90 @@ public static class OrderNumbers
 	public static string CodeOf(Store store) => string.IsNullOrWhiteSpace(store.Code) ? store.Id.ToString("N")[..4].ToUpperInvariant() : store.Code.Trim().ToUpperInvariant();
 
 	public static string Format(string storeCode, DateOnly day, int number) => $"{storeCode}-{day:yyMMdd}-{number:0000}";
+}
+
+/// <summary>Where a placement bid stands. Only one bid per pincode and week can be Leading.</summary>
+public enum PlacementBidStatus
+{
+	/// <summary>Placed but not paid yet.</summary>
+	AwaitingPayment,
+
+	/// <summary>Paid and the highest paid bid for its pincode and week: that store is shown first there for that week.</summary>
+	Leading,
+
+	/// <summary>Paid but beaten by a higher paid bid (or arrived after one): refunded in full.</summary>
+	Outbid,
+
+	/// <summary>Withdrawn before it was paid, or cancelled by an administrator (a paid one is refunded).</summary>
+	Cancelled
+}
+
+/// <summary>
+/// A store's bid to be shown first in a pincode for one week, paid online up front. The highest paid bid for a pincode and week leads;
+/// a higher paid bid replaces it and the beaten bid is refunded in full.
+/// </summary>
+public sealed class PlacementBid
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid StoreId { get; set; }
+
+	/// <summary>The six-digit Indian pincode the bid is for.</summary>
+	public required string Pincode { get; set; }
+
+	/// <summary>The Monday (India) the week starts; the slot runs until the next Monday and bidding closes when it starts.</summary>
+	public DateOnly WeekStart { get; set; }
+	public long AmountPaise { get; set; }
+	public PlacementBidStatus Status { get; set; } = PlacementBidStatus.AwaitingPayment;
+	public PaymentState PaymentStatus { get; set; } = PaymentState.Created;
+	public string Provider { get; set; } = "Razorpay";
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+	public string Currency { get; set; } = "INR";
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
+	public Store Store { get; set; } = null!;
+}
+
+/// <summary>The rules of paid placement, set by an administrator. One row; without it the defaults apply.</summary>
+public sealed class PlacementRules
+{
+	public Guid Id { get; set; } = Guid.Parse("00000000-0000-0000-0000-0000000000a1");
+
+	/// <summary>Whether paid placement is on at all. Off: no new bids, and the customer's list is in its normal order.</summary>
+	public bool Enabled { get; set; } = true;
+	public long MinBidPaise { get; set; } = 50_000;
+
+	/// <summary>How much more than the current highest paid bid a new bid must be.</summary>
+	public long MinStepPaise { get; set; } = 10_000;
+
+	/// <summary>How many weeks ahead a store can bid (the next week is 1).</summary>
+	public int MaxWeeksAhead { get; set; } = 4;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
+}
+
+/// <summary>Weeks for placement: they start on Monday 00:00 India time.</summary>
+public static class PlacementWeeks
+{
+	private static readonly TimeSpan India = TimeSpan.FromHours(5.5);
+
+	/// <summary>The Monday of the India calendar week this moment is in.</summary>
+	public static DateOnly WeekStartOf(DateTime utcNow)
+	{
+		var day = OrderNumbers.DayOf(utcNow);
+		var back = ((int)day.DayOfWeek + 6) % 7;
+		return day.AddDays(-back);
+	}
+
+	/// <summary>The moment (UTC) a week starts: its Monday at 00:00 India time. Bidding for the week closes then.</summary>
+	public static DateTime StartUtc(DateOnly weekStart) => DateTime.SpecifyKind(weekStart.ToDateTime(TimeOnly.MinValue) - India, DateTimeKind.Utc);
+
+	public static bool IsMonday(DateOnly day) => day.DayOfWeek == DayOfWeek.Monday;
+
+	/// <summary>A six-digit Indian pincode (the first digit is 1 to 9).</summary>
+	public static bool IsPincode(string? value) => value is { Length: 6 } && value[0] is >= '1' and <= '9' && value.All(char.IsAsciiDigit);
 }

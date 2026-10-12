@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AdminOrder, OrderStatus } from '../../core/models/domain.model';
 
@@ -14,7 +15,9 @@ const NEXT_STEPS: Record<string, { label: string; code: number; danger?: boolean
   Ready: [{ label: 'Complete', code: 4 }],
 };
 
-@Component({ selector: 'app-orders', standalone: true, imports: [CommonModule], template: `<section class="page"><h2>Orders</h2><p class="muted">Orders returned for your authorized scope</p><p *ngIf="loading()">Loading orders...</p><p *ngIf="error()" class="error">{{ error() }}</p><p *ngIf="notice()" class="notice">{{ notice() }}</p><p *ngIf="!loading() && !error() && orders().length === 0">No orders found.</p><div class="table" *ngIf="orders().length"><div class="row head"><span>Order</span><span>Customer</span><span>Store</span><span>Order date</span><span>Amount</span><span>Status</span><span>Action</span></div><div class="row" *ngFor="let order of orders()"><strong>{{ order.orderNumber }}</strong><span>{{ order.customer }}</span><span>{{ order.store }}</span><span>{{ order.createdAt | date:'short' }}</span><span>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span><span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span><span class="actions"><button *ngFor="let step of stepsFor(order)" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button></span></div></div></section>`, styles: [`
+interface Partner { id: string; name: string; phone?: string | null; activeDeliveries: number; }
+
+@Component({ selector: 'app-orders', standalone: true, imports: [CommonModule, FormsModule], template: `<section class="page"><h2>Orders</h2><p class="muted">Orders returned for your authorized scope</p><p *ngIf="loading()">Loading orders...</p><p *ngIf="error()" class="error">{{ error() }}</p><p *ngIf="notice()" class="notice">{{ notice() }}</p><p *ngIf="!loading() && !error() && orders().length === 0">No orders found.</p><div class="table" *ngIf="orders().length"><div class="row head"><span>Order</span><span>Customer</span><span>Store</span><span>Order date</span><span>Amount</span><span>Status</span><span>Action</span></div><div class="row" *ngFor="let order of orders()"><strong>{{ order.orderNumber }}</strong><span>{{ order.customer }}</span><span>{{ order.store }}</span><span>{{ order.createdAt | date:'short' }}</span><span>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span><span><span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span><em class="by" *ngIf="order.deliveryPartner">by {{ order.deliveryPartner }}</em></span><span class="actions"><button *ngFor="let step of stepsFor(order)" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button><ng-container *ngIf="order.status === 'Ready'"><select class="pick" [attr.aria-label]="'Delivery partner for ' + order.orderNumber" [ngModel]="picked()[order.id] ?? order.deliveryPartnerId ?? ''" (ngModelChange)="pick(order.id, $event)"><option value="">Delivery partner</option><option *ngFor="let p of partnersOf(order)" [value]="p.id">{{ p.name }} ({{ p.activeDeliveries }})</option></select><button class="act give" [disabled]="busyId() === order.id || !(picked()[order.id] || order.deliveryPartnerId) || (picked()[order.id] ?? order.deliveryPartnerId) === order.deliveryPartnerId" (click)="assign(order)">{{ order.deliveryPartnerId ? 'Change' : 'Give' }}</button></ng-container></span></div></div></section>`, styles: [`
     :host{display:block;font-family:'Inter',sans-serif;color:#fff}
     h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
     .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
@@ -36,10 +39,28 @@ const NEXT_STEPS: Record<string, { label: string; code: number; danger?: boolean
     .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
     .act.danger{background:#FB1A8E;color:#141118}
     .act:disabled{opacity:.5;cursor:default}
+    .act.give{background:#02F34C;color:#141118}
+    .by{display:block;font-style:normal;font-size:10px;margin-top:2px}
+    .pick{border:1px solid rgba(20,17,24,.2);border-radius:999px;padding:5px 10px;font:700 11px 'Inter',sans-serif;background:#fff;color:#141118;max-width:170px}
   `] })
-export class OrdersComponent implements OnInit { private api=inject(ApiService); readonly orders=signal<AdminOrder[]>([]); readonly loading=signal(false); readonly error=signal<string|null>(null); readonly notice=signal<string|null>(null); readonly busyId=signal<string|null>(null);
+export class OrdersComponent implements OnInit { private api=inject(ApiService); readonly orders=signal<AdminOrder[]>([]); readonly loading=signal(false); readonly error=signal<string|null>(null); readonly notice=signal<string|null>(null); readonly busyId=signal<string|null>(null); readonly partners=signal<Record<string,Partner[]>>({}); readonly picked=signal<Record<string,string>>({});
+  partnersOf(order:AdminOrder){return this.partners()[order.storeId]??[]}
+  pick(orderId:string,partnerId:string){this.picked.set({...this.picked(),[orderId]:partnerId})}
+  assign(order:AdminOrder){
+    const partnerId=this.picked()[order.id]; if(!partnerId||this.busyId()) return;
+    this.busyId.set(order.id); this.error.set(null); this.notice.set(null);
+    this.api.post<unknown>('/operations/orders/'+order.id+'/assign',{partnerId}).subscribe({
+      next:()=>{this.busyId.set(null);const next={...this.picked()};delete next[order.id];this.picked.set(next);this.notice.set(order.orderNumber+': given to the delivery partner.');this.load()},
+      error:e=>{this.busyId.set(null);this.error.set(e?.error?.message??e?.message??'Could not give the order to the delivery partner.');this.load()}
+    });
+  }
+  private loadPartners(orders:AdminOrder[]){
+    for(const storeId of new Set(orders.filter(o=>o.status==='Ready').map(o=>o.storeId))){
+      this.api.get<Partner[]>('/delivery/partners',{params:{storeId}}).subscribe({next:r=>this.partners.set({...this.partners(),[storeId]:r.data??[]}),error:()=>{}});
+    }
+  }
   label(status:string){return status==='Preparing'?'Packing':status}
-  stepsFor(order:AdminOrder){return NEXT_STEPS[order.status]??[]}
+  stepsFor(order:AdminOrder){return (NEXT_STEPS[order.status]??[]).filter(s=>!(order.deliveryPartnerId&&s.code===4))}
   change(order:AdminOrder,step:{label:string;code:number}){
     if(this.busyId()) return;
     this.busyId.set(order.id); this.error.set(null); this.notice.set(null);
@@ -48,4 +69,4 @@ export class OrdersComponent implements OnInit { private api=inject(ApiService);
       error:e=>{this.busyId.set(null);this.error.set(e?.error?.message??e?.message??'Could not change the status.');this.load()}
     });
   }
-  load(){this.api.get<AdminOrder[]>('/orders').subscribe({next:r=>{this.orders.set((r.data??[]).map(o=>({...o,status:statusName(o.status)})));this.loading.set(false)},error:e=>{this.error.set(e.message??'Unable to load orders');this.loading.set(false)}})} statusClass(status:string){const s=(status??'').toLowerCase();return s==='delivered'||s==='completed'?'badge-delivered':s==='cancelled'?'badge-cancelled':s==='processing'||s==='pending'||s==='confirmed'||s==='preparing'?'badge-processing':''} ngOnInit(){this.loading.set(true);this.load()} }
+  load(){this.api.get<AdminOrder[]>('/orders').subscribe({next:r=>{const list=(r.data??[]).map(o=>({...o,status:statusName(o.status)}));this.orders.set(list);this.loadPartners(list);this.loading.set(false)},error:e=>{this.error.set(e.message??'Unable to load orders');this.loading.set(false)}})} statusClass(status:string){const s=(status??'').toLowerCase();return s==='delivered'||s==='completed'?'badge-delivered':s==='cancelled'?'badge-cancelled':s==='processing'||s==='pending'||s==='confirmed'||s==='preparing'?'badge-processing':''} ngOnInit(){this.loading.set(true);this.load()} }

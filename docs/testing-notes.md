@@ -38,6 +38,20 @@ Place a cash order on the phone, then in the portal Orders page:
 - [ ] Cancel a paid offer before it is sent: fee refunded (check the Razorpay dashboard).
 - [ ] Admin-created offers need no payment. A store with fee 0 pays nothing.
 
+## A5. Paid placement (P15; after the migration is applied)
+- [ ] Portal, Placement: enter your store's pincode, see 4 weeks; place a bid, pay with Razorpay; the bid shows Leading.
+- [ ] A second store bids higher and pays: the first bid shows Outbid (refunded), the second Leading.
+- [ ] Phone: with a delivery address in that pincode the leading store is first, tagged Sponsored.
+- [ ] Cancel an unpaid bid; cancel a paid one (refunded). Admin: change the minimum bid and the rules apply.
+
+## A6. Delivery partner (P12; after the migration is applied)
+Setup done: demo partner `deliverypartner` has the Kharghar store; its password is in user-secrets (`dotnet user-secrets list` in src/QuickCommerce.Api, key Authentication:DevelopmentDeliveryPartnerPassword).
+- [ ] Portal, Orders: a Ready order shows a "Delivery partner" picker; Give. The row shows "by <name>"; "Complete" is gone.
+- [ ] Partner app (`delivery_app`, `flutter run --dart-define=API_BASE_URL=http://localhost:5067`): sign in; the order is listed with cash to collect.
+- [ ] Partner taps "I picked it up": customer phone shows "Out for delivery", the partner's first name, Call, and a 4-digit code.
+- [ ] Partner enters a wrong code: refused. Right code and exact cash: Delivered; the customer gets "delivered".
+- [ ] Five wrong codes lock it for 15 minutes.
+
 ## B. Online payment (blocked until Razorpay methods are enabled), task 7.10
 - [ ] Razorpay dashboard (Test mode): enable payment methods / finish activation.
 - [ ] Checkout shows "Pay online"; pay with test UPI `success@razorpay` or test card; order ends "Paid".

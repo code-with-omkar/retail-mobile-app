@@ -526,6 +526,7 @@ public sealed class OfferFeeTests
 }
 
 /// <summary>The same rules on SQL Server: one confirmation wins, an unpaid offer is never sent, refunds follow cancels, fees keep one row each.</summary>
+[Collection("SqlServer")]
 public sealed class OfferFeeEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

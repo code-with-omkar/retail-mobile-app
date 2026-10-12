@@ -38,7 +38,10 @@ public sealed record OrderResponse(
     string? StorePhone = null,
     int? EstimatedDeliveryMinutes = null,
     PaymentState PaymentStatus = PaymentState.NotRequired,
-    DateTime? PaymentExpiresAt = null);
+    DateTime? PaymentExpiresAt = null,
+    string? DeliveryPartnerName = null,
+    string? DeliveryPartnerPhone = null,
+    string? DeliveryOtp = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -49,7 +52,9 @@ public sealed record AdminOrderResponse(
     string Store,
     decimal TotalAmount,
     OrderStatus Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? DeliveryPartnerId = null,
+    string? DeliveryPartner = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

@@ -100,10 +100,12 @@ public sealed record CatalogProductDetailResult(CatalogQueryStatus Status, Catal
 /// <summary>Nearest store that can serve a location. Coordinates of the store are not repeated here.</summary>
 public sealed record NearestStoreResponse(Guid Id, string Name, double DistanceKm, int EstimatedMinutes, double ServiceRadiusKm);
 
-public sealed record NearestStoreQuery(double Latitude, double Longitude);
+/// <param name="Pincode">The delivery point's pincode when the app knows it: the store that leads it this week is listed first, marked sponsored.</param>
+public sealed record NearestStoreQuery(double Latitude, double Longitude, string? Pincode = null);
 
 /// <summary>A store that delivers to a location, for the customer's store picker.</summary>
-public sealed record ServiceableStoreResponse(Guid Id, string Name, string Address, double DistanceKm, int EstimatedMinutes, double ServiceRadiusKm);
+/// <param name="Sponsored">True for the store that paid for first place in this pincode this week.</param>
+public sealed record ServiceableStoreResponse(Guid Id, string Name, string Address, double DistanceKm, int EstimatedMinutes, double ServiceRadiusKm, bool Sponsored = false);
 
 /// <summary>An empty list is a valid answer: no store delivers there.</summary>
 public sealed record ServiceableStoreListResult(bool Valid, IReadOnlyList<ServiceableStoreResponse> Stores, string? Message = null)

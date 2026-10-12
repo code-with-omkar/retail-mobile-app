@@ -231,6 +231,7 @@ public sealed class CampaignStoreTests
 }
 
 /// <summary>The same audience rules on SQL Server.</summary>
+[Collection("SqlServer")]
 public sealed class CampaignStoreEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

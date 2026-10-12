@@ -854,7 +854,17 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CashCollected")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("DeliveryAddress")
@@ -868,6 +878,13 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("DeliveryFee")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DeliveryOtp")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<Guid?>("DeliveryPartnerId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("EstimatedDeliveryMinutes")
                         .HasColumnType("int");
@@ -887,6 +904,12 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<int>("OtpFailures")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("OtpLockedUntil")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("PaymentExpiresAt")
                         .HasColumnType("datetime2");
 
@@ -903,6 +926,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("NotRequired");
+
+                    b.Property<DateTime?>("PickedUpAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverName")
                         .HasMaxLength(120)
@@ -945,6 +971,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasIndex("PaymentExpiresAt")
                         .HasDatabaseName("IX_Orders_PaymentExpiresAt")
                         .HasFilter("[PaymentExpiresAt] IS NOT NULL");
+
+                    b.HasIndex("DeliveryPartnerId", "Status")
+                        .HasDatabaseName("IX_Orders_DeliveryPartner")
+                        .HasFilter("[DeliveryPartnerId] IS NOT NULL");
 
                     b.HasIndex("StoreId", "CreatedAt");
 
@@ -1249,6 +1279,137 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UX_PaymentEvents_ProviderEvent");
 
                     b.ToTable("PaymentEvents", (string)null);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementBid", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Pincode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderOrderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_ProviderOrderId")
+                        .HasFilter("[ProviderOrderId] IS NOT NULL");
+
+                    b.HasIndex("ProviderPaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_ProviderPaymentId")
+                        .HasFilter("[ProviderPaymentId] IS NOT NULL");
+
+                    b.HasIndex("PaymentStatus", "UpdatedAt");
+
+                    b.HasIndex("Pincode", "WeekStart")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_Leading")
+                        .HasFilter("[Status] = 'Leading'");
+
+                    b.HasIndex("StoreId", "WeekStart");
+
+                    b.ToTable("PlacementBids", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlacementBids_Amount", "[AmountPaise] > 0 AND [Attempts] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementRules", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxWeeksAhead")
+                        .HasColumnType("int");
+
+                    b.Property<long>("MinBidPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MinStepPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlacementRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlacementRules_Values", "[MinBidPaise] > 0 AND [MinStepPaise] >= 0 AND [MaxWeeksAhead] BETWEEN 1 AND 26");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Product", b =>
@@ -2471,6 +2632,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("QuickCommerce.Domain.Order", b =>
                 {
+                    b.HasOne("QuickCommerce.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QuickCommerce.Domain.Store", null)
                         .WithMany()
                         .HasForeignKey("StoreId")
@@ -2532,6 +2698,17 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementBid", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Product", b =>

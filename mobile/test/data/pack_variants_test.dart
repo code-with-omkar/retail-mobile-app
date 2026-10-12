@@ -244,7 +244,7 @@ class _Repo implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async => const [NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10)];
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => const [NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10)];
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) async => const NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10);

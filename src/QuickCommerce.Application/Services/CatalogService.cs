@@ -6,7 +6,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.Services;
 
-public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null) : ICatalogService
+public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null, IPlacementLookup? placement = null, TimeProvider? timeProvider = null) : ICatalogService
 {
     private readonly IDeliveryEstimator estimator = deliveryEstimator ?? new DeliveryEstimator(new DeliverySettings());
     private static readonly TimeSpan CategoriesTtl = TimeSpan.FromMinutes(15);
@@ -162,6 +162,26 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
             .ThenBy(entry => entry.Store.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => new ServiceableStoreResponse(entry.Store.Id, entry.Store.Name, entry.Store.Address, Math.Round(entry.Distance, 1), estimator.EstimateMinutes(entry.Distance), entry.Store.ServiceRadiusKm))
             .ToArray();
+        // Paid placement: the store that won first place in this pincode this week goes first, marked sponsored, but only if it already
+        // delivers here. Without a pincode, or without a winner, the order stays nearest first.
+        if (placement is not null && PlacementWeeks.IsPincode(query.Pincode) && stores.Length > 1)
+        {
+            var leader = await placement.GetLeadingStoreAsync(query.Pincode!, (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+            var at = Array.FindIndex(stores, store => store.Id == leader);
+            if (leader is not null && at >= 0)
+            {
+                stores = [stores[at] with { Sponsored = true }, .. stores.Where((_, index) => index != at)];
+            }
+        }
+        else if (placement is not null && PlacementWeeks.IsPincode(query.Pincode) && stores.Length == 1)
+        {
+            var leader = await placement.GetLeadingStoreAsync(query.Pincode!, (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+            if (leader == stores[0].Id)
+            {
+                stores = [stores[0] with { Sponsored = true }];
+            }
+        }
+
         return ServiceableStoreListResult.Succeeded(stores);
     }
 

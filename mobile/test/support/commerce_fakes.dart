@@ -266,6 +266,9 @@ Order sampleOrder({
   String? storePhone = '02249000001',
   int? estimatedMinutes,
   DateTime? placedAt,
+  String? deliveryPartnerName,
+  String? deliveryPartnerPhone,
+  String? deliveryOtp,
 }) {
   final ls = lines ?? const [OrderLine(productId: 'milk', variantId: 'milk:1l', name: 'Farm Milk', label: '1 l', unitPrice: 34, quantity: 2), OrderLine(productId: 'rice', variantId: 'rice:5kg', name: 'Basmati Rice', label: '5 kg', unitPrice: 89, quantity: 1)];
   final subtotal = ls.fold<double>(0, (s, l) => s + l.total);
@@ -287,6 +290,9 @@ Order sampleOrder({
     storeName: storeName,
     storePhone: storePhone,
     estimatedMinutes: estimatedMinutes,
+    deliveryPartnerName: deliveryPartnerName,
+    deliveryPartnerPhone: deliveryPartnerPhone,
+    deliveryOtp: deliveryOtp,
   );
 }
 

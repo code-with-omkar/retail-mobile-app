@@ -26,6 +26,9 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IOfferFeeService, OfferFeeService>();
         services.AddScoped<ICampaignPaymentService, CampaignPaymentService>();
         services.AddScoped<ICampaignPaymentMaintenance, CampaignPaymentMaintenance>();
+        services.AddScoped<IPlacementService, PlacementService>();
+        services.AddScoped<IDeliveryService, DeliveryService>();
+        services.AddScoped<IPlacementMaintenance, PlacementMaintenance>();
         services.AddScoped<IServiceabilityService, ServiceabilityService>();
         services.AddScoped<IAddressService, AddressService>();
         services.AddScoped<IAccountService, AccountService>();

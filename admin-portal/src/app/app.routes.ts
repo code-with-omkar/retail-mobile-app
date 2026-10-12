@@ -46,6 +46,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'placement',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/placement/placement.component').then(
+            m => m.PlacementComponent
+          ),
+      },
+      {
         path: 'campaigns',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },

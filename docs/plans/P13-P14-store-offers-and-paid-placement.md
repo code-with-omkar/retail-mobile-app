@@ -1,6 +1,6 @@
 # Store offers, offer fees and paid store placement
 
-Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and confirmed working by you (backend 490, mobile 427, portal Offers page for admin and store staff); migration `AddCampaignStores` applied to the dev database; P14 (offer fee) built and tested (backend 519, portal fee display, Razorpay checkout and admin fee settings); migration `AddOfferFees` applied to the dev database; real-provider payment test still needs Razorpay methods enabled; P15 not started.** Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
+Status: **decisions accepted 2026-10-10 (all recommended); P13 built, tested and confirmed working by you (backend 490, mobile 427, portal Offers page for admin and store staff); migration `AddCampaignStores` applied to the dev database; P14 (offer fee) built and tested (backend 519, portal fee display, Razorpay checkout and admin fee settings); migration `AddOfferFees` applied to the dev database; real-provider payment test still needs Razorpay methods enabled; P15 (paid placement) built and tested (backend 557, mobile 431, portal Placement page); migration `AddPaidPlacement` awaiting approval to apply.** Phases: P13 store-owned offers, P14 offer fee, P15 paid placement. Depends on P11 (offers exist, admin-only today) and P7 (online payment).
 
 ## Requests
 1. Offers should be announced **by the store**, or the admin chooses **which stores** an offer is for.
@@ -40,3 +40,10 @@ P13 store-owned offers (1), P14 offer fees (2), P15 paid placement (3).
 1. Store staff create offers for their own store; an admin can create for chosen stores.
 2. Fee: paid per offer online (Razorpay) before the offer goes live; a setting (global, per-store override, 0 = free).
 3. Placement: weekly slot per pincode, highest confirmed and paid bid wins first place, shown as Sponsored; an outbid store is refunded.
+
+## P15 plan (paid placement), proposal 2026-10-12
+- **Facts found:** the server has no pincode anywhere (stores have an address and a point; saved addresses have no pincode); the app sends only latitude and longitude to `catalog/stores`. The phone's location lookup (geocoding) can give a pincode for the delivery point.
+- **Auction:** a store bids on a pincode for a week. The bid is paid up front through Razorpay (like an offer fee). The highest paid bid for a pincode and week holds first place; a higher paid bid replaces it and the outbid store is refunded in full at once. A store always has to deliver to the customer to appear; placement only reorders the stores that already deliver there.
+- **Customer side:** when the app knows the delivery pincode it sends it with the store request; the winning store (if it delivers there) is listed first and marked **Sponsored**. No pincode or no winner: the normal nearest-first order.
+- **Rules (admin settings):** minimum bid, minimum step over the current highest bid, how many weeks ahead a bid can be placed, and a switch to turn paid placement off.
+- **Pieces:** `PlacementBids` (store, pincode, week start, amount, payment status), a bidding service (place, outbid refund, winner lookup), refunds and lookups reusing the offer-fee payment code, `catalog/stores` ordering and a `sponsored` flag, a store bidding page and admin settings in the portal, a Sponsored label in the app.

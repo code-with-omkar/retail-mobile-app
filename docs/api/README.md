@@ -276,3 +276,38 @@ Status: built and tested (2026-10-12); migration `AddOfferFees` applied to the d
 Reasons on a **409**: `PaymentsUnavailable`, `OfferNotAwaitingPayment`, `AlreadyPaid`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another store's offer is **404**.
 
 **Cancel and refund.** Cancelling an offer before it is sent refunds a paid fee in full to the original payment method (a background step, retried when the provider is busy; a refusal marks it `RefundFailed`); an unpaid one is just closed. A payment that arrives after the offer was cancelled, or for the wrong amount, is refunded automatically. A fee whose confirmation never arrived is found by a background lookup. Payment status uses the same numbers as order payments (0 NotRequired, 1 Created, 2 Failed, 3 Paid, 4 Refunding, 5 Refunded, 6 RefundFailed).
+
+## Paid placement (P15)
+
+Status: built and tested (2026-10-12); migration `AddPaidPlacement` **not yet applied** to the dev database.
+
+A store bids for first place in a pincode for a week (week starts Monday 00:00 India time; bidding for a week closes when it starts) and pays up front. The highest **paid** bid leads; a higher paid bid replaces it and the beaten bid is refunded in full. An equal bid loses to the earlier payer. A payment that arrives late, for the wrong amount, or for a cancelled bid is refunded. Unpaid bids never lead.
+
+| Route | What |
+| --- | --- |
+| `GET api/placement/rules` | `enabled, minBidPaise, minStepPaise, maxWeeksAhead` (defaults on, ₹500, ₹100, 4) |
+| `PUT api/placement/rules` (admin) | Same fields |
+| `GET api/placement/market?pincode=` | Weeks ahead with the highest bid, whether it is yours, and the least to bid |
+| `GET api/placement/bids` / `POST api/placement/bids` | List; place `{ pincode, weekStart, amountPaise, storeId? }` (admin picks the store; max 20 unpaid bids per store) |
+| `POST api/placement/bids/{id}/cancel` | Cancel (a paid bid is refunded) |
+| `POST api/placement/bids/{id}/payment` and `/payment/confirm` | Same shape as offer fees |
+
+**Customers:** `GET api/catalog/stores?latitude&longitude&pincode` lists the pincode's leading store first with `sponsored: true`, only if that store already delivers there. The app shows a "Sponsored" tag.
+
+## Delivery partners (P12)
+
+Status: built and tested (2026-10-12); migration `AddDeliveryAssignment` applied to the dev database (backup `retail-mobile-app_pre-P12-delivery.bak`). Orders gain `DeliveryPartnerId`, a four-digit code, cash collected and pickup/delivery times.
+
+**Flow.** Staff give a **Ready** order to an active delivery partner of the same store (a partner is a user with role `DeliveryPartner` and a store). The partner picks it up (status **OutForDelivery**, customer notified), then completes it (**Delivered**, customer notified) with the code the customer sees in the app and the cash collected. Once a partner holds an order, staff can no longer set it Completed.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `GET api/delivery/partners?storeId=` | staff (own store), admin (names the store) | Active partners: `id, name, phone, activeDeliveries` |
+| `POST api/operations/orders/{id}/assign` | staff, admin | `{ partnerId }`. **404** other store's order, **400** not an active partner of the store, **409** order not Ready. Same partner again changes nothing; changing partner while Ready keeps the code |
+| `GET api/delivery/mine` | partner | Ready and out-for-delivery orders, plus those delivered in the last 24 hours: address, receiver name/phone, items, `cashToCollect` |
+| `POST api/delivery/{id}/pickup` | partner | Ready to OutForDelivery. Repeating changes nothing |
+| `POST api/delivery/{id}/deliver` | partner | `{ otp, cashCollected }`. Cash on delivery: exactly the total; online: 0 (**400** otherwise). Wrong code **400** `reason: WrongCode`; 5 wrong codes lock the order 15 minutes (**429** `reason: Locked`) |
+
+**Customer.** `GET api/customer/orders` and `/{id}` add `deliveryPartnerName` (first name), `deliveryPartnerPhone` and `deliveryOtp` **only while the order is out for delivery**. Staff and the portal never get the code. Another partner's order looks like **404**.
+
+**Portal.** Orders list shows the partner (`deliveryPartnerId`, `deliveryPartner`); Ready orders get a partner picker with Give / Change.

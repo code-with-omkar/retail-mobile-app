@@ -173,6 +173,8 @@ export interface AdminOrder {
   totalAmount: number;
   status: OrderStatus;
   createdAt: string;
+  deliveryPartnerId?: string | null;
+  deliveryPartner?: string | null;
 }
 
 export interface Notification {

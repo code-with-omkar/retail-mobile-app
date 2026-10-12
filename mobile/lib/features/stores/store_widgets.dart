@@ -269,7 +269,10 @@ class StoresRail extends ConsumerWidget {
                     const SizedBox(height: 4),
                     Row(children: [
                       Flexible(child: Text('${store.distanceKm.toStringAsFixed(1)} km · ${context.tr('{n} min', {'n': '${store.estimatedMinutes}'})}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700))),
-                      if (i == 0) ...[const SizedBox(width: 6), const _Tag()],
+                      if (store.sponsored)
+                        ...[const SizedBox(width: 6), _Tag(context.tr('Sponsored'), Pal.yellow)]
+                      else if (i == (stores.first.sponsored ? 1 : 0))
+                        ...[const SizedBox(width: 6), _Tag(context.tr('Nearest'), Pal.green)],
                     ]),
                   ]),
                 ),
@@ -283,13 +286,15 @@ class StoresRail extends ConsumerWidget {
 }
 
 class _Tag extends StatelessWidget {
-  const _Tag();
+  const _Tag(this.label, this.color);
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: Pal.green, borderRadius: BorderRadius.circular(QC.rPill)),
-        child: Text(context.tr('Nearest'), style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w900)),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(QC.rPill)),
+        child: Text(label, style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w900)),
       );
 }
 

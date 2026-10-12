@@ -11,6 +11,7 @@ namespace QuickCommerce.Tests;
 /// at the same moment ends with exactly one of them having won. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING
 /// to a connection string for a DISPOSABLE database. Everything it adds is uniquely named and removed again.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class OrderCancelEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;

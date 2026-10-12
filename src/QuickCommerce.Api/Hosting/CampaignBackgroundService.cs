@@ -28,6 +28,11 @@ public sealed class CampaignBackgroundService(IServiceScopeFactory scopes, Quick
                     var upkeep = scope.ServiceProvider.GetRequiredService<ICampaignPaymentMaintenance>();
                     await upkeep.StartRefundsAsync(stoppingToken);
                     await upkeep.ReconcileAsync(stoppingToken);
+
+                    // The same for paid placement: refunds of beaten or cancelled bids, and bids whose confirmation never arrived.
+                    var placement = scope.ServiceProvider.GetRequiredService<IPlacementMaintenance>();
+                    await placement.StartRefundsAsync(stoppingToken);
+                    await placement.ReconcileAsync(stoppingToken);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

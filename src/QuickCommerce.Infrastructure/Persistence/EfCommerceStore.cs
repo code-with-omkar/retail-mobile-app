@@ -173,7 +173,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             query = query.Where(row => storeIds.Contains(row.order.StoreId));
         }
 
-        return await query.OrderByDescending(row => row.order.CreatedAt).Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt)).ToListAsync(cancellationToken);
+        return await query.OrderByDescending(row => row.order.CreatedAt).Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
@@ -463,7 +463,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             await transaction.CommitAsync(cancellationToken);
             return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             concurrencyLost = true;
             await transaction.RollbackAsync(cancellationToken);
@@ -554,7 +554,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             return new OrderLifecycleResult(OrderLifecycleStatus.NotFound);
         }
 
-        if (!OrderStatusTransitions.IsValid(order.Status, targetStatus))
+        if (!OrderStatusTransitions.IsValid(order.Status, targetStatus) || (order.DeliveryPartnerId.HasValue && targetStatus == OrderStatus.Completed))
         {
             return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
         }
@@ -587,7 +587,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             await db.SaveChangesAsync(cancellationToken);
             return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
         }
@@ -637,7 +637,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             await transaction.CommitAsync(cancellationToken);
             return true;
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             concurrencyLost = true;
             await transaction.RollbackAsync(cancellationToken);
@@ -744,7 +744,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             await transaction.CommitAsync(cancellationToken);
             return new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             // The shop accepted it, or another buyer took stock from the same row, at the same moment: look again on fresh data.
             concurrencyLost = true;

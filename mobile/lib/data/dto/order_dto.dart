@@ -72,6 +72,9 @@ Order orderFromJson(Map<String, dynamic> j) {
     estimatedMinutes: (j['estimatedDeliveryMinutes'] as num?)?.toInt(),
     paymentState: paymentStateFrom(j['paymentStatus']),
     paymentExpiresAt: j['paymentExpiresAt'] == null ? null : DateTime.parse(j['paymentExpiresAt'] as String).toLocal(),
+    deliveryPartnerName: j['deliveryPartnerName'] as String?,
+    deliveryPartnerPhone: j['deliveryPartnerPhone'] as String?,
+    deliveryOtp: j['deliveryOtp'] as String?,
   );
 }
 

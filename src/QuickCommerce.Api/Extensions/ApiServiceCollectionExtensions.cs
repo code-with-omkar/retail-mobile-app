@@ -92,6 +92,9 @@ public static class ApiServiceCollectionExtensions
                     context.User.IsInRole("ApplicationAdmin") ||
                     context.User.IsInRole("Admin") ||
                     context.User.IsInRole("StoreStaff")));
+            options.AddPolicy(SecurityPolicies.DeliveryPartner, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context => context.User.IsInRole("DeliveryPartner")));
             options.AddPolicy(SecurityPolicies.AdminDataRead, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireAssertion(context =>

@@ -15,6 +15,7 @@ namespace QuickCommerce.Tests;
 /// database itself enforces, and the cart queries. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING to a
 /// connection string for a DISPOSABLE database. Everything it adds is uniquely named and removed again. Never point it at a database you care about.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class CheckoutEfIntegrationTests
 {
     private static readonly PricingSettings Fees = new() { DeliveryFee = 25, HandlingFee = 5, FreeDeliveryThreshold = 199 };
