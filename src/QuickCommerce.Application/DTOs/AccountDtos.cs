@@ -12,7 +12,7 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 
 public sealed record UpdateCustomerProfileRequest(string FullName, string? PhoneNumber);
 
-public sealed record CustomerProfileResponse(Guid Id, string FullName, string Email, string? PhoneNumber);
+public sealed record CustomerProfileResponse(Guid Id, string FullName, string Email, string? PhoneNumber, bool PhoneVerified = false, bool HasPassword = true);
 
 public enum AccountStatus
 {

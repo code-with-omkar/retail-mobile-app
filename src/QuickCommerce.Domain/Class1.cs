@@ -122,6 +122,15 @@ public sealed class User
 
 	/// <summary>Contact number entered by the customer. Not verified; verification arrives with phone sign-in.</summary>
 	public string? PhoneNumber { get; set; }
+
+	/// <summary>When the holder proved they own <see cref="PhoneNumber"/> with a text-message code. Only a verified number can sign in; null = never verified.</summary>
+	public DateTime? PhoneVerifiedAt { get; set; }
+
+	/// <summary>When the email was proved (Google confirmed it). Null for accounts made with an email and password, whose email nobody checked.</summary>
+	public DateTime? EmailVerifiedAt { get; set; }
+
+	/// <summary>Google's stable id for the person ("sub"), once they have signed in with Google.</summary>
+	public string? GoogleSubject { get; set; }
 	public Guid OrganizationId { get; set; }
 	public Guid? StoreId { get; set; }
 	public Role Role { get; set; } = Role.Customer;
@@ -760,4 +769,27 @@ public static class PlacementWeeks
 
 	/// <summary>A six-digit Indian pincode (the first digit is 1 to 9).</summary>
 	public static bool IsPincode(string? value) => value is { Length: 6 } && value[0] is >= '1' and <= '9' && value.All(char.IsAsciiDigit);
+}
+
+/// <summary>
+/// A text-message code sent to a phone number, to sign in or to verify the number for an account. Only a keyed hash of the code is stored.
+/// </summary>
+public sealed class OtpChallenge
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+
+	/// <summary>The number in international form, for example +919876543210.</summary>
+	public required string Phone { get; set; }
+
+	/// <summary>"SignIn" or "VerifyPhone".</summary>
+	public required string Purpose { get; set; }
+
+	/// <summary>For VerifyPhone: the signed-in account the number is being verified for.</summary>
+	public Guid? UserId { get; set; }
+	public required string CodeHash { get; set; }
+	public DateTime CreatedAt { get; set; }
+	public DateTime ExpiresAt { get; set; }
+	public int FailedAttempts { get; set; }
+	public DateTime? UsedAt { get; set; }
+	public string? RequestedFromIp { get; set; }
 }

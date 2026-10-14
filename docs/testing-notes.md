@@ -52,6 +52,30 @@ Setup done: demo partner `deliverypartner` has the Kharghar store; its password 
 - [ ] Partner enters a wrong code: refused. Right code and exact cash: Delivered; the customer gets "delivered".
 - [ ] Five wrong codes lock it for 15 minutes.
 
+## A7. Catalogue, pictures and stock (P16; no database change)
+- [ ] Portal as admin, Catalog: New product (SKU, name, category, unit, price); it appears in the list.
+- [ ] Edit it: change the name/description; add a Marathi name; add a second size with its own price; make it the default.
+- [ ] Upload a JPEG/PNG photo; the thumbnail shows. Try a text file renamed .jpg: refused.
+- [ ] Portal as store manager, Stock: tick "Sells here" for the new size and set a quantity.
+- [ ] Phone: the new product shows with its photo and Marathi name (Profile language), and the new price.
+- [ ] Store manager cannot edit products (no Edit button).
+
+## A8. Phone OTP and Google sign-in (P8; after the migration is applied)
+OTP needs nothing from you: in development the code is printed in the phone API's log (the line starting "DEVELOPMENT sign-in code").
+- [ ] Phone, Profile, Sign in: "Continue with phone", enter your number, Get OTP. Read the code from the API log, type it: you are signed in and the profile shows your number.
+- [ ] A wrong code is refused; five wrong codes make the right one fail too (ask for a new code after the countdown).
+- [ ] Sign out and sign in again with the same number: the same account (orders kept).
+- [ ] With an email/password account: Profile, "Verify phone number", enter your number, code from the log. Then sign out and sign in with the number: you land in that same account.
+- [ ] Google (needs setup, below): "Continue with Google" appears and signs in.
+
+**Google setup (once).** Google Cloud console: create a project, OAuth consent screen, then Credentials: (1) a **Web application** client: its id is the server client id; (2) an **Android** client with package `com.quickcart.quickcart_customer` and your debug SHA-1 (`keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`). Then give the API the web client id (`dotnet user-secrets set "Google:ClientIds:0" "<web client id>"` in src/QuickCommerce.Api) and run the app with `--dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`.
+
+## A9. Account deletion (no database change)
+Use a throwaway account, not yours.
+- [ ] Phone: register a new account, add an address, then Profile, "Delete account". Wrong password is refused; the word DELETE is required.
+- [ ] With an order still Pending or being delivered: deletion is refused with a clear message.
+- [ ] After deleting: you are signed out; signing in with the old email fails; the old orders still show in the portal, with no customer name or address.
+
 ## B. Online payment (blocked until Razorpay methods are enabled), task 7.10
 - [ ] Razorpay dashboard (Test mode): enable payment methods / finish activation.
 - [ ] Checkout shows "Pay online"; pay with test UPI `success@razorpay` or test card; order ends "Paid".

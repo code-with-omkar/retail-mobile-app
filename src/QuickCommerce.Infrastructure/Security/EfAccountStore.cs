@@ -2,12 +2,13 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using QuickCommerce.Application.DTOs;
 using QuickCommerce.Application.Interfaces;
+using QuickCommerce.Application.Services;
 using QuickCommerce.Domain;
 using QuickCommerce.Infrastructure.Persistence;
 
 namespace QuickCommerce.Infrastructure.Security;
 
-public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore
+public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, IAccountDeletionStore
 {
     private const string SelfRegistration = "self-registration";
     private const string PasswordReset = "password-reset";
@@ -134,7 +135,7 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore
     public Task<CustomerProfileResponse?> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default) =>
         db.Users.AsNoTracking()
             .Where(user => user.Id == userId && user.IsActive && user.Customer != null)
-            .Select(user => new CustomerProfileResponse(user.Id, user.DisplayName, user.Email ?? user.ExternalSubject, user.PhoneNumber))
+            .Select(user => new CustomerProfileResponse(user.Id, user.DisplayName, user.Email ?? (user.ExternalSubject.StartsWith("phone:") ? "" : user.ExternalSubject), user.PhoneNumber, user.PhoneVerifiedAt != null, user.Credential != null))
             .FirstOrDefaultAsync(cancellationToken);
 
     public async Task UpdateProfileAsync(Guid userId, string fullName, string firstName, string lastName, string? phoneNumber, CancellationToken cancellationToken = default)
@@ -143,9 +144,76 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore
         user.DisplayName = fullName;
         user.FirstName = firstName;
         user.LastName = string.IsNullOrEmpty(lastName) ? null : lastName;
-        user.PhoneNumber = phoneNumber;
+        // A number proved by text message stays proved only while it is the same number: a different one has to be verified again.
+        var sameVerifiedNumber = user.PhoneVerifiedAt != null && Phones.ToE164(phoneNumber) is { } incoming && incoming == Phones.ToE164(user.PhoneNumber);
+        if (!sameVerifiedNumber)
+        {
+            user.PhoneNumber = phoneNumber;
+            user.PhoneVerifiedAt = null;
+        }
+
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = "self-service";
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static readonly OrderStatus[] Finished = [OrderStatus.Completed, OrderStatus.Delivered, OrderStatus.Cancelled, OrderStatus.Rejected];
+
+    /// <summary>
+    /// Closes the account and erases what identifies the person. Orders and payments stay (the store's books and any refund need them) but lose the
+    /// name, phone, address and delivery code. All or nothing, and refused while an order is still open or a refund is on its way.
+    /// </summary>
+    public async Task<DeleteOutcome> DeleteCustomerAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, cancellationToken);
+        var user = await db.Users.Include(item => item.Customer).FirstOrDefaultAsync(item => item.Id == userId && item.Role == Role.Customer && item.IsActive && item.Customer != null, cancellationToken);
+        if (user is null)
+        {
+            return DeleteOutcome.NotFound;
+        }
+
+        if (await db.Orders.AnyAsync(order => order.UserId == userId && (!Finished.Contains(order.Status) || order.PaymentStatus == PaymentState.Refunding), cancellationToken))
+        {
+            return DeleteOutcome.HasOpenOrders;
+        }
+
+        var customerId = user.Customer!.Id;
+        var phone = Phones.ToE164(user.PhoneNumber);
+        await db.Orders.Where(order => order.UserId == userId).ExecuteUpdateAsync(set => set
+            .SetProperty(order => order.ReceiverName, (string?)null)
+            .SetProperty(order => order.ReceiverPhone, (string?)null)
+            .SetProperty(order => order.DeliveryAddress, "Address removed")
+            .SetProperty(order => order.Latitude, 0d)
+            .SetProperty(order => order.Longitude, 0d)
+            .SetProperty(order => order.DeliveryAddressId, (Guid?)null)
+            .SetProperty(order => order.DeliveryOtp, (string?)null), cancellationToken);
+        await db.Notifications.Where(item => item.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.CartItems.Where(item => db.Carts.Any(cart => cart.Id == item.CartId && cart.CustomerId == customerId)).ExecuteDeleteAsync(cancellationToken);
+        await db.Carts.Where(cart => cart.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.CustomerAddresses.Where(address => address.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.CheckoutRequests.Where(record => record.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.RefreshTokens.Where(token => token.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.PasswordResetCodes.Where(code => code.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.UserCredentials.Where(credential => credential.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.UserRoles.Where(role => role.UserId == userId).ExecuteDeleteAsync(cancellationToken);
+        await db.OtpChallenges.Where(item => item.UserId == userId || (phone != null && item.Phone == phone)).ExecuteDeleteAsync(cancellationToken);
+
+        user.DisplayName = "Deleted customer";
+        user.FirstName = "Deleted";
+        user.LastName = null;
+        user.Email = null;
+        user.PhoneNumber = null;
+        user.PhoneVerifiedAt = null;
+        user.EmailVerifiedAt = null;
+        user.GoogleSubject = null;
+        user.ExternalSubject = "deleted:" + userId.ToString("N");
+        user.IsActive = false;
+        user.Customer.IsActive = false;
+        user.UpdatedAt = nowUtc;
+        user.UpdatedBy = "account-deletion";
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        db.ChangeTracker.Clear();
+        return DeleteOutcome.Deleted;
     }
 }

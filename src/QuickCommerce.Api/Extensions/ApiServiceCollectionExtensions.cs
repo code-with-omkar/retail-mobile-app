@@ -44,6 +44,26 @@ public static class ApiServiceCollectionExtensions
         account.Validate();
         services.AddSingleton(account);
         services.AddSingleton(configuration.GetSection(RegistrationSettings.SectionName).Get<RegistrationSettings>() ?? new RegistrationSettings());
+        var otp = configuration.GetSection(OtpSettings.SectionName).Get<OtpSettings>() ?? new OtpSettings();
+        otp.Validate();
+        services.AddSingleton(otp);
+        services.AddSingleton(configuration.GetSection(GoogleSettings.SectionName).Get<GoogleSettings>() ?? new GoogleSettings());
+        if (string.Equals(otp.Sender, "Msg91", StringComparison.OrdinalIgnoreCase))
+        {
+            var msg91 = configuration.GetSection(QuickCommerce.Infrastructure.Security.Msg91Settings.SectionName).Get<QuickCommerce.Infrastructure.Security.Msg91Settings>() ?? new QuickCommerce.Infrastructure.Security.Msg91Settings();
+            msg91.Validate();
+            services.AddSingleton(msg91);
+            services.AddHttpClient<IOtpSender, QuickCommerce.Infrastructure.Security.Msg91OtpSender>();
+        }
+        else if (environment.IsDevelopment())
+        {
+            services.AddSingleton<IOtpSender, QuickCommerce.Infrastructure.Security.LogOtpSender>();
+        }
+        else
+        {
+            throw new InvalidOperationException("Otp:Sender must be Msg91 outside Development: the log sender would write sign-in codes to the log.");
+        }
+
         var email = configuration.GetSection(EmailSettings.SectionName).Get<EmailSettings>() ?? new EmailSettings();
         if (!environment.IsDevelopment())
         {
@@ -59,6 +79,8 @@ public static class ApiServiceCollectionExtensions
         services.AddHostedService<ShutdownLoggingHostedService>();
         services.AddOpenApi();
         services.AddHttpContextAccessor();
+        services.AddSingleton<QuickCommerce.Infrastructure.Media.LocalImageStore>(provider => new QuickCommerce.Infrastructure.Media.LocalImageStore(configuration["Media:RootPath"] ?? Path.Combine(environment.ContentRootPath, "media")));
+        services.AddSingleton<IImageStore>(provider => provider.GetRequiredService<QuickCommerce.Infrastructure.Media.LocalImageStore>());
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options => ConfigureJwt(options, configuration, environment));
@@ -92,6 +114,12 @@ public static class ApiServiceCollectionExtensions
                     context.User.IsInRole("ApplicationAdmin") ||
                     context.User.IsInRole("Admin") ||
                     context.User.IsInRole("StoreStaff")));
+            options.AddPolicy(SecurityPolicies.CatalogManagement, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context => context.User.IsInRole("ApplicationAdmin") || context.User.IsInRole("Admin")));
+            options.AddPolicy(SecurityPolicies.StockManagement, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireAssertion(context => context.User.IsInRole("ApplicationAdmin") || context.User.IsInRole("Admin") || context.User.IsInRole("StoreStaff")));
             options.AddPolicy(SecurityPolicies.DeliveryPartner, policy => policy
                 .RequireAuthenticatedUser()
                 .RequireAssertion(context => context.User.IsInRole("DeliveryPartner")));
@@ -119,7 +147,9 @@ public static class ApiServiceCollectionExtensions
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = []
             });
         });
-        services.AddCors(options => options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+        var corsOrigins = ApiCors.ParseOrigins(configuration.GetSection("Cors:AllowedOrigins").Get<string[]>());
+        services.AddCors(options => options.AddDefaultPolicy(ApiCors.Build(environment.IsDevelopment(), corsOrigins)));
+        services.AddSingleton(new CorsOriginsInfo(corsOrigins.Count));
         return services;
     }
 

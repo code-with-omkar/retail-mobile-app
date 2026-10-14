@@ -19,3 +19,6 @@ deploy/iis/backups/
 
 # Local secrets (API keys)
 **/secrets.properties
+
+# Uploaded product pictures (local dev)
+**/media/

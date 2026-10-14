@@ -311,3 +311,49 @@ Status: built and tested (2026-10-12); migration `AddDeliveryAssignment` applied
 **Customer.** `GET api/customer/orders` and `/{id}` add `deliveryPartnerName` (first name), `deliveryPartnerPhone` and `deliveryOtp` **only while the order is out for delivery**. Staff and the portal never get the code. Another partner's order looks like **404**.
 
 **Portal.** Orders list shows the partner (`deliveryPartnerId`, `deliveryPartner`); Ready orders get a partner picker with Give / Change.
+
+## Catalogue editing, pictures and stock (P16: tasks 1.5, 1.12, 3.5)
+
+Status: built and tested (2026-10-12). **No database migration**: it uses existing tables.
+
+**Who.** Administrators (`Admin`, `ApplicationAdmin`) edit the shared catalogue; **store staff set their own store's stock**; an administrator names the store. Everyone else is **403**.
+
+| Route | What |
+| --- | --- |
+| `GET api/admin/catalog/products?search=&page=&pageSize=` | Products (also switched-off ones) with sizes and Marathi text |
+| `POST api/admin/catalog/products` | `{ sku, name, description, categoryId, unitOfMeasure, price, mrp? }`; also makes the first (default) size. **409** SKU used |
+| `PUT api/admin/catalog/products/{id}` | `{ name, description, categoryId, unitOfMeasure, isActive }` (SKU never changes) |
+| `PUT / DELETE api/admin/catalog/products/{id}/translations/mr` | `{ name, description? }`; only `mr` is accepted |
+| `POST api/admin/catalog/products/{id}/variants` | `{ sku, label, price, mrp?, sortOrder, isActive }`; new sizes are never the default |
+| `PUT .../variants/{variantId}` | Same body. The default size cannot be switched off (**400**) |
+| `POST .../variants/{variantId}/default` | Makes an active size the default, in one step |
+| `POST api/admin/catalog/products/{id}/image` | Form field `file`: JPEG, PNG or WebP, up to 2 MB, judged by content not name (**400** otherwise). Returns the product with `imageUrl` = `/media/products/...` |
+| `DELETE api/admin/catalog/products/{id}/image` | Removes the picture and its file |
+| `GET api/stock?storeId=` / `PUT api/stock/{variantId}?storeId=` | Every active size with this store's stock; set `{ carried, available, reorderThreshold }`. Not carried removes the stock row |
+
+**Rules.** Price above 0 up to 1,00,000 with 2 decimals; MRP not below price. The product's own price and MRP always follow its default size. Past orders keep the price they were placed at. Pictures are stored by a name the server makes, served from `/media` with `nosniff`, and live in `Media:RootPath` (default `src/QuickCommerce.Api/media`, not committed). The apps turn a `/media/...` path into a full address on the same server. The customer app lists per store without a cache, so edits show at once; unscoped lists may take up to 5 minutes.
+
+## Phone OTP and Google sign-in (P8)
+
+Status: built and tested (2026-10-13); migration `AddOtpAndSocialSignIn` applied to the dev database (backup `retail-mobile-app_pre-P8-signin.bak`).
+
+| Route | What |
+| --- | --- |
+| `POST api/auth/otp/request` | `{ phone }` (10 digits, +91 optional) → `{ resendAfterSeconds, expiresInSeconds }`. **400** not an Indian mobile; **429** too soon / too many (`Retry-After`); **502** the text could not be sent |
+| `POST api/auth/otp/verify` | `{ phone, code, fullName? }` → the same token response as login. **401** for every wrong, expired or used code |
+| `POST api/auth/google` | `{ idToken }` → token response. **401** token not accepted or email not verified by Google; **503** Google is not configured; **403** the email belongs to a staff account |
+| `POST api/account/phone/otp/request` and `/verify` | Signed-in customer: prove a number for their own account. **409** the number is verified on another account |
+
+`GET/PUT api/customer/profile` now also returns `phoneVerified`; a phone-only account has an empty `email`.
+
+**Configuration.** `Otp:Sender` = `Log` (Development only: the code is written to the API log) or `Msg91` (`Otp:Msg91:AuthKey`, `Otp:Msg91:TemplateId`, from a secret store). `Google:ClientIds` = the web OAuth client id(s) the app's ID tokens are made for; empty turns Google sign-in off. Optional: `Otp:CodeKey`, `Otp:LifetimeMinutes`, `Otp:MaxAttempts`, `Otp:ResendSeconds`, `Otp:MaxRequestsPerHour`, `RateLimits:Auth:OtpRequestPerHour` / `OtpVerifyPerHour` / `GooglePerHour`.
+
+## Account deletion and browser access (release readiness)
+
+| Route | What |
+| --- | --- |
+| `POST api/customer/profile/delete` | `{ confirmation: "DELETE", password? }`. The password is required when the account has one (**400** if wrong). Erases the customer's personal data and closes the account; order and payment records stay without name, phone, address and delivery code. **409** while an order is open or a refund is in progress. Every session ends. No migration |
+
+`GET/PUT api/customer/profile` also returns `hasPassword` (false for accounts made with a phone number or Google).
+
+**Configuration.** `Cors:AllowedOrigins` lists the web pages (for example the admin portal at `https://portal.example.com`) that may call the API from a browser; plain origins only. In Development any page may; elsewhere an empty list means none, and the API warns at start-up. See `docs/RELEASE_AND_SECURITY.md` for the release steps and the security review.

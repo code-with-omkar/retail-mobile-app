@@ -6,6 +6,7 @@ namespace QuickCommerce.Infrastructure.Persistence;
 public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbContext> options) : DbContext(options)
 {
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<AuthorizationRole> AuthorizationRoles => Set<AuthorizationRole>();
     public DbSet<AuthorizationPermission> AuthorizationPermissions => Set<AuthorizationPermission>();

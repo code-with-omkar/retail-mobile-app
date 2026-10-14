@@ -1130,6 +1130,55 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.OtpChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("RequestedFromIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Phone", "CreatedAt");
+
+                    b.ToTable("OtpChallenges", (string)null);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.PasswordResetCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2026,6 +2075,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ExternalSubject")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2034,6 +2086,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<string>("FirstName")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("GoogleSubject")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -2048,6 +2104,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("PhoneVerifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -2074,6 +2133,16 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExternalSubject")
                         .IsUnique();
+
+                    b.HasIndex("GoogleSubject")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Users_GoogleSubject")
+                        .HasFilter("[GoogleSubject] IS NOT NULL");
+
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Users_VerifiedPhone")
+                        .HasFilter("[PhoneVerifiedAt] IS NOT NULL");
 
                     b.HasIndex("StoreId");
 

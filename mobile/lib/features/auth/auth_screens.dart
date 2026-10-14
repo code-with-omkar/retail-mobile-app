@@ -13,15 +13,44 @@ import '../../data/seed.dart';
 import 'auth_controller.dart';
 import 'auth_widgets.dart';
 
-/// Welcome screen (see docs/design 03/06). Phone OTP and Google / Apple sign-in are shown again when decision D7 is made;
-/// until then customers use email and password.
-class WelcomeScreen extends StatelessWidget {
+/// Welcome screen (see docs/design 03/06). Customers continue with their phone number (a text-message code), with Google
+/// when this build has a Google client id, or with an email and password.
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key, this.next});
   final String? next;
 
   @override
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _google() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final token = await ref.read(googleSignInServiceProvider).idToken();
+      if (token == null) return; // the person closed the account picker
+      await ref.read(authProvider.notifier).loginWithGoogle(token);
+      if (mounted) context.go(safeNext(widget.next));
+    } catch (e) {
+      if (kDebugMode) debugPrint('[auth] google sign-in failed: $e');
+      if (mounted) setState(() => _error = context.tr('Google sign-in did not work. Please try again.'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = context.pal;
+    final next = widget.next;
+    final googleOn = ref.watch(googleSignInServiceProvider).isConfigured;
     return AppScaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -61,9 +90,17 @@ class WelcomeScreen extends StatelessWidget {
                   Text(context.tr('Your local shop,\nnow in your hand.'), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
                   const Spacer(),
                   const SizedBox(height: 24),
-                  PillButton(context.tr('Log in'), arrow: true, onPressed: () => context.push(withNext('/login', next))),
-                  const SizedBox(height: 12),
-                  SoftPillButton(context.tr('Create account'), height: 60, onPressed: () => context.push(withNext('/register', next))),
+                  if (_error != null) ErrorBanner(_error!),
+                  PillButton(context.tr('Continue with phone'), arrow: true, onPressed: _busy ? null : () => context.push(withNext('/phone', next))),
+                  if (googleOn) ...[
+                    const SizedBox(height: 12),
+                    SoftPillButton(context.tr(_busy ? 'Please wait…' : 'Continue with Google'), height: 60, onPressed: _google),
+                  ],
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Flexible(child: TextButton(onPressed: () => context.push(withNext('/login', next)), child: Text(context.tr('Log in'), maxLines: 1, overflow: TextOverflow.ellipsis))),
+                    Flexible(child: TextButton(onPressed: () => context.push(withNext('/register', next)), child: Text(context.tr('Create account'), maxLines: 1, overflow: TextOverflow.ellipsis))),
+                  ]),
                   Center(child: TextButton(onPressed: () => context.go('/'), child: Text(context.tr('Browse as guest'), style: const TextStyle(color: Pal.mutedOnGround)))),
                   const SizedBox(height: 8),
                 ]),

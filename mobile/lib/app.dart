@@ -14,6 +14,8 @@ import 'features/address/delivery_actions.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/auth_screens.dart';
 import 'features/auth/auth_widgets.dart';
+import 'features/auth/otp_screens.dart';
+import 'features/auth/phone_screens.dart';
 import 'features/cart/cart_screen.dart';
 import 'features/checkout/checkout_screen.dart';
 import 'features/dev/api_diagnostics_screen.dart';
@@ -59,12 +61,18 @@ GoRouter createRouter({AuthState Function()? auth, Listenable? refresh}) => GoRo
         GoRoute(path: '/category/:id', builder: (_, s) => CategoryProductsScreen(s.pathParameters['id']!)),
         GoRoute(path: '/product/:id', builder: (_, s) => ProductScreen(s.pathParameters['id']!)),
         GoRoute(path: '/welcome', builder: (_, s) => WelcomeScreen(next: s.uri.queryParameters['next'])),
+        GoRoute(path: '/phone', builder: (_, s) => PhoneScreen(next: s.uri.queryParameters['next'], verify: s.uri.queryParameters['verify'] == '1')),
+        GoRoute(
+          path: '/otp',
+          builder: (_, s) => OtpScreen(s.uri.queryParameters['phone'] ?? '', verify: s.uri.queryParameters['verify'] == '1', next: s.uri.queryParameters['next'], resendSeconds: int.tryParse(s.uri.queryParameters['wait'] ?? '') ?? 30),
+        ),
         GoRoute(path: '/login', builder: (_, s) => LoginScreen(next: s.uri.queryParameters['next'])),
         GoRoute(path: '/register', builder: (_, s) => RegisterScreen(next: s.uri.queryParameters['next'])),
         GoRoute(path: '/forgot', builder: (_, _) => const ForgotPasswordScreen()),
         GoRoute(path: '/reset', builder: (_, s) => ResetPasswordScreen(s.uri.queryParameters['email'] ?? '')),
         GoRoute(path: '/account/profile', builder: (_, _) => const EditProfileScreen()),
         GoRoute(path: '/account/password', builder: (_, _) => const ChangePasswordScreen()),
+        GoRoute(path: '/account/delete', builder: (_, _) => const DeleteAccountScreen()),
         GoRoute(path: '/address', redirect: (_, _) => '/addresses'),
         GoRoute(path: '/addresses', builder: (_, _) => const AddressListScreen()),
         GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),

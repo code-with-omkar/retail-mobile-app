@@ -12,4 +12,10 @@ public static class SecurityPolicies
 
     /// <summary>The delivery partner's own deliveries.</summary>
     public const string DeliveryPartner = "DeliveryPartner";
+
+    /// <summary>Editing the shared catalogue: administrators only.</summary>
+    public const string CatalogManagement = "CatalogManagement";
+
+    /// <summary>Each store's own stock: its staff, and administrators.</summary>
+    public const string StockManagement = "StockManagement";
 }

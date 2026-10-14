@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'google_sign_in_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/app_config.dart';
@@ -51,6 +52,12 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 /// Overridden in tests with a [MemorySessionStore].
 final sessionStoreProvider = Provider<SessionStore>((ref) => const SecureSessionStore());
+
+/// Google sign-in. Off unless the build has a Google web client id: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`.
+final googleSignInServiceProvider = Provider<GoogleSignInService>((ref) {
+  const clientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+  return clientId.isEmpty ? const DisabledGoogleSignInService() : PluginGoogleSignInService(clientId);
+});
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final repo = AuthRepository(

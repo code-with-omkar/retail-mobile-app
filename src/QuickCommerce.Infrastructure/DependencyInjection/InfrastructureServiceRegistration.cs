@@ -37,10 +37,14 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<IAuthorizationScopeService, AuthorizationScopeService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<ISessionIssuer>(provider => (AuthenticationService)provider.GetRequiredService<IAuthenticationService>());
+        services.AddScoped<IIdentityStore, EfIdentityStore>();
+        services.AddSingleton<IGoogleTokenValidator, GoogleTokenValidator>();
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<IPasswordHashing, IdentityPasswordHashing>();
         services.AddScoped<IAccountStore, EfAccountStore>();
         services.AddScoped<IAddressStore, EfAddressStore>();
+        services.AddScoped<IAccountDeletionStore>(provider => (EfAccountStore)provider.GetRequiredService<IAccountStore>());
         services.AddScoped<IPaymentStore, EfPaymentStore>();
         services.AddScoped<ICampaignStore, EfCampaignStore>();
         services.AddScoped<ICampaignPaymentStore, EfCampaignPaymentStore>();
@@ -48,6 +52,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPlacementStore, EfPlacementStore>();
         services.AddScoped<IPlacementLookup>(provider => provider.GetRequiredService<IPlacementStore>());
         services.AddScoped<IDeliveryStore, EfDeliveryStore>();
+        services.AddScoped<ICatalogAdminStore, EfCatalogAdminStore>();
         services.AddScoped<IDeliveryLookup>(provider => provider.GetRequiredService<IDeliveryStore>());
         // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.
         services.TryAddSingleton(new EmailSettings());

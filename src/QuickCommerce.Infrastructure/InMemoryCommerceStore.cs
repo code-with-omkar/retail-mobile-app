@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore, ICatalogAdminStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -999,6 +999,249 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         if (customer is not null)
         {
             Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, status));
+        }
+    }
+
+    private ProductBundle BundleOf(Product product) => new(
+        product,
+        Categories.FirstOrDefault(category => category.Id == product.CategoryId)?.Name ?? string.Empty,
+        Variants.Where(variant => variant.ProductId == product.Id).ToArray(),
+        ProductTranslations.Where(translation => translation.ProductId == product.Id).ToArray());
+
+    private bool SkuInUse(string sku, Guid? exceptVariantId, Guid? exceptProductId) =>
+        Variants.Any(variant => variant.Sku == sku && variant.Id != exceptVariantId) || Products.Any(product => product.Sku == sku && product.Id != exceptProductId);
+
+    Task<(IReadOnlyList<ProductBundle> Items, int Total)> ICatalogAdminStore.ListProductsAsync(string? search, int skip, int take, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var matches = Products
+                .Where(product => search is null || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || product.Sku.Contains(search, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(product => product.Name).ThenBy(product => product.Id).ToArray();
+            return Task.FromResult<(IReadOnlyList<ProductBundle>, int)>((matches.Skip(skip).Take(take).Select(BundleOf).ToArray(), matches.Length));
+        }
+    }
+
+    Task<ProductBundle?> ICatalogAdminStore.GetProductAsync(Guid productId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var product = Products.FirstOrDefault(item => item.Id == productId);
+            return Task.FromResult(product is null ? null : BundleOf(product));
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.CreateProductAsync(Product product, ProductVariant firstVariant, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            if (!Categories.Any(category => category.Id == product.CategoryId && category.IsActive))
+            {
+                return Task.FromResult(CatalogChange.CategoryMissing);
+            }
+
+            if (SkuInUse(product.Sku, null, null))
+            {
+                return Task.FromResult(CatalogChange.DuplicateSku);
+            }
+
+            Products.Add(product);
+            Variants.Add(firstVariant);
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.UpdateProductAsync(Guid productId, string name, string description, Guid categoryId, string unitOfMeasure, bool isActive, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var product = Products.FirstOrDefault(item => item.Id == productId);
+            if (product is null)
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            if (!Categories.Any(category => category.Id == categoryId && (category.IsActive || category.Id == product.CategoryId)))
+            {
+                return Task.FromResult(CatalogChange.CategoryMissing);
+            }
+
+            product.Name = name;
+            product.Description = description;
+            product.CategoryId = categoryId;
+            product.UnitOfMeasure = unitOfMeasure;
+            product.IsActive = isActive;
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.SaveTranslationAsync(Guid productId, string locale, string name, string? description, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            if (!Products.Any(item => item.Id == productId))
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            ProductTranslations.RemoveAll(item => item.ProductId == productId && item.Locale == locale);
+            ProductTranslations.Add(new ProductTranslation { ProductId = productId, Locale = locale, Name = name, Description = description });
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.DeleteTranslationAsync(Guid productId, string locale, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            if (!Products.Any(item => item.Id == productId))
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            ProductTranslations.RemoveAll(item => item.ProductId == productId && item.Locale == locale);
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.AddVariantAsync(Guid productId, ProductVariant variant, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            if (!Products.Any(item => item.Id == productId))
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            if (SkuInUse(variant.Sku, null, null))
+            {
+                return Task.FromResult(CatalogChange.DuplicateSku);
+            }
+
+            variant.IsDefault = false;
+            Variants.Add(variant);
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.UpdateVariantAsync(Guid productId, Guid variantId, string sku, string label, decimal price, decimal? mrp, int sortOrder, bool isActive, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var product = Products.FirstOrDefault(item => item.Id == productId);
+            var variants = Variants.Where(item => item.ProductId == productId).ToArray();
+            var variant = variants.FirstOrDefault(item => item.Id == variantId);
+            if (product is null || variant is null)
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            if (!string.Equals(variant.Sku, sku, StringComparison.Ordinal) && SkuInUse(sku, variantId, productId))
+            {
+                return Task.FromResult(CatalogChange.DuplicateSku);
+            }
+
+            return Task.FromResult(CatalogRules.UpdateVariant(product, variants, variant, sku, label, price, mrp, sortOrder, isActive));
+        }
+    }
+
+    Task<CatalogChange> ICatalogAdminStore.MakeDefaultAsync(Guid productId, Guid variantId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var product = Products.FirstOrDefault(item => item.Id == productId);
+            var variants = Variants.Where(item => item.ProductId == productId).ToArray();
+            var target = variants.FirstOrDefault(item => item.Id == variantId);
+            if (product is null || target is null)
+            {
+                return Task.FromResult(CatalogChange.NotFound);
+            }
+
+            if (!target.IsActive)
+            {
+                return Task.FromResult(CatalogChange.VariantInactive);
+            }
+
+            foreach (var current in variants)
+            {
+                current.IsDefault = current.Id == variantId;
+            }
+
+            CatalogRules.SyncFromDefault(product, variants);
+            return Task.FromResult(CatalogChange.Succeeded);
+        }
+    }
+
+    Task<(CatalogChange Change, string? Previous)> ICatalogAdminStore.SetImageAsync(Guid productId, string? publicPath, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var product = Products.FirstOrDefault(item => item.Id == productId);
+            if (product is null)
+            {
+                return Task.FromResult<(CatalogChange, string?)>((CatalogChange.NotFound, null));
+            }
+
+            var previous = product.ImageUrl;
+            product.ImageUrl = publicPath;
+            return Task.FromResult<(CatalogChange, string?)>((CatalogChange.Succeeded, previous));
+        }
+    }
+
+    Task<Store?> ICatalogAdminStore.GetStoreForStockAsync(Guid storeId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(Stores.FirstOrDefault(store => store.Id == storeId && store.OrganizationId == organizationId && store.IsActive));
+        }
+    }
+
+    Task<IReadOnlyList<StockRowResponse>> ICatalogAdminStore.ListStockAsync(Guid storeId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<StockRowResponse>>(Variants
+                .Where(variant => variant.IsActive)
+                .Join(Products.Where(product => product.IsActive), variant => variant.ProductId, product => product.Id, (variant, product) => (variant, product))
+                .OrderBy(row => row.product.Name).ThenBy(row => row.variant.SortOrder)
+                .Select(row =>
+                {
+                    var stock = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == row.variant.Id);
+                    return new StockRowResponse(row.product.Id, row.product.Name, row.variant.Id, row.variant.Label, stock is not null, stock?.AvailableQuantity ?? 0, stock?.ReorderThreshold ?? 5);
+                }).ToArray());
+        }
+    }
+
+    Task<StockRowResponse?> ICatalogAdminStore.SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var variant = Variants.FirstOrDefault(item => item.Id == variantId);
+            var product = variant is null ? null : Products.FirstOrDefault(item => item.Id == variant.ProductId);
+            if (variant is null || product is null)
+            {
+                return Task.FromResult<StockRowResponse?>(null);
+            }
+
+            var row = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == variantId);
+            if (!carried)
+            {
+                if (row is not null)
+                {
+                    Inventory.Remove(row);
+                }
+            }
+            else if (row is null)
+            {
+                Inventory.Add(new StoreVariantInventory { StoreId = storeId, VariantId = variantId, AvailableQuantity = available, ReorderThreshold = reorderThreshold });
+            }
+            else
+            {
+                row.AvailableQuantity = available;
+                row.ReorderThreshold = reorderThreshold;
+            }
+
+            return Task.FromResult<StockRowResponse?>(new StockRowResponse(product.Id, product.Name, variant.Id, variant.Label, carried, carried ? available : 0, carried ? reorderThreshold : 5));
         }
     }
 

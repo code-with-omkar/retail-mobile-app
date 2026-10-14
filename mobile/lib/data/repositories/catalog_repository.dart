@@ -105,14 +105,14 @@ class ApiCatalogRepository implements CatalogRepository {
       query: {'page': page, 'pageSize': pageSize, if (search != null && search.trim().isNotEmpty) 'search': search.trim(), 'categoryId': ?categoryId, 'storeId': ?storeId, if (carriedOnly && storeId != null) 'carriedOnly': true},
       parse: (data) => PagedDto.fromJson(data, CatalogProductDto.fromJson),
     );
-    return ProductPage(items: [for (final d in dto.items) productFromCatalogDto(d, keys[d.categoryId] ?? 'other')], page: dto.page, totalCount: dto.totalCount, hasMore: dto.hasMore);
+    return ProductPage(items: [for (final d in dto.items) productFromCatalogDto(d, keys[d.categoryId] ?? 'other', imageBase: _api.baseUrl)], page: dto.page, totalCount: dto.totalCount, hasMore: dto.hasMore);
   }
 
   @override
   Future<Product> product(String id, {String? storeId}) async {
     final keys = await _categoryKeys();
     final dto = await _api.get('/api/catalog/products/$id', query: {'storeId': ?storeId}, parse: (data) => CatalogProductDto.fromJson(asObject(data)));
-    return productFromCatalogDto(dto, keys[dto.categoryId] ?? 'other');
+    return productFromCatalogDto(dto, keys[dto.categoryId] ?? 'other', imageBase: _api.baseUrl);
   }
 
   Future<Map<String, String>> _categoryKeys() async => {for (final c in await categories()) c.id: categoryKeyFor(c.label)};
@@ -155,7 +155,10 @@ Category categoryFromCatalogDto(CatalogCategoryDto d) => Category(d.id, d.name, 
 const _pastels = [Color(0xFFFFC4E1), Color(0xFFFFEEAA), Color(0xFFB8FFD2), Color(0xFFE0D9FF)];
 Color _pastelFor(String id) => _pastels[id.codeUnits.fold(0, (a, b) => a + b) % _pastels.length];
 
-Product productFromCatalogDto(CatalogProductDto d, String categoryKey) {
+/// A picture the API serves itself comes as a path (/media/...); anything else (a full link) is used as it is.
+String? absoluteImageUrl(String? url, String? base) => url != null && url.startsWith('/') && base != null ? '$base$url' : url;
+
+Product productFromCatalogDto(CatalogProductDto d, String categoryKey, {String? imageBase}) {
   final mr = d.translations['mr'];
   return Product(
     id: d.id,
@@ -169,7 +172,7 @@ Product productFromCatalogDto(CatalogProductDto d, String categoryKey) {
     categoryId: d.categoryId,
     description: d.description,
     descriptionMr: mr?.description ?? d.description,
-    imageUrl: d.imageUrl,
+    imageUrl: absoluteImageUrl(d.imageUrl, imageBase),
     inStock: d.inStock ?? true,
     lowStock: d.lowStock ?? false,
     packs: [for (final v in d.variants) packFromVariantDto(v)],
