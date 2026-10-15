@@ -53,6 +53,9 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPlacementLookup>(provider => provider.GetRequiredService<IPlacementStore>());
         services.AddScoped<IDeliveryStore, EfDeliveryStore>();
         services.AddScoped<ICatalogAdminStore, EfCatalogAdminStore>();
+        services.AddScoped<IReportStore, EfReportStore>();
+        services.AddScoped<IFavouriteStore, EfFavouriteStore>();
+        services.AddScoped<IRatingStore, EfRatingStore>();
         services.AddScoped<IDeliveryLookup>(provider => provider.GetRequiredService<IDeliveryStore>());
         // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.
         services.TryAddSingleton(new EmailSettings());

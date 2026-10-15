@@ -188,6 +188,9 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, I
             .SetProperty(order => order.DeliveryAddressId, (Guid?)null)
             .SetProperty(order => order.DeliveryOtp, (string?)null), cancellationToken);
         await db.Notifications.Where(item => item.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.Favourites.Where(item => item.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
+        await db.OrderRatings.Where(item => item.CustomerId == customerId)
+            .ExecuteUpdateAsync(set => set.SetProperty(item => item.Comment, (string?)null).SetProperty(item => item.CustomerId, (Guid?)null), cancellationToken);
         await db.CartItems.Where(item => db.Carts.Any(cart => cart.Id == item.CartId && cart.CustomerId == customerId)).ExecuteDeleteAsync(cancellationToken);
         await db.Carts.Where(cart => cart.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);
         await db.CustomerAddresses.Where(address => address.CustomerId == customerId).ExecuteDeleteAsync(cancellationToken);

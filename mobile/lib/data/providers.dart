@@ -11,6 +11,8 @@ import 'models.dart';
 import 'session_store.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/cart_repository.dart';
+import 'repositories/favourites_repository.dart';
+import 'repositories/rating_repository.dart';
 import 'repositories/local_shop.dart';
 import 'repositories/notification_repository.dart';
 import 'payment_launcher.dart';
@@ -75,6 +77,16 @@ final localShopProvider = Provider<LocalShop>((ref) => LocalShop());
 final cartRepositoryProvider = Provider<CartRepository>((ref) {
   final config = ref.watch(appConfigProvider);
   return config.useSeedData ? LocalCartRepository(ref.watch(localShopProvider)) : ApiCartRepository(ref.watch(apiClientProvider));
+});
+
+final ratingRepositoryProvider = Provider<RatingRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalRatingRepository() : ApiRatingRepository(ref.watch(apiClientProvider));
+});
+
+final favouritesRepositoryProvider = Provider<FavouritesRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalFavouritesRepository() : ApiFavouritesRepository(ref.watch(apiClientProvider));
 });
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {

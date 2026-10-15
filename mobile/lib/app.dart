@@ -12,6 +12,7 @@ import 'features/address/address_editor_screen.dart';
 import 'features/address/address_list_screen.dart';
 import 'features/address/delivery_actions.dart';
 import 'features/auth/auth_controller.dart';
+import 'features/favourites/favourites_screen.dart';
 import 'features/auth/auth_screens.dart';
 import 'features/auth/auth_widgets.dart';
 import 'features/auth/otp_screens.dart';
@@ -75,6 +76,7 @@ GoRouter createRouter({AuthState Function()? auth, Listenable? refresh}) => GoRo
         GoRoute(path: '/account/delete', builder: (_, _) => const DeleteAccountScreen()),
         GoRoute(path: '/address', redirect: (_, _) => '/addresses'),
         GoRoute(path: '/addresses', builder: (_, _) => const AddressListScreen()),
+        GoRoute(path: '/favourites', builder: (_, _) => const FavouritesScreen()),
         GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
         GoRoute(path: '/addresses/new', builder: (_, s) => AddressEditorScreen(args: s.extra as AddressEditorArgs?)),
         GoRoute(path: '/addresses/:id/edit', builder: (_, s) => _EditAddressRoute(s.pathParameters['id']!, s.extra as AddressEditorArgs?)),

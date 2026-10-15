@@ -357,3 +357,43 @@ Status: built and tested (2026-10-13); migration `AddOtpAndSocialSignIn` applied
 `GET/PUT api/customer/profile` also returns `hasPassword` (false for accounts made with a phone number or Google).
 
 **Configuration.** `Cors:AllowedOrigins` lists the web pages (for example the admin portal at `https://portal.example.com`) that may call the API from a browser; plain origins only. In Development any page may; elsewhere an empty list means none, and the API warns at start-up. See `docs/RELEASE_AND_SECURITY.md` for the release steps and the security review.
+
+## Reports and the order list (P17)
+
+Status: built and tested (2026-10-14). No migration.
+
+| Route | What |
+| --- | --- |
+| `GET api/reports?from=2026-10-01&to=2026-10-14&storeId=` | Totals, a row for every day, orders by India hour, top 10 products, by-store table, low stock, and (administrators, all stores) platform income. Store staff always get their own store; `storeId` is for administrators. **400** for an end before the start or more than 92 days; **403** for anyone else |
+| `GET api/reports/orders.csv` | The same range as a CSV file: order number, India time, store, status, payment, money. No name, phone, address or id of a customer; cells that start with = + - @ are protected from spreadsheet formulas |
+
+**Definitions.** Days are India days. *Revenue* = total of orders that are Delivered or Completed. *In progress* = open orders; *lost* = cancelled and declined. Unpaid holds are in no count. *New customers* = people whose first order from the stores in scope was placed in the range. *Refunds* = orders whose payment was refunded or is being refunded. *Platform income* (paid and returned offer fees and placement bids) is created-date based.
+
+**Order list.** `GET api/orders` (the portal's Orders page) now comes back with what needs the staff first: new orders, then accepted, packing, ready, on the way, and finished ones last; newest first within each group. The portal reads it again every 15 seconds while the page is open, and marks new orders **NEW**.
+
+## Saved items and ordering again (P18)
+
+Status: built and tested (2026-10-15); migration `AddFavouriteProducts` applied to the dev database (backup `retail-mobile-app_pre-P18-favourites.bak`).
+
+| Route | What |
+| --- | --- |
+| `GET api/customer/favourites/ids` | Ids of every saved product, newest first (for the app's hearts) |
+| `GET api/customer/favourites?storeId=` | The saved products still on sale, newest first, at most 60; with a store each carries its stock |
+| `PUT api/customer/favourites/{productId}` | Saves a product; saving twice changes nothing. **404** unknown or off-sale product; **409** at the limit of 200 |
+| `DELETE api/customer/favourites/{productId}` | Removes it; removing what is not there changes nothing |
+
+Only a customer has a list (**403** for anyone else), and it is the signed-in customer's own, taken from the token. Deleting the account erases the list.
+
+**Order again** needs no new route: the app sends the order's lines to the existing `POST api/carts/{storeId}/merge` for **the order's own store**. The server adds what it can, never more than the store has, and reports the rest (`Unavailable`, `OutOfStock`, `Reduced`). A cart in another store is emptied first, after the customer agrees.
+
+## Order ratings (P19)
+
+Status: built and tested (2026-10-15); migration `AddOrderRatings` applied to the dev database (backup `retail-mobile-app_pre-P19-ratings.bak`).
+
+| Route | What |
+| --- | --- |
+| `GET api/customer/orders/{id}/rating` | `{ canRate, canRateDelivery, rating }` for the customer's own order. `canRate` is true once the order is Delivered or Completed and for 14 days after; `canRateDelivery` only when a delivery partner brought it. **404** for an order that is not theirs |
+| `PUT api/customer/orders/{id}/rating` | `{ storeStars 1-5, deliveryStars? 1-5, comment? up to 500 characters }`. Gives the rating, or changes it (one per order). **409** not delivered yet / past 14 days; **400** bad stars, a delivery rating without a partner, or a comment with < > or control characters |
+| `GET api/reports/ratings?from=&to=&storeId=` | Staff (own store) and administrators (any store, or all): count, average, the spread of 1 to 5 stars, the delivery average, each delivery partner's average, and the latest 30 ratings. The customer is never named |
+
+The store and the partner are taken from the order, never from the request. Deleting an account erases the comment and the link to the customer; the stars stay in the figures. The portal **Reports** page shows the ratings.

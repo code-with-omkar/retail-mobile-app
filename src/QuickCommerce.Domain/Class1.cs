@@ -793,3 +793,28 @@ public sealed class OtpChallenge
 	public DateTime? UsedAt { get; set; }
 	public string? RequestedFromIp { get; set; }
 }
+
+/// <summary>A product a customer saved to come back to. Part of the customer's personal data: erased when the account is deleted.</summary>
+public sealed class FavouriteProduct
+{
+	public Guid CustomerId { get; set; }
+	public Guid ProductId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// What a customer thought of a delivered order: stars for the shop and, when a delivery partner brought it, for the delivery, with an optional comment.
+/// One per order. When the customer deletes their account the comment and the link to them are erased; the stars stay in the shop's figures.
+/// </summary>
+public sealed class OrderRating
+{
+	public Guid OrderId { get; set; }
+	public Guid StoreId { get; set; }
+	public Guid? CustomerId { get; set; }
+	public Guid? DeliveryPartnerId { get; set; }
+	public int StoreStars { get; set; }
+	public int? DeliveryStars { get; set; }
+	public string? Comment { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

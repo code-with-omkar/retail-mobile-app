@@ -13,6 +13,7 @@ import '../../data/providers.dart';
 import '../cart/cart_controller.dart';
 import '../notifications/notifications_controller.dart';
 import 'orders_controller.dart';
+import 'rating_card.dart';
 import 'orders_screen.dart';
 
 class OrderSuccessScreen extends ConsumerWidget {
@@ -144,29 +145,32 @@ class _DetailState extends ConsumerState<_Detail> {
     return left <= 0 ? context.tr('Arriving any moment now') : context.tr('Arriving in about {n} minutes', {'n': '$left'});
   }
 
+  bool _reordering = false;
+
+  /// "Order again": the same items from the same store. Whatever the store cannot supply now is listed on the cart screen.
   Future<void> _reorder() async {
-    final cart = ref.read(cartProvider.notifier);
-    final store = ref.read(productStoreProvider);
-    final catalog = ref.read(catalogRepositoryProvider);
-    final storeId = (await ref.read(selectedStoreProvider.future))?.id;
-    var skipped = 0;
-    for (final l in order.lines) {
-      var product = store.get(l.key) ?? store.get(l.productId);
-      try {
-        product ??= await catalog.product(l.productId, storeId: storeId);
-      } catch (_) {
-        product = null;
-      }
-      final pack = product?.packs.where((p) => p.id == l.variantId).firstOrNull;
-      final inStock = pack?.inStock ?? product?.inStock ?? false;
-      if (product == null || !inStock || (l.variantId != null && pack == null)) {
-        skipped++;
-        continue;
-      }
-      cart.add(cartKey(product, pack), l.quantity);
+    if (_reordering) return;
+    final held = ref.read(serverCartProvider);
+    if (held != null && held.storeId != order.storeId && held.lines.isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(dialog.tr('Start a new cart?')),
+          content: Text(dialog.tr('Your cart has items from another store. Ordering again from {store} empties it.', {'store': order.storeName ?? dialog.tr('this store')})),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(dialog.tr('Keep my cart'))),
+            TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(dialog.tr('Order again'))),
+          ],
+        ),
+      );
+      if (replace != true || !mounted) return;
     }
+
+    setState(() => _reordering = true);
+    final added = await ref.read(cartProvider.notifier).addFromOrder(order);
     if (!mounted) return;
-    if (skipped > 0) _say(context.tr('Some items are not available and were left out.'));
+    setState(() => _reordering = false);
+    if (!added && ref.read(cartNoticeProvider).isEmpty) _say(context.tr('None of these items can be ordered right now.'));
     context.push('/cart');
   }
 
@@ -325,6 +329,7 @@ class _DetailState extends ConsumerState<_Detail> {
             ]),
           ),
           const SizedBox(height: 16),
+          if (order.stage == OrderStage.delivered) RatingCard(order.id, storeName: order.storeName),
           // Only while the store has not accepted it.
           if (order.stage == OrderStage.placed || order.stage == OrderStage.awaitingPayment) ...[
             SoftPillButton(_cancelling ? context.tr('Cancelling…') : context.tr('Cancel order'), height: 60, onPressed: () {
@@ -332,7 +337,7 @@ class _DetailState extends ConsumerState<_Detail> {
             }),
             const SizedBox(height: 12),
           ],
-          PillButton(context.tr('Reorder'), height: 60, onPressed: _reorder),
+          PillButton(context.tr(_reordering ? 'Please wait…' : 'Reorder'), height: 60, onPressed: _reordering ? null : _reorder),
         ]),
       ),
     );

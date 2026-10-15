@@ -757,6 +757,26 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
+                {
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("CustomerId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("CustomerId", "CreatedAt");
+
+                    b.ToTable("FavouriteProducts", (string)null);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1047,6 +1067,51 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("OrderNumberCounters", t =>
                         {
                             t.HasCheckConstraint("CK_OrderNumberCounters_LastNumber", "[LastNumber] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderRating", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DeliveryPartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DeliveryStars")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StoreStars")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("DeliveryPartnerId", "CreatedAt")
+                        .HasFilter("[DeliveryPartnerId] IS NOT NULL");
+
+                    b.HasIndex("StoreId", "CreatedAt");
+
+                    b.ToTable("OrderRatings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderRatings_DeliveryStars", "[DeliveryStars] IS NULL OR [DeliveryStars] BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_OrderRatings_StoreStars", "[StoreStars] BETWEEN 1 AND 5");
                         });
                 });
 
@@ -2668,6 +2733,21 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Notification", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Campaign", "Campaign")
@@ -2739,6 +2819,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderRating", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithOne()
+                        .HasForeignKey("QuickCommerce.Domain.OrderRating", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

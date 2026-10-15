@@ -7,6 +7,8 @@ public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbConte
 {
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+    public DbSet<FavouriteProduct> Favourites => Set<FavouriteProduct>();
+    public DbSet<OrderRating> OrderRatings => Set<OrderRating>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<AuthorizationRole> AuthorizationRoles => Set<AuthorizationRole>();
     public DbSet<AuthorizationPermission> AuthorizationPermissions => Set<AuthorizationPermission>();

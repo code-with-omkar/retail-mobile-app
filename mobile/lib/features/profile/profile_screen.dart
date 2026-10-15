@@ -50,6 +50,7 @@ class ProfileScreen extends ConsumerWidget {
             if (user != null && !user.phoneVerified) _Tile(Icons.verified_user_outlined, context.tr('Verify phone number'), context.tr('So you can sign in with a code'), () => context.push('/phone?verify=1')),
             if (user != null && user.phoneVerified) _Tile(Icons.verified_outlined, context.tr('Phone number verified'), user.phoneNumber, () => context.push('/phone?verify=1')),
             if (user != null && user.email.isNotEmpty) _Tile(Icons.lock_outline, context.tr('Change password'), null, () => context.push('/account/password')),
+            if (user != null) _Tile(Icons.favorite_border, context.tr('Saved items'), null, () => context.push('/favourites')),
             _Tile(Icons.receipt_long_outlined, context.tr('My orders'), context.tr('{n} placed', {'n': '$orderCount'}), () => context.go('/orders')),
             _Tile(Icons.location_on_outlined, context.tr('Saved addresses'), place == null ? context.tr('Add an address') : '${context.tr(place.label)} · ${place.line}', () => context.push('/addresses')),
             _Tile(Icons.payments_outlined, context.tr('Payment methods'), null, () => soon(context.tr('Payment methods'))),

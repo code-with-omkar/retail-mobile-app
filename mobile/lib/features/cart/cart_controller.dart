@@ -146,6 +146,35 @@ class CartNotifier extends Notifier<Map<String, int>> {
     _sync();
   }
 
+  /// "Order again": puts the lines of a past order in the cart of the store it came from, next to what is already there.
+  /// The server adds what it can (never more than the store has) and reports the rest as notes, shown on the cart screen.
+  /// A cart in another store is emptied first, so ask the customer before calling this. Returns false when nothing could be added.
+  Future<bool> addFromOrder(Order order) async {
+    if (!_signedIn) return false;
+    await settled();
+    if (!ref.mounted) return false;
+    try {
+      final held = ref.read(serverCartProvider);
+      if (held != null && held.storeId != order.storeId && held.lines.isNotEmpty) {
+        await _repo.clear(held.storeId);
+        _confirmed = {};
+        _serverStoreId = null;
+        ref.read(serverCartProvider.notifier).set(null);
+        state = {};
+      }
+
+      final lines = [for (final l in order.lines) (productId: l.productId, variantId: l.variantId, quantity: l.quantity)];
+      final result = await _repo.merge(order.storeId, lines);
+      if (!ref.mounted) return false;
+      if (result.notes.isNotEmpty) ref.read(cartNoticeProvider.notifier).notes(result.notes);
+      await _adopt(result.cart);
+      return result.cart.lines.isNotEmpty;
+    } catch (e) {
+      if (ref.mounted) _problem(e);
+      return false;
+    }
+  }
+
   /// Empties the cart, here and on the server.
   void clear() {
     state = {};

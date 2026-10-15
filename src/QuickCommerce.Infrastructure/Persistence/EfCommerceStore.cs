@@ -173,7 +173,10 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             query = query.Where(row => storeIds.Contains(row.order.StoreId));
         }
 
-        return await query.OrderByDescending(row => row.order.CreatedAt).Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
+        return await query
+            .OrderBy(row => row.order.Status == OrderStatus.Pending ? 0 : row.order.Status == OrderStatus.Accepted ? 1 : row.order.Status == OrderStatus.Preparing ? 2 : row.order.Status == OrderStatus.Ready ? 3 : row.order.Status == OrderStatus.OutForDelivery || row.order.Status == OrderStatus.Confirmed ? 4 : 5)
+            .ThenByDescending(row => row.order.CreatedAt)
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
