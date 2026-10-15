@@ -21,4 +21,4 @@ deploy/iis/backups/
 **/secrets.properties
 
 # Uploaded product pictures (local dev)
-**/media/
+/src/QuickCommerce.Api/media/
