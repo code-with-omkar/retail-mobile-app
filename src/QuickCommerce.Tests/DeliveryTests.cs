@@ -269,7 +269,7 @@ public sealed class DeliveryTests
     // ---------------- picking up ----------------
 
     [Fact]
-    public async Task Picking_up_puts_the_order_out_for_delivery_and_tells_the_customer_once()
+    public async Task Picking_up_puts_the_order_out_for_delivery_without_ringing_the_bell()
     {
         var rig = Create();
         var order = await ReadyAssigned(rig);
@@ -280,7 +280,7 @@ public sealed class DeliveryTests
 
         Assert.Equal(OrderStatus.OutForDelivery, first.Value!.Status);
         Assert.Equal(DeliveryResultStatus.Succeeded, again.Status);
-        Assert.Equal(1, Notes(rig, order, NotificationTypes.OutForDelivery));
+        Assert.Equal(0, Notes(rig, order, NotificationTypes.OutForDelivery));
         Assert.Equal([OrderStatus.Ready, OrderStatus.OutForDelivery], order.StatusHistory.Select(history => history.Status));
         Assert.NotNull(order.PickedUpAt);
     }

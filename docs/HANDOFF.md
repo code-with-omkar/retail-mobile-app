@@ -8,6 +8,15 @@ P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 o
 ## P20 (offers with discounts and pictures, app-open pop-up and fee, offer notification opens, your stores, bought before)
 Built and tested (backend 907, customer app 520, portal builds). Migration `AddOfferDiscountsAndImages` is applied to the dev database (backup `retail-mobile-app_before_P20.bak`) and live-checked; commit when the user asks. Manual cases: `test-cases.md` section L. Notes: the highest percent wins (no stacking); staff pay the normal fee plus the admin-set app-open fee when they tick the pop-up; admin offers are free.
 
+## P21 (order note and out-of-stock choice)
+Built and tested (backend 919, customer app 523, portal builds). Migration `AddOrderNotes` generated, **not applied**: ask the user, back up, apply, restart the APIs, live-check, then commit. Manual cases: `test-cases.md` section M. CI note: the backend job failed on `d1b0981` because `LocalImageStore.cs` was gitignored; fixed in `d3c1c5a` (push it).
+
+## P22 phase A (store prices + ribbon)
+Built and tested (backend 937, app 524, portal builds). Migration `AddStorePriceOverride` generated, **not applied**. Cases: `test-cases.md` section N. Phase B (admin-set commission % per store, per-shop earnings report) not started; the user was advised to switch to a stronger model for it.
+
+## P22 phase B (commission and earnings)
+Built and tested (backend 954, portal builds). Migration `AddCommission` generated, **not applied**. Cases: `test-cases.md` section O. Decisions: % of product total after discounts; store keeps fees; only delivered orders earn; refunds/cancels earn nothing; only orders placed after setting get a commission.
+
 ## Not committed yet
 Everything after commit `5c2a312`: reports, order-list ordering, order again, saved items, ratings (about 52 files), plus docs. Unpushed commits: `66acbc8`, `7825365`, `6eddf9d`, `5c2a312`. The user pushes. `mobile/windows/flutter/generated_plugin*` and `admin-portal/.angular` are never committed.
 

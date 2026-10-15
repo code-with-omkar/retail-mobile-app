@@ -176,7 +176,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         return await query
             .OrderBy(row => row.order.Status == OrderStatus.Pending ? 0 : row.order.Status == OrderStatus.Accepted ? 1 : row.order.Status == OrderStatus.Preparing ? 2 : row.order.Status == OrderStatus.Ready ? 3 : row.order.Status == OrderStatus.OutForDelivery || row.order.Status == OrderStatus.Confirmed ? 4 : 5)
             .ThenByDescending(row => row.order.CreatedAt)
-            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice)).ToListAsync(cancellationToken);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
@@ -385,7 +385,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
                 // The price is the variant's, re-read here: the cart only holds what the customer saw.
                 var offerPercent = percents.GetValueOrDefault(product.Id);
-                var unitPrice = OfferPricing.Apply(variant.Price, offerPercent);
+                var unitPrice = StorePricing.Final(variant.Price, inventory.PriceOverride, offerPercent);
                 if (unitPrice != cartItem.UnitPriceSnapshot)
                 {
                     repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: unitPrice));
@@ -402,7 +402,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                     VariantLabelSnapshot = variant.Label,
                     UnitPrice = unitPrice,
                     // With an offer the receipt shows what it was worth before: the MRP, or the normal price when there is none.
-                    UnitMrpSnapshot = offerPercent > 0 ? CatalogPricing.EffectiveMrp(variant.Price, variant.Mrp) : variant.Mrp,
+                    UnitMrpSnapshot = StorePricing.MrpSnapshot(unitPrice, variant.Price, variant.Mrp),
                     Quantity = cartItem.Quantity
                 });
             }
@@ -431,11 +431,15 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 Longitude = commit.Delivery.Longitude,
                 DeliveryAddressId = commit.Delivery.AddressId,
                 ReceiverName = commit.Delivery.ReceiverName,
+                OrderNote = commit.Note,
+                OutOfStockChoice = commit.OutOfStockChoice,
                 ReceiverPhone = commit.Delivery.ReceiverPhone,
                 EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
                 SubtotalAmount = price.Subtotal,
                 DeliveryFee = price.DeliveryFee,
                 HandlingFee = price.HandlingFee,
+                CommissionPercent = commit.CommissionPercent,
+                CommissionAmount = commit.CommissionPercent is { } percent ? CommissionMath.Amount(price.Subtotal, percent) : null,
                 TotalAmount = price.Total,
                 PaymentMethod = commit.PaymentMethod,
                 Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
@@ -587,7 +591,10 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             .SingleOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, targetStatus));
+            if (NotificationCatalog.SendsBell(targetStatus))
+            {
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, targetStatus));
+            }
         }
         try
         {
@@ -673,7 +680,9 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);

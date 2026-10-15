@@ -41,7 +41,9 @@ public sealed record OrderResponse(
     DateTime? PaymentExpiresAt = null,
     string? DeliveryPartnerName = null,
     string? DeliveryPartnerPhone = null,
-    string? DeliveryOtp = null);
+    string? DeliveryOtp = null,
+    string? Note = null,
+    string? OutOfStockChoice = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -54,7 +56,9 @@ public sealed record AdminOrderResponse(
     OrderStatus Status,
     DateTime CreatedAt,
     Guid? DeliveryPartnerId = null,
-    string? DeliveryPartner = null);
+    string? DeliveryPartner = null,
+    string? Note = null,
+    string? OutOfStockChoice = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

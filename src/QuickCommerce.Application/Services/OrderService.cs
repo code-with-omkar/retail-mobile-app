@@ -71,8 +71,8 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
                 VariantId = variant.Id,
                 ProductNameSnapshot = product.Name,
                 VariantLabelSnapshot = variant.Label,
-                UnitPrice = OfferPricing.Apply(variant.Price, percents.GetValueOrDefault(product.Id)),
-                UnitMrpSnapshot = percents.GetValueOrDefault(product.Id) > 0 ? CatalogPricing.EffectiveMrp(variant.Price, variant.Mrp) : variant.Mrp,
+                UnitPrice = StorePricing.Final(variant.Price, stock.PriceOverride, percents.GetValueOrDefault(product.Id)),
+                UnitMrpSnapshot = StorePricing.MrpSnapshot(StorePricing.Final(variant.Price, stock.PriceOverride, percents.GetValueOrDefault(product.Id)), variant.Price, variant.Mrp),
                 Quantity = line.Quantity
             });
         }
@@ -121,5 +121,7 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 }

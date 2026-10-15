@@ -686,6 +686,37 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("CheckoutRequests", (string)null);
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CommissionRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Percent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("CommissionRates", t =>
+                        {
+                            t.HasCheckConstraint("CK_CommissionRates_Percent", "[Percent] >= 0 AND [Percent] <= 100");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -925,6 +956,12 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("CommissionAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CommissionPercent")
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -963,6 +1000,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<double>("Longitude")
                         .HasColumnType("float");
 
+                    b.Property<string>("OrderNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -973,6 +1014,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("OtpLockedUntil")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("OutOfStockChoice")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("PaymentExpiresAt")
                         .HasColumnType("datetime2");
@@ -2143,6 +2188,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<int>("AvailableQuantity")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("PriceOverride")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("ReorderThreshold")
                         .HasColumnType("int");
 
@@ -2159,6 +2207,8 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("StoreVariantInventory", t =>
                         {
                             t.HasCheckConstraint("CK_StoreVariantInventory_NotNegative", "[AvailableQuantity] >= 0");
+
+                            t.HasCheckConstraint("CK_StoreVariantInventory_PriceOverride", "[PriceOverride] IS NULL OR [PriceOverride] > 0");
                         });
                 });
 
@@ -2770,6 +2820,14 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CommissionRate", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Customer", b =>

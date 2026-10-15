@@ -259,10 +259,10 @@ public sealed class EfCatalogAdminStore(QuickCommerceDbContext db) : ICatalogAdm
             .SelectMany(row => row.stock.DefaultIfEmpty(), (row, stock) => new { row.variant, row.product, stock })
             .OrderBy(row => row.product.Name).ThenBy(row => row.variant.SortOrder)
             .ToListAsync(cancellationToken);
-        return rows.Select(row => new StockRowResponse(row.product.Id, row.product.Name, row.variant.Id, row.variant.Label, row.stock is not null, row.stock?.AvailableQuantity ?? 0, row.stock?.ReorderThreshold ?? 5)).ToArray();
+        return rows.Select(row => new StockRowResponse(row.product.Id, row.product.Name, row.variant.Id, row.variant.Label, row.stock is not null, row.stock?.AvailableQuantity ?? 0, row.stock?.ReorderThreshold ?? 5, row.stock?.PriceOverride, row.variant.Price, row.variant.Mrp)).ToArray();
     }
 
-    public async Task<StockRowResponse?> SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, CancellationToken cancellationToken = default)
+    public async Task<StockRowResponse?> SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, decimal? priceOverride = null, CancellationToken cancellationToken = default)
     {
         for (var attempt = 1; ; attempt++)
         {
@@ -285,17 +285,18 @@ public sealed class EfCatalogAdminStore(QuickCommerceDbContext db) : ICatalogAdm
                 }
                 else if (row is null)
                 {
-                    db.StoreVariantInventory.Add(new StoreVariantInventory { StoreId = storeId, VariantId = variantId, AvailableQuantity = available, ReorderThreshold = reorderThreshold });
+                    db.StoreVariantInventory.Add(new StoreVariantInventory { StoreId = storeId, VariantId = variantId, AvailableQuantity = available, ReorderThreshold = reorderThreshold, PriceOverride = priceOverride });
                 }
                 else
                 {
                     row.AvailableQuantity = available;
                     row.ReorderThreshold = reorderThreshold;
+                    row.PriceOverride = priceOverride;
                 }
 
                 await db.SaveChangesAsync(cancellationToken);
                 db.ChangeTracker.Clear();
-                return new StockRowResponse(product.Id, product.Name, variant.Id, variant.Label, carried, carried ? available : 0, carried ? reorderThreshold : 5);
+                return new StockRowResponse(product.Id, product.Name, variant.Id, variant.Label, carried, carried ? available : 0, carried ? reorderThreshold : 5, carried ? priceOverride : null, variant.Price, variant.Mrp);
             }
             catch (Exception ex) when ((ex is DbUpdateConcurrencyException || ex is DbUpdateException || SqlErrors.IsDeadlock(ex)) && attempt < Attempts)
             {

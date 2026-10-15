@@ -175,6 +175,8 @@ export interface AdminOrder {
   createdAt: string;
   deliveryPartnerId?: string | null;
   deliveryPartner?: string | null;
+  note?: string | null;
+  outOfStockChoice?: string | null;
 }
 
 export interface Notification {

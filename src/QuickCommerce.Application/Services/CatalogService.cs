@@ -264,10 +264,22 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
         {
             stock.TryGetValue(variant.Id, out var row);
             var inStock = row is { AvailableQuantity: > 0 };
-            return variant with { InStock = inStock, LowStock = inStock && row!.AvailableQuantity <= row.ReorderThreshold };
+            // The store's own price replaces the shared one; the old figure (MRP or shared price) stays struck through when this is lower.
+            var storePrice = row?.PriceOverride ?? variant.Price;
+            var shown = variant with
+            {
+                Price = storePrice,
+                Mrp = storePrice > variant.Mrp ? storePrice : variant.Mrp,
+                DiscountPercent = CatalogPricing.DiscountPercent(storePrice, variant.Mrp),
+                InStock = inStock,
+                LowStock = inStock && row!.AvailableQuantity <= row.ReorderThreshold
+            };
+            return shown;
         }).ToArray();
         var defaultVariant = variants.FirstOrDefault(variant => variant.IsDefault);
-        return product with { Variants = variants, InStock = defaultVariant?.InStock ?? false, LowStock = defaultVariant?.LowStock ?? false };
+        return defaultVariant is null
+            ? product with { Variants = variants, InStock = false, LowStock = false }
+            : product with { Variants = variants, InStock = defaultVariant.InStock ?? false, LowStock = defaultVariant.LowStock ?? false, Price = defaultVariant.Price, Mrp = defaultVariant.Mrp, DiscountPercent = defaultVariant.DiscountPercent };
     }
 
     public async Task<IReadOnlyList<CatalogCategoryResponse>> GetCatalogCategoriesAsync(CancellationToken cancellationToken = default)

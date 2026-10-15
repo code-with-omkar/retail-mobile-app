@@ -32,10 +32,10 @@ public sealed record SaveTranslationRequest(string Name, string? Description = n
 
 public sealed record SaveVariantRequest(string Sku, string Label, decimal Price, decimal? Mrp, int SortOrder = 0, bool IsActive = true);
 
-public sealed record StockRowResponse(Guid ProductId, string ProductName, Guid VariantId, string VariantLabel, bool Carried, int Available, int ReorderThreshold);
+public sealed record StockRowResponse(Guid ProductId, string ProductName, Guid VariantId, string VariantLabel, bool Carried, int Available, int ReorderThreshold, decimal? PriceOverride = null, decimal BasePrice = 0, decimal? Mrp = null);
 
 /// <summary>Set whether the store carries a variant and how many it has. Not carried removes the stock row.</summary>
-public sealed record SetStockRequest(bool Carried, int Available, int ReorderThreshold = 5);
+public sealed record SetStockRequest(bool Carried, int Available, int ReorderThreshold = 5, decimal? PriceOverride = null);
 
 public enum CatalogAdminStatus { Succeeded, Forbidden, NotFound, Invalid, Conflict }
 
@@ -110,5 +110,5 @@ public interface ICatalogAdminStore
 
     Task<Store?> GetStoreForStockAsync(Guid storeId, Guid organizationId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<StockRowResponse>> ListStockAsync(Guid storeId, CancellationToken cancellationToken = default);
-    Task<StockRowResponse?> SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, CancellationToken cancellationToken = default);
+    Task<StockRowResponse?> SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, decimal? priceOverride = null, CancellationToken cancellationToken = default);
 }

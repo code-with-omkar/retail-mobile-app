@@ -73,6 +73,17 @@ public static class ReportMath
         return Enumerable.Range(0, 24).Select(hour => new ReportHour(hour, counts.GetValueOrDefault(hour))).ToArray();
     }
 
+    /// <summary>Per shop, delivered orders only: sales are the product totals after discounts, commission is what was fixed on each order (orders from before commission count none), fees stay with the store.</summary>
+    public static IReadOnlyList<EarningsRow> Earnings(IReadOnlyCollection<ReportOrderRow> rows, IReadOnlyDictionary<Guid, string> names) =>
+        names.Select(store =>
+        {
+            var delivered = rows.Where(row => row.StoreId == store.Key && IsDelivered(row.Status)).ToArray();
+            var sales = delivered.Sum(row => row.Subtotal);
+            var commission = delivered.Sum(row => row.CommissionAmount ?? 0m);
+            var fees = delivered.Sum(row => row.DeliveryFee + row.HandlingFee);
+            return new EarningsRow(store.Key, store.Value, delivered.Length, sales, commission, fees, sales - commission + fees);
+        }).OrderByDescending(row => row.Commission).ThenByDescending(row => row.Sales).ThenBy(row => row.Store, StringComparer.OrdinalIgnoreCase).ToArray();
+
     public static IReadOnlyList<ReportStoreRow> Stores(IReadOnlyCollection<ReportOrderRow> rows, IReadOnlyDictionary<Guid, string> names) =>
         names.Select(store =>
         {
@@ -170,7 +181,8 @@ public sealed class ReportService(IReportStore store, ICurrentUserContextResolve
             await store.GetTopProductsAsync(organization, stores, fromUtc, toUtc, 10, cancellationToken),
             stores is null ? ReportMath.Stores(rows, names) : [],
             await store.GetLowStockAsync(organization, stores, 50, cancellationToken),
-            admin && stores is null ? await store.GetIncomeAsync(organization, fromUtc, toUtc, cancellationToken) : null);
+            admin && stores is null ? await store.GetIncomeAsync(organization, fromUtc, toUtc, cancellationToken) : null,
+            ReportMath.Earnings(rows, names));
         return ReportResult<SalesReport>.Ok(report);
     }
 

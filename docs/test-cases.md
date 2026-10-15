@@ -190,6 +190,54 @@ For the features built since the last round of testing. Tick the **Pass** column
 | L14 | Open that store's Home. | "Bought before" shows what you ordered there; add one to the cart. | ☐ | |
 | L15 | Cancel an order, look again. | A cancelled order does not count in "Your stores" or "Bought before". | ☐ | |
 
+## M. Order note and out-of-stock choice
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| M1 | Customer app Checkout. | "If an item is out of stock" with Call me (chosen), Remove it, Replace it; and a "Note for the store" box (200 characters). | ☐ | |
+| M2 | Choose Replace it, write "Ring the bell twice", Place order. | Order placed. Order detail shows "Your note" and "Replace it". | ☐ | |
+| M3 | Portal as `storemanager`, Orders. | The order row shows the note and "If an item is out of stock: replace with a similar item". | ☐ | |
+| M4 | Place an order with no note and nothing chosen. | Detail shows only "Call me"; the portal row has no note line. | ☐ | |
+| M5 | Type a note with < or >. | Refused; the order is not placed. | ☐ | |
+| M6 | Note in Marathi. | Accepted and shown back as written. | ☐ | |
+| M7 | Switch the app to Marathi. | Checkout headings, choices and "Your note" are in Marathi. | ☐ | |
+
+## N. Store prices and the discount ribbon
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| N1 | Portal as `storemanager`, Stock: set a Store price below the shared one, Save. | Saved; a "% below the shared price" note shows. | ☐ | |
+| N2 | Customer app Home / product list at that store. | Lower price with the old price struck through; pink "X% OFF" ribbon on the card. | ☐ | |
+| N3 | Another store's customer view. | Still the shared price, no ribbon. | ☐ | |
+| N4 | Add it to the cart, check out. | Cart and order use the store price; order detail keeps the old price. | ☐ | |
+| N5 | Change the store price while it is in a cart, then check out. | Customer is asked to review the new price, then can order. | ☐ | |
+| N6 | Clear the store price. | Back to the shared price; ribbon gone. | ☐ | |
+| N7 | Set a store price above the shared price. | Shown as the price, nothing struck through, no ribbon. | ☐ | |
+| N8 | Store price with an offer % on the same product (admin offer). | The offer takes its percent off the store price; ribbon shows the total saving. | ☐ | |
+| N9 | Enter 0 or 3 decimals. | Refused with a message. | ☐ | |
+
+## O. Commission and earnings
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| O1 | Portal as `admin`: Commission. Set default 10%, one store 5%. | Saved; the store shows 5, others "(default 10%)". | ☐ | |
+| O2 | Enter 101, -1 or 3 decimals. | Refused. | ☐ | |
+| O3 | Place an order at each store (₹200 of items), mark them Delivered in Orders. | Both orders deliver normally. | ☐ | |
+| O4 | Reports, Earnings by shop. | Per shop: sales ₹200, commission ₹20 (10%) or ₹10 (5%), "store keeps" includes delivery and handling fees. | ☐ | |
+| O5 | Change the percent, look at the same report. | Old orders keep their commission; only new orders use the new percent. | ☐ | |
+| O6 | Cancel an order. | It is not in earnings. | ☐ | |
+| O7 | Portal as `storemanager`: Reports. | Only their own shop's earnings; no Commission page in the menu. | ☐ | |
+| O8 | A product with a store price or offer. | Commission is on the discounted amount the customer paid. | ☐ | |
+
+## P. Notification rule
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| P1 | Place an order. | Bell: "Order placed". | ☐ | |
+| P2 | Store accepts, packs, assigns a partner; partner picks up. | No new bell notifications; the order screen timeline moves on each step. | ☐ | |
+| P3 | Partner completes delivery with the code. | Bell: "Order delivered". | ☐ | |
+| P4 | Store declines or customer cancels an order. | Bell: declined / cancelled. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

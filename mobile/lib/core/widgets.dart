@@ -240,6 +240,42 @@ class DiscountSticker extends StatelessWidget {
       );
 }
 
+/// A corner ribbon for a discounted item, across the top-left corner of whatever it is placed over (give it a clipped parent).
+class DiscountRibbon extends StatelessWidget {
+  const DiscountRibbon(this.pct, {super.key, this.size = 58, this.fontSize = 9});
+  final int pct;
+  final double size, fontSize;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: context.tr('{n}% off', {'n': '$pct'}),
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: ClipRect(
+              child: Stack(children: [
+                Positioned(
+                  left: -size * 0.34,
+                  top: size * 0.2,
+                  child: Transform.rotate(
+                    angle: -math.pi / 4,
+                    child: Container(
+                      width: size * 1.5,
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      alignment: Alignment.center,
+                      color: Pal.pink,
+                      child: Text(context.tr('{n}% off', {'n': '$pct'}).toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: fontSize, letterSpacing: .3)),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
 class PriceText extends StatelessWidget {
   const PriceText(this.price, {super.key, this.mrp, this.size = 18, this.onCard = true});
   final num price;
@@ -280,7 +316,7 @@ class ProductCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: Stack(fit: StackFit.expand, children: [
                 Opacity(opacity: product.inStock ? 1 : .45, child: ProductVisual(product)),
-                if (product.discountPct > 0) Positioned(top: 6, left: 6, child: DiscountSticker(product.discountPct)),
+                if (product.discountPct > 0) Positioned(top: 0, left: 0, child: DiscountRibbon(product.discountPct)),
               ]),
             ),
           ),
@@ -299,7 +335,7 @@ class ProductCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 6, top: 2),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price))),
+              Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price, mrp: product.mrp, size: 16))),
               QuantityControl(product, size: 30),
             ]),
           ),

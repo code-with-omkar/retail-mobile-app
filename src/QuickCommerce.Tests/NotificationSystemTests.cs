@@ -104,7 +104,7 @@ public sealed class NotificationSystemTests
     // ---------------- order events ----------------
 
     [Fact]
-    public async Task Placing_a_cash_order_and_every_step_the_shop_takes_tell_the_customer_in_their_language()
+    public async Task Placing_and_delivering_a_cash_order_ring_the_bell_in_the_customers_language_and_the_steps_in_between_do_not()
     {
         var rig = Create();
         var order = await rig.Payments.PlaceOnlineAsync(method: PaymentMethods.CashOnDelivery);
@@ -117,13 +117,11 @@ public sealed class NotificationSystemTests
         var english = await rig.Service.GetAsync(false, "en");
         var marathi = await rig.Service.GetAsync(false, "mr");
 
-        Assert.Equal(
-            [NotificationTypes.OrderPlaced, NotificationTypes.OrderAccepted, NotificationTypes.OrderPacking, NotificationTypes.OutForDelivery, NotificationTypes.OrderDelivered],
-            english!.OrderBy(item => item.CreatedAt).ThenBy(item => item.Type).Select(item => item.Type).OrderBy(type => new[] { NotificationTypes.OrderPlaced, NotificationTypes.OrderAccepted, NotificationTypes.OrderPacking, NotificationTypes.OutForDelivery, NotificationTypes.OrderDelivered }.ToList().IndexOf(type)));
+        // Accepted, packing and out for delivery only update the tracking timeline; the customer is told when the order is placed and delivered.
+        Assert.Equal([NotificationTypes.OrderPlaced, NotificationTypes.OrderDelivered], english!.Select(item => item.Type).Order().ToArray().Select(type => type).OrderBy(type => type == NotificationTypes.OrderPlaced ? 0 : 1));
         Assert.All(english, item => Assert.Contains(order.OrderNumber, item.Message));
         Assert.All(marathi!, item => Assert.Contains(order.OrderNumber, item.Message));
-        Assert.Contains(english, item => item.Title == "Out for delivery");
-        Assert.DoesNotContain(marathi, item => item.Title == "Out for delivery");
+        Assert.DoesNotContain(english, item => item.Title == "Out for delivery");
         Assert.All(english, item => Assert.Equal(NotificationCategories.Order, item.Category));
     }
 

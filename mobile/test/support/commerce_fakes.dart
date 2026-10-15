@@ -183,12 +183,16 @@ class FakeOrderRepository implements OrderRepository {
   Duration delay = Duration.zero;
   var _number = 2000;
 
+  /// The note and out-of-stock choice sent with each attempt, in the same order as [attempts].
+  final notes = <({String? note, String choice})>[];
+
   /// Keys already used: the same key returns the same order.
   final _byKey = <String, Order>{};
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false}) async {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe'}) async {
     attempts.add((storeId: storeId, key: idempotencyKey, addressId: addressId, place: place, online: online));
+    notes.add((note: note, choice: outOfStockChoice));
     if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (_byKey[idempotencyKey] case final known?) return known;
     if (failures.isNotEmpty) throw failures.removeAt(0);

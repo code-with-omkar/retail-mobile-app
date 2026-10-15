@@ -328,6 +328,22 @@ class _DetailState extends ConsumerState<_Detail> {
               ),
             ]),
           ),
+          if (order.note != null || order.outOfStockChoice != null) ...[
+            const SizedBox(height: 12),
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (order.note != null) ...[
+                  Text(context.tr('Your note'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(order.note!, style: TextStyle(color: p.onCard)),
+                  const SizedBox(height: 6),
+                ],
+                if (order.outOfStockChoice != null) ...[
+                  Text(context.tr('If an item is out of stock'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(context.tr(switch (order.outOfStockChoice) { 'Remove' => 'Remove it', 'Replace' => 'Replace it', _ => 'Call me' }), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w700)),
+                ],
+              ]),
+            ),
+          ],
           const SizedBox(height: 16),
           if (order.stage == OrderStage.delivered) RatingCard(order.id, storeName: order.storeName),
           // Only while the store has not accepted it.

@@ -35,6 +35,12 @@ public static class NotificationCatalog
 
     public static bool Knows(string type) => Templates.ContainsKey(type);
 
+    /// <summary>
+    /// Whether an order becoming this status rings the bell. The in-between steps (accepted, packing, ready and out for delivery) only update the
+    /// order's tracking timeline; placed, delivered, declined and cancelled, and every payment message, still notify.
+    /// </summary>
+    public static bool SendsBell(OrderStatus status) => status is not (OrderStatus.Accepted or OrderStatus.Preparing or OrderStatus.Ready or OrderStatus.OutForDelivery);
+
     /// <summary>The notification type for an order becoming this status.</summary>
     public static string TypeFor(OrderStatus status) => status switch
     {

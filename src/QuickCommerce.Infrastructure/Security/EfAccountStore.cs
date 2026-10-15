@@ -182,6 +182,7 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, I
         await db.Orders.Where(order => order.UserId == userId).ExecuteUpdateAsync(set => set
             .SetProperty(order => order.ReceiverName, (string?)null)
             .SetProperty(order => order.ReceiverPhone, (string?)null)
+            .SetProperty(order => order.OrderNote, (string?)null)
             .SetProperty(order => order.DeliveryAddress, "Address removed")
             .SetProperty(order => order.Latitude, 0d)
             .SetProperty(order => order.Longitude, 0d)

@@ -5,7 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Role, Store } from '../../core/models/domain.model';
 
-interface Row { productId: string; productName: string; variantId: string; variantLabel: string; carried: boolean; available: number; reorderThreshold: number; }
+interface Row { productId: string; productName: string; variantId: string; variantLabel: string; carried: boolean; available: number; reorderThreshold: number; priceOverride?: number | null; basePrice?: number; mrp?: number | null; }
 
 /** A store's own stock. Store staff always see their own store; an administrator picks one. */
 @Component({
@@ -27,13 +27,14 @@ interface Row { productId: string; productName: string; variantId: string; varia
       <p class="notice" *ngIf="notice()">{{ notice() }}</p>
       <p *ngIf="loading()">Loading stock...</p>
       <div class="table" *ngIf="shown().length">
-        <div class="row head"><span>Product</span><span>Size</span><span>Sells here</span><span>In stock</span><span>Reorder at</span><span></span></div>
+        <div class="row head"><span>Product</span><span>Size</span><span>Sells here</span><span>In stock</span><span>Reorder at</span><span>Store price (₹)</span><span></span></div>
         <div class="row" *ngFor="let r of shown()">
           <strong>{{ r.productName }}</strong>
           <span>{{ r.variantLabel }}</span>
           <input type="checkbox" [name]="'c' + r.variantId" [(ngModel)]="r.carried" />
           <input type="number" min="0" max="100000" [name]="'a' + r.variantId" [(ngModel)]="r.available" [disabled]="!r.carried" />
           <input type="number" min="0" max="100000" [name]="'t' + r.variantId" [(ngModel)]="r.reorderThreshold" [disabled]="!r.carried" />
+          <span class="price"><input type="number" min="0.01" max="100000" step="0.01" [name]="'p' + r.variantId" [(ngModel)]="r.priceOverride" [disabled]="!r.carried" [placeholder]="'Shared ' + (r.basePrice ?? '')" /><small *ngIf="r.priceOverride && r.basePrice && r.priceOverride < r.basePrice">{{ discountPercent(r) }}% below the shared price</small></span>
           <button class="act" type="button" [disabled]="busyId() === r.variantId" (click)="save(r)">Save</button>
         </div>
       </div>
@@ -54,7 +55,9 @@ interface Row { productId: string; productName: string; variantId: string; varia
     .error{color:#FFC6E2;font-weight:700}
     .notice{color:#02F34C;font-weight:700}
     .table{background:var(--card-bg,#EAE4FF);border-radius:24px;overflow:auto}
-    .row{display:grid;grid-template-columns:2fr 1fr .8fr 1fr 1fr .8fr;gap:12px;padding:10px 18px;border-top:1px solid rgba(20,17,24,.12);min-width:720px;font-size:12px;color:var(--on-card-muted,#5E5A66);align-items:center}
+    .price{display:grid;gap:2px}
+    .price small{font-size:10px;color:#04782F;font-weight:700}
+    .row{display:grid;grid-template-columns:2fr 1fr .8fr 1fr 1fr 1.4fr .8fr;gap:12px;padding:10px 18px;border-top:1px solid rgba(20,17,24,.12);min-width:900px;font-size:12px;color:var(--on-card-muted,#5E5A66);align-items:center}
     .row strong{color:var(--on-card,#141118)}
     .row input[type=checkbox]{width:18px;height:18px}
     .head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
@@ -98,11 +101,17 @@ export class StockComponent implements OnInit {
     });
   }
 
+  /** How far the store's price is below the shared price (or the MRP when that is higher), as the customer will see it. */
+  discountPercent(r: Row): number {
+    const original = Math.max(r.basePrice ?? 0, r.mrp ?? 0);
+    return original > 0 && r.priceOverride ? Math.round((original - r.priceOverride) / original * 100) : 0;
+  }
+
   save(r: Row) {
     if (this.busyId()) return;
     this.busyId.set(r.variantId); this.error.set(null); this.notice.set(null);
     const url = '/stock/' + r.variantId + (this.isAdmin() ? '?storeId=' + this.storeId : '');
-    this.api.put<Row>(url, { carried: r.carried, available: Number(r.available) || 0, reorderThreshold: Number(r.reorderThreshold) || 0 }).subscribe({
+    this.api.put<Row>(url, { carried: r.carried, available: Number(r.available) || 0, reorderThreshold: Number(r.reorderThreshold) || 0, priceOverride: r.carried && r.priceOverride ? Number(r.priceOverride) : null }).subscribe({
       next: res => { this.busyId.set(null); this.notice.set(r.productName + ' ' + r.variantLabel + ': saved.'); if (res.data) this.rows.set(this.rows().map(x => x.variantId === r.variantId ? res.data! : x)); },
       error: e => { this.busyId.set(null); this.error.set(e?.message ?? 'Could not save.'); },
     });

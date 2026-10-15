@@ -364,7 +364,12 @@ public sealed class StockService(ICatalogAdminStore store, ICurrentUserContextRe
             return CatalogAdminResult<StockRowResponse>.Fail(CatalogAdminStatus.Invalid, $"Stock must be between 0 and {MaxQuantity}.");
         }
 
-        var row = await store.SetStockAsync(scope.StoreId.Value, variantId, request.Carried, request.Available, request.ReorderThreshold, cancellationToken);
+        if (request.PriceOverride is { } own && (own <= 0 || own > CatalogAdminService.MaxPrice || decimal.Round(own, 2) != own))
+        {
+            return CatalogAdminResult<StockRowResponse>.Fail(CatalogAdminStatus.Invalid, "The store price must be above 0, up to ₹1,00,000, with at most 2 decimals.");
+        }
+
+        var row = await store.SetStockAsync(scope.StoreId.Value, variantId, request.Carried, request.Available, request.ReorderThreshold, request.Carried ? request.PriceOverride : null, cancellationToken);
         return row is null
             ? CatalogAdminResult<StockRowResponse>.Fail(CatalogAdminStatus.NotFound, "That product size was not found.")
             : CatalogAdminResult<StockRowResponse>.Ok(row);

@@ -75,6 +75,8 @@ Order orderFromJson(Map<String, dynamic> j) {
     deliveryPartnerName: j['deliveryPartnerName'] as String?,
     deliveryPartnerPhone: j['deliveryPartnerPhone'] as String?,
     deliveryOtp: j['deliveryOtp'] as String?,
+    note: j['note'] as String?,
+    outOfStockChoice: j['outOfStockChoice'] as String?,
   );
 }
 

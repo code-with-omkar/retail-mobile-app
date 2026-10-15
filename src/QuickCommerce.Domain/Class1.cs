@@ -324,6 +324,9 @@ public sealed class StoreVariantInventory
 	public Guid VariantId { get; set; }
 	public int AvailableQuantity { get; set; }
 	public int ReorderThreshold { get; set; } = 5;
+
+	/// <summary>This store's own price for the pack size, set by its manager. Null means the shared price. Offers then take a percent off this price.</summary>
+	public decimal? PriceOverride { get; set; }
 	public byte[] RowVersion { get; set; } = [];
 }
 
@@ -413,6 +416,16 @@ public sealed class Order
 	public string? ReceiverName { get; set; }
 	public string? ReceiverPhone { get; set; }
 	public Guid? DeliveryAddressId { get; set; }
+
+	/// <summary>The platform's commission, fixed when the order was placed: the percent in force then and the amount on the product total. Null on orders placed before commission existed.</summary>
+	public decimal? CommissionPercent { get; set; }
+	public decimal? CommissionAmount { get; set; }
+
+	/// <summary>What the customer wrote for the store (up to 200 characters); erased when the account is deleted.</summary>
+	public string? OrderNote { get; set; }
+
+	/// <summary>What to do when an item is out of stock: Remove, CallMe or Replace. Null on orders placed before the choice existed.</summary>
+	public string? OutOfStockChoice { get; set; }
 
 	/// <summary>The arrival estimate given when the order was placed. Null for orders placed before it was kept.</summary>
 	public int? EstimatedDeliveryMinutes { get; set; }
@@ -622,6 +635,16 @@ public sealed class CampaignProduct
 {
 	public Guid CampaignId { get; set; }
 	public Guid ProductId { get; set; }
+}
+
+/// <summary>The commission percent the platform takes from a store's product sales. One row with no store is the default; a row with a store overrides it for that store.</summary>
+public sealed class CommissionRate
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid? StoreId { get; set; }
+	public decimal Percent { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
 }
 
 /// <summary>

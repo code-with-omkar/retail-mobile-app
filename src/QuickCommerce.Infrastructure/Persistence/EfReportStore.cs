@@ -15,7 +15,7 @@ public sealed class EfReportStore(QuickCommerceDbContext db) : IReportStore
     public async Task<IReadOnlyList<ReportOrderRow>> GetOrderRowsAsync(Guid organizationId, IReadOnlyCollection<Guid>? storeIds, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default) =>
         await OrdersIn(organizationId, storeIds)
             .Where(order => order.CreatedAt >= fromUtc && order.CreatedAt < toUtc)
-            .Select(order => new ReportOrderRow(order.Id, order.OrderNumber, order.StoreId, order.UserId, order.CreatedAt, order.Status, order.PaymentMethod, order.PaymentStatus, order.SubtotalAmount, order.DeliveryFee, order.HandlingFee, order.TotalAmount))
+            .Select(order => new ReportOrderRow(order.Id, order.OrderNumber, order.StoreId, order.UserId, order.CreatedAt, order.Status, order.PaymentMethod, order.PaymentStatus, order.SubtotalAmount, order.DeliveryFee, order.HandlingFee, order.TotalAmount, order.CommissionAmount))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<ReportProduct>> GetTopProductsAsync(Guid organizationId, IReadOnlyCollection<Guid>? storeIds, DateTime fromUtc, DateTime toUtc, int take, CancellationToken cancellationToken = default)

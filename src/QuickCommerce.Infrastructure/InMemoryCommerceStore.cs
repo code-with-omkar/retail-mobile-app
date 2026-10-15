@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, IOfferDiscountLookup, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore, ICatalogAdminStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICommissionStore, IOfferDiscountLookup, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore, ICatalogAdminStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -152,7 +152,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
 
     public Task<IReadOnlyList<Order>> GetScopedOrdersAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Order>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderByDescending(order => order.CreatedAt).ToArray());
 
-    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderBy(order => OrderAttention.Rank(order.Status)).ThenByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId, order.DeliveryPartnerId.HasValue ? Users.FirstOrDefault(user => user.Id == order.DeliveryPartnerId)?.DisplayName : null)).ToArray());
+    public Task<IReadOnlyList<AdminOrderResponse>> GetScopedOrderSummariesAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<AdminOrderResponse>>(Orders.Where(order => order.Status != OrderStatus.AwaitingPayment && Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive) && (isApplicationAdmin || storeIds.Contains(order.StoreId))).OrderBy(order => OrderAttention.Rank(order.Status)).ThenByDescending(order => order.CreatedAt).Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId, Users.FirstOrDefault(user => user.Id == order.UserId)?.DisplayName ?? "Unknown customer", order.StoreId, Stores.First(store => store.Id == order.StoreId).Name, order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId, order.DeliveryPartnerId.HasValue ? Users.FirstOrDefault(user => user.Id == order.DeliveryPartnerId)?.DisplayName : null, order.OrderNote, order.OutOfStockChoice)).ToArray());
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Orders.FirstOrDefault(order => order.Id == id && order.Status != OrderStatus.AwaitingPayment));
 
@@ -407,6 +407,58 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
     public List<OfferFee> OfferFees { get; } = [];
+    public List<CommissionRate> CommissionRates { get; } = [];
+
+    Task<decimal> ICommissionStore.GetDefaultAsync(CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(CommissionRates.FirstOrDefault(rate => rate.StoreId is null)?.Percent ?? 0m);
+        }
+    }
+
+    Task<IReadOnlyDictionary<Guid, decimal>> ICommissionStore.GetOverridesAsync(CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyDictionary<Guid, decimal>>(CommissionRates.Where(rate => rate.StoreId is not null).ToDictionary(rate => rate.StoreId!.Value, rate => rate.Percent));
+        }
+    }
+
+    Task ICommissionStore.SetAsync(Guid? storeId, decimal? percent, string? by, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var row = CommissionRates.FirstOrDefault(rate => rate.StoreId == storeId);
+            if (percent is null)
+            {
+                if (row is not null)
+                {
+                    CommissionRates.Remove(row);
+                }
+            }
+            else if (row is null)
+            {
+                CommissionRates.Add(new CommissionRate { StoreId = storeId, Percent = percent.Value, UpdatedAt = now, UpdatedBy = by });
+            }
+            else
+            {
+                row.Percent = percent.Value;
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    Task<IReadOnlyList<Store>> ICommissionStore.GetStoresAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Store>>(Stores.Where(store => store.OrganizationId == organizationId && store.IsActive).ToArray());
+        }
+    }
 
     public Task<int> GetLoadFeeAsync(CancellationToken cancellationToken = default)
     {
@@ -887,7 +939,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 }
 
                 var offerPercent = percents.GetValueOrDefault(product.Id);
-                var unitPrice = OfferPricing.Apply(variant.Price, offerPercent);
+                var unitPrice = StorePricing.Final(variant.Price, inventory.PriceOverride, offerPercent);
                 if (unitPrice != cartItem.UnitPriceSnapshot)
                 {
                     repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: unitPrice));
@@ -902,7 +954,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                     VariantLabelSnapshot = variant.Label,
                     UnitPrice = unitPrice,
                     // With an offer the receipt shows what it was worth before: the MRP, or the normal price when there is none.
-                    UnitMrpSnapshot = offerPercent > 0 ? CatalogPricing.EffectiveMrp(variant.Price, variant.Mrp) : variant.Mrp,
+                    UnitMrpSnapshot = StorePricing.MrpSnapshot(unitPrice, variant.Price, variant.Mrp),
                     Quantity = cartItem.Quantity
                 });
             }
@@ -930,11 +982,15 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 Longitude = commit.Delivery.Longitude,
                 DeliveryAddressId = commit.Delivery.AddressId,
                 ReceiverName = commit.Delivery.ReceiverName,
+                OrderNote = commit.Note,
+                OutOfStockChoice = commit.OutOfStockChoice,
                 ReceiverPhone = commit.Delivery.ReceiverPhone,
                 EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
                 SubtotalAmount = price.Subtotal,
                 DeliveryFee = price.DeliveryFee,
                 HandlingFee = price.HandlingFee,
+                CommissionPercent = commit.CommissionPercent,
+                CommissionAmount = commit.CommissionPercent is { } percent ? CommissionMath.Amount(price.Subtotal, percent) : null,
                 TotalAmount = price.Total,
                 PaymentMethod = commit.PaymentMethod,
                 Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
@@ -1002,7 +1058,10 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             var customer = Customers.FirstOrDefault(customer => customer.UserId == order.UserId);
             if (customer is not null)
             {
-                Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, targetStatus));
+                if (NotificationCatalog.SendsBell(targetStatus))
+                {
+                    Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, targetStatus));
+                }
             }
             return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order)));
         }
@@ -1109,7 +1168,10 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         var customer = Customers.FirstOrDefault(item => item.UserId == order.UserId);
         if (customer is not null)
         {
-            Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, status));
+            if (NotificationCatalog.SendsBell(status))
+            {
+                Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, status));
+            }
         }
     }
 
@@ -1318,12 +1380,12 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 .Select(row =>
                 {
                     var stock = Inventory.FirstOrDefault(item => item.StoreId == storeId && item.VariantId == row.variant.Id);
-                    return new StockRowResponse(row.product.Id, row.product.Name, row.variant.Id, row.variant.Label, stock is not null, stock?.AvailableQuantity ?? 0, stock?.ReorderThreshold ?? 5);
+                    return new StockRowResponse(row.product.Id, row.product.Name, row.variant.Id, row.variant.Label, stock is not null, stock?.AvailableQuantity ?? 0, stock?.ReorderThreshold ?? 5, stock?.PriceOverride, row.variant.Price, row.variant.Mrp);
                 }).ToArray());
         }
     }
 
-    Task<StockRowResponse?> ICatalogAdminStore.SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, CancellationToken cancellationToken)
+    Task<StockRowResponse?> ICatalogAdminStore.SetStockAsync(Guid storeId, Guid variantId, bool carried, int available, int reorderThreshold, decimal? priceOverride, CancellationToken cancellationToken)
     {
         lock (SyncRoot)
         {
@@ -1344,15 +1406,16 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             }
             else if (row is null)
             {
-                Inventory.Add(new StoreVariantInventory { StoreId = storeId, VariantId = variantId, AvailableQuantity = available, ReorderThreshold = reorderThreshold });
+                Inventory.Add(new StoreVariantInventory { StoreId = storeId, VariantId = variantId, AvailableQuantity = available, ReorderThreshold = reorderThreshold, PriceOverride = priceOverride });
             }
             else
             {
                 row.AvailableQuantity = available;
                 row.ReorderThreshold = reorderThreshold;
+                row.PriceOverride = priceOverride;
             }
 
-            return Task.FromResult<StockRowResponse?>(new StockRowResponse(product.Id, product.Name, variant.Id, variant.Label, carried, carried ? available : 0, carried ? reorderThreshold : 5));
+            return Task.FromResult<StockRowResponse?>(new StockRowResponse(product.Id, product.Name, variant.Id, variant.Label, carried, carried ? available : 0, carried ? reorderThreshold : 5, carried ? priceOverride : null, variant.Price, variant.Mrp));
         }
     }
 
@@ -1411,7 +1474,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default)
     {

@@ -224,7 +224,7 @@ public sealed class OfferDiscountEfTests
             await using (var db = world.Db())
             {
                 var shown = await new EfCampaignStore(db).GetActiveOffersAsync(world.Store.Id, DateTime.UtcNow);
-                Assert.Equal(new[] { discount, message }.Order(), shown.Select(offer => offer.Id).Order());
+                Assert.Equal(new[] { discount, message, plain }.Order(), shown.Select(offer => offer.Id).Order());
                 Assert.Equal([world.Product.Id], shown.Single(offer => offer.Id == discount).ProductIds);
                 Assert.Equal("/media/offers/a.png", shown.Single(offer => offer.Id == discount).ImageUrl);
             }

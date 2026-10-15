@@ -108,5 +108,7 @@ public sealed class OrdersController(
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 }

@@ -37,8 +37,8 @@ public static class OfferRules
     public static bool DiscountRunning(Campaign campaign, DateTime now) =>
         campaign.IsActive && campaign.DiscountPercent > 0 && Paid(campaign) && campaign.StartsAt <= now && campaign.EndsAt > now;
 
-    /// <summary>Shown as a banner on Home: a running discount, or a message with a picture for a week after it started.</summary>
+    /// <summary>Shown as a banner on Home: a running discount, or a message offer (picture or not) for a week after it started.</summary>
     public static bool ShowsAsBanner(Campaign campaign, DateTime now) =>
         DiscountRunning(campaign, now)
-        || (campaign.IsActive && campaign.DiscountPercent == 0 && campaign.ImageUrl is not null && Paid(campaign) && campaign.StartsAt <= now && campaign.StartsAt > now.AddDays(-MessageBannerDays));
+        || (campaign.IsActive && campaign.DiscountPercent == 0 && Paid(campaign) && campaign.StartsAt <= now && campaign.StartsAt > now.AddDays(-MessageBannerDays));
 }

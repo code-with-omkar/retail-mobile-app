@@ -516,4 +516,16 @@ const marathi = <String, String>{
   'Products in this offer': 'या ऑफरमधील वस्तू',
   'Shop at {store}': '{store} मध्ये खरेदी करा',
   'This offer is not for a store that delivers to you.': 'ही ऑफर तुमच्याकडे डिलिव्हरी करणाऱ्या दुकानासाठी नाही.',
+
+  // Order note and out-of-stock choice
+  'If an item is out of stock': 'एखादी वस्तू संपली असेल तर',
+  'Call me': 'मला फोन करा',
+  'The store phones you to decide.': 'दुकान तुम्हाला फोन करून विचारेल.',
+  'Remove it': 'ती काढून टाका',
+  'Leave it out and deliver the rest.': 'ती वगळा आणि बाकी पाठवा.',
+  'Replace it': 'तिच्या जागी दुसरी द्या',
+  'The store picks a similar item.': 'दुकान तत्सम वस्तू निवडेल.',
+  'Note for the store': 'दुकानासाठी सूचना',
+  'Optional, for example: ring the bell twice': 'ऐच्छिक, उदा. दोनदा बेल वाजवा',
+  'Your note': 'तुमची सूचना',
 };

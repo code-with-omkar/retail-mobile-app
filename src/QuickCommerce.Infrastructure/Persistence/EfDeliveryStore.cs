@@ -135,7 +135,10 @@ public sealed class EfDeliveryStore(QuickCommerceDbContext db) : IDeliveryStore
         var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, status));
+            if (NotificationCatalog.SendsBell(status))
+            {
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, status));
+            }
         }
     }
 }

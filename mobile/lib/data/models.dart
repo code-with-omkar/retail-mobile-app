@@ -215,7 +215,12 @@ class Order {
     this.deliveryPartnerName,
     this.deliveryPartnerPhone,
     this.deliveryOtp,
+    this.note,
+    this.outOfStockChoice,
   });
+
+  /// What the customer wrote for the store, and what to do about an item that is out of stock (Remove, CallMe or Replace).
+  final String? note, outOfStockChoice;
 
   /// The server's id (used in routes). [number] is what the customer sees and quotes.
   final String id, number, storeId, address, payment;
@@ -245,7 +250,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
@@ -253,7 +258,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);

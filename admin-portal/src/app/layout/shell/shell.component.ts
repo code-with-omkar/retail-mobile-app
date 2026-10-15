@@ -144,6 +144,7 @@ export class ShellComponent implements OnInit {
       { label: 'Stock', icon: '▤', route: '/stock', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
       { label: 'Placement', icon: '▲', route: '/placement', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
       { label: 'Offers', icon: '✦', route: '/campaigns', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Commission', icon: '%', route: '/commission', requiredRoles: [Role.ApplicationAdmin, Role.Admin] },
       { label: 'Notifications', icon: '♧', route: '/notifications', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff, Role.Customer] },
     ];
 

@@ -57,6 +57,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IReportStore, EfReportStore>();
         services.AddScoped<IFavouriteStore, EfFavouriteStore>();
         services.AddScoped<IPurchaseHistoryStore, EfPurchaseHistoryStore>();
+        services.AddScoped<ICommissionStore, EfCommissionStore>();
         services.AddScoped<IRatingStore, EfRatingStore>();
         services.AddScoped<IDeliveryLookup>(provider => provider.GetRequiredService<IDeliveryStore>());
         // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.

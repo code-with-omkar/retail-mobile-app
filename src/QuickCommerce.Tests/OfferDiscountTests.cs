@@ -541,15 +541,15 @@ public sealed class OfferDiscountTests
         var picture = (await rig.Admin.UploadImageAsync(new MemoryStream(Png()), Png().Length)).Value!;
         var discount = (await rig.Admin.CreateAsync(rig.Discount(20, stores: [rig.Harbor.Id]))).Value!;
         var message = (await rig.Admin.CreateAsync(new CampaignRequest("Diwali", "Sweets in store.", ImageUrl: picture))).Value!;
-        await rig.Admin.CreateAsync(new CampaignRequest("Plain", "No picture."));
+        var plain = (await rig.Admin.CreateAsync(new CampaignRequest("Plain", "No picture."))).Value!;
         var cancelled = (await rig.Admin.CreateAsync(rig.Discount(5) with { StartsAt = rig.Now.AddHours(1) })).Value!;
         await rig.Admin.CancelAsync(cancelled.Id);
 
         var atHarbor = await rig.Data.GetActiveOffersAsync(rig.Harbor.Id, rig.Now);
         var atOther = await rig.Data.GetActiveOffersAsync(rig.Other.Id, rig.Now);
 
-        Assert.Equal(new[] { discount.Id, message.Id }.Order(), atHarbor.Select(offer => offer.Id).Order());
-        Assert.Equal([message.Id], atOther.Select(offer => offer.Id));
+        Assert.Equal(new[] { discount.Id, message.Id, plain.Id }.Order(), atHarbor.Select(offer => offer.Id).Order());
+        Assert.Equal(new[] { message.Id, plain.Id }.Order(), atOther.Select(offer => offer.Id).Order());
         Assert.Equal([rig.Tomato.Id], atHarbor.Single(offer => offer.Id == discount.Id).ProductIds);
         Assert.Equal(picture, atHarbor.Single(offer => offer.Id == message.Id).ImageUrl);
         Assert.Empty(await rig.Data.GetActiveOffersAsync(rig.Harbor.Id, rig.Now.AddDays(8)));

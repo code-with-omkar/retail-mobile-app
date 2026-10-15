@@ -425,3 +425,38 @@ Customer side:
 | `GET api/customer/stores/{storeId}/bought-before` | What they bought at that store before, newest first, with today's price, offers and stock |
 
 Notifications now carry `campaignId` and `imageUrl`, so tapping an offer notification opens the offer.
+
+## Order note and out-of-stock choice (P21)
+
+Status: built and tested (2026-10-15); migration `AddOrderNotes` **not yet applied** to the dev database (additive: two nullable columns on Orders).
+
+`POST api/checkout/{storeId}` accepts two more fields:
+
+| Field | Meaning |
+| --- | --- |
+| `note` | Optional text for the store, up to 200 characters, trimmed (blank means none). `<`, `>` and control characters are refused (400) |
+| `outOfStockChoice` | `Remove`, `CallMe` or `Replace`; anything else is refused (400); missing means `CallMe` |
+
+Both are kept on the order and come back as `note` and `outOfStockChoice` in the customer's order and in the portal's order list (`GET api/orders`). They are part of the idempotency check: the same key with a different note is a conflict. Deleting an account erases the note. The store only reads them; nothing adjusts the order automatically (the store phones the customer, removes or replaces by hand).
+
+## Store prices (P22 phase A)
+
+Status: built and tested (2026-10-15); migration `AddStorePriceOverride` **not yet applied** (one nullable column on StoreVariantInventory, check > 0).
+
+- `PUT api/stock/{variantId}` (staff: own store; admin: `?storeId=`) now takes `priceOverride` (null clears it; above 0, up to 1,00,000, 2 decimals; dropped when the store stops carrying the pack). Not sending it clears an existing one.
+- `GET api/stock` rows add `priceOverride`, `basePrice`, `mrp`.
+- Price chain: shared price, then the store's price, then an offer's percent off. Catalogue, cart, checkout and order lines all use it; the receipt keeps the original (MRP or shared price) when the customer paid less.
+- Customer app: original price struck through beside the price, and a pink corner ribbon "X% OFF" on discounted product cards.
+
+## Commission and earnings per shop (P22 phase B)
+
+Status: built and tested (2026-10-15); migration `AddCommission` **not yet applied** (CommissionRates table, two nullable columns on Orders).
+
+- `GET api/admin/commission`, `PUT api/admin/commission/default {percent}`, `PUT api/admin/commission/stores/{id} {percent|null}`: administrators only; 0 to 100, 2 decimals; null removes a store's own percent.
+- Checkout writes `CommissionPercent` (the percent in force) and `CommissionAmount` (percent of the product total after discounts; delivery and handling fees excluded) onto the order. Later changes never touch it. Orders placed before have none.
+- `GET api/reports/sales` adds `earnings`: per shop, delivered/completed orders only: `orders, sales, commission, fees, net` (net = sales - commission + fees, the store keeps the fees). Admin sees every shop; a manager only their own. Cancelled and refunded orders earn nothing.
+- Portal: **Commission** page (admin) and an **Earnings by shop** card in Reports.
+
+## Which order changes ring the bell (2026-10-16)
+
+Bell notifications are sent for: order placed, delivered, declined, cancelled, and every payment message. Accepted, packing, ready and out for delivery no longer notify; they only update the order's tracking timeline (status history). Push notifications showing tracking come later (needs Firebase). No migration.

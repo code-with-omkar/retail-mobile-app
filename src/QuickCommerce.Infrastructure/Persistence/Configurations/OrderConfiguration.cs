@@ -16,6 +16,10 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.HandlingFee).HasPrecision(18, 2).IsRequired();
         builder.Property(order => order.PaymentMethod).HasMaxLength(32).IsRequired().HasDefaultValue(PaymentMethods.CashOnDelivery);
         builder.Property(order => order.ReceiverName).HasMaxLength(120);
+        builder.Property(order => order.OrderNote).HasMaxLength(200);
+        builder.Property(order => order.CommissionPercent).HasColumnType("decimal(5,2)");
+        builder.Property(order => order.CommissionAmount).HasColumnType("decimal(18,2)");
+        builder.Property(order => order.OutOfStockChoice).HasMaxLength(20);
         builder.Property(order => order.ReceiverPhone).HasMaxLength(20);
         builder.Property(order => order.EstimatedDeliveryMinutes);
         builder.Property(order => order.PaymentStatus).HasConversion<string>().HasMaxLength(20).IsRequired().HasDefaultValue(PaymentState.NotRequired);

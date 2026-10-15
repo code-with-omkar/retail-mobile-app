@@ -82,6 +82,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'commission',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/commission/commission.component').then(
+            m => m.CommissionComponent
+          ),
+      },
+      {
         path: 'admin/users',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin] },

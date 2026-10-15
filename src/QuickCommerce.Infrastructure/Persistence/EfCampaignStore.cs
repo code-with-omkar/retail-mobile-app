@@ -44,7 +44,7 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore,
             .Where(campaign => campaign.IsActive && campaign.StartsAt <= now
                 && (campaign.PaymentStatus == PaymentState.NotRequired || campaign.PaymentStatus == PaymentState.Paid)
                 && (!campaign.Stores.Any() || campaign.Stores.Any(link => link.StoreId == storeId))
-                && ((campaign.DiscountPercent > 0 && campaign.EndsAt > now) || (campaign.DiscountPercent == 0 && campaign.ImageUrl != null && campaign.StartsAt > earliestMessage)))
+                && ((campaign.DiscountPercent > 0 && campaign.EndsAt > now) || (campaign.DiscountPercent == 0 && campaign.StartsAt > earliestMessage)))
             .OrderByDescending(campaign => campaign.StartsAt)
             .Take(20)
             .ToListAsync(cancellationToken);

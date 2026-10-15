@@ -16,6 +16,13 @@ public sealed class CartService(
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
+    /// <summary>What one unit costs at this store now: the store's own price when it has one, less any offer.</summary>
+    private async Task<decimal> UnitPriceAsync(Guid storeId, Guid productId, ProductVariant variant, CancellationToken cancellationToken)
+    {
+        var row = (await data.GetStoreVariantInventoryAsync(storeId, [variant.Id], cancellationToken)).FirstOrDefault();
+        return StorePricing.Final(variant.Price, row?.PriceOverride, (await PercentsAsync(storeId, [productId], cancellationToken)).GetValueOrDefault(productId));
+    }
+
     /// <summary>The percent off each product has at this store right now (products without an offer are missing). The server is the only price authority.</summary>
     private async Task<IReadOnlyDictionary<Guid, int>> PercentsAsync(Guid storeId, IEnumerable<Guid> productIds, CancellationToken cancellationToken)
     {
@@ -62,7 +69,7 @@ public sealed class CartService(
         }
 
         var cart = await data.GetCartAsync(scope.Value.Customer.Id, storeId, cancellationToken);
-        var unitPrice = OfferPricing.Apply(variant.Price, (await PercentsAsync(storeId, [product.Id], cancellationToken)).GetValueOrDefault(product.Id));
+        var unitPrice = await UnitPriceAsync(storeId, product.Id, variant, cancellationToken);
         if (cart is null)
         {
             cart = new Cart { CustomerId = scope.Value.Customer.Id, StoreId = storeId };
@@ -281,8 +288,8 @@ public sealed class CartService(
             }
         }
 
-        var stock = (await data.GetStoreVariantInventoryAsync(storeId, wanted.Select(item => item.Variant.Id).ToArray(), cancellationToken))
-            .ToDictionary(row => row.VariantId, row => row.AvailableQuantity);
+        var stockRows = (await data.GetStoreVariantInventoryAsync(storeId, wanted.Select(item => item.Variant.Id).ToArray(), cancellationToken)).ToDictionary(row => row.VariantId);
+        var stock = stockRows.ToDictionary(row => row.Key, row => row.Value.AvailableQuantity);
         var offerPercents = await PercentsAsync(storeId, wanted.Select(item => item.Product.Id), cancellationToken);
         foreach (var (product, variant, quantity) in wanted)
         {
@@ -303,7 +310,7 @@ public sealed class CartService(
 
             if (existing is null)
             {
-                cart.Items.Add(CreateItem(product, variant, add, OfferPricing.Apply(variant.Price, offerPercents.GetValueOrDefault(product.Id))));
+                cart.Items.Add(CreateItem(product, variant, add, StorePricing.Final(variant.Price, stockRows.GetValueOrDefault(variant.Id)?.PriceOverride, offerPercents.GetValueOrDefault(product.Id))));
             }
             else
             {
@@ -339,6 +346,7 @@ public sealed class CartService(
         }
 
         var repricePercents = await PercentsAsync(storeId, cart.Items.Select(item => item.ProductId), cancellationToken);
+        var repriceRows = (await data.GetStoreVariantInventoryAsync(storeId, cart.Items.Select(item => item.VariantId).Distinct().ToArray(), cancellationToken)).ToDictionary(row => row.VariantId);
         foreach (var item in cart.Items)
         {
             var product = await data.GetProductAsync(item.ProductId, cancellationToken);
@@ -348,7 +356,7 @@ public sealed class CartService(
                 continue; // a line that is gone stays, marked unavailable, for the customer to remove
             }
 
-            item.UnitPriceSnapshot = OfferPricing.Apply(variant.Price, repricePercents.GetValueOrDefault(item.ProductId));
+            item.UnitPriceSnapshot = StorePricing.Final(variant.Price, repriceRows.GetValueOrDefault(item.VariantId)?.PriceOverride, repricePercents.GetValueOrDefault(item.ProductId));
             item.ProductNameSnapshot = product!.Name;
             item.VariantLabelSnapshot = variant.Label;
         }
@@ -385,10 +393,11 @@ public sealed class CartService(
     {
         var productIds = cart.Items.Select(item => item.ProductId).Distinct().ToArray();
         var variants = productIds.Length == 0 ? [] : (await data.GetVariantsAsync(productIds, cancellationToken)).ToDictionary(variant => variant.Id);
-        var stock = cart.Items.Count == 0
+        var stockRows = cart.Items.Count == 0
             ? []
             : (await data.GetStoreVariantInventoryAsync(cart.StoreId, cart.Items.Select(item => item.VariantId).Distinct().ToArray(), cancellationToken))
-                .ToDictionary(row => row.VariantId, row => row.AvailableQuantity);
+                .ToDictionary(row => row.VariantId);
+        var stock = stockRows.ToDictionary(row => row.Key, row => row.Value.AvailableQuantity);
         var activeProducts = new Dictionary<Guid, bool>();
         foreach (var productId in productIds)
         {
@@ -405,8 +414,8 @@ public sealed class CartService(
                 item.ProductId, item.ProductNameSnapshot, item.UnitPriceSnapshot, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot,
                 Available: stock.GetValueOrDefault(item.VariantId),
                 Unavailable: !sellable,
-                CurrentUnitPrice: sellable ? OfferPricing.Apply(variant!.Price, percent) : null,
-                OriginalUnitPrice: sellable && percent > 0 ? variant!.Price : null,
+                CurrentUnitPrice: sellable ? StorePricing.Final(variant!.Price, stockRows.GetValueOrDefault(item.VariantId)?.PriceOverride, percent) : null,
+                OriginalUnitPrice: sellable && StorePricing.Final(variant!.Price, stockRows.GetValueOrDefault(item.VariantId)?.PriceOverride, percent) < variant.Price ? variant.Price : null,
                 OfferPercent: sellable ? percent : 0);
         }).ToArray();
 

@@ -18,7 +18,8 @@ interface PartnerRating { partnerId: string; partner: string; count: number; ave
 interface RatingSummary { count: number; averageStore: number; averageDelivery: number | null; stars: number[]; partners: PartnerRating[]; }
 interface RatingRow { orderId: string; orderNumber: string; store: string; storeStars: number; deliveryStars: number | null; comment: string | null; createdAt: string; }
 interface Ratings { summary: RatingSummary; recent: RatingRow[]; }
-interface Report { from: string; to: string; storeId: string | null; storeName: string | null; totals: Totals; days: Day[]; hours: Hour[]; topProducts: Product[]; stores: StoreRow[]; lowStock: LowStock[]; income: Income | null; }
+interface Report { from: string; to: string; storeId: string | null; storeName: string | null; totals: Totals; days: Day[]; hours: Hour[]; topProducts: Product[]; stores: StoreRow[]; lowStock: LowStock[]; income: Income | null; earnings?: EarningsRow[]; }
+interface EarningsRow { storeId: string; store: string; orders: number; sales: number; commission: number; fees: number; net: number; }
 
 /** Today's date in India as yyyy-mm-dd, whatever the computer's own time zone is. */
 function indiaToday(): Date {
@@ -97,6 +98,12 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
             <h3>By store</h3>
             <div class="row head"><span>Store</span><span>Orders</span><span>Revenue</span></div>
             <div class="row" *ngFor="let s of r.stores"><strong>{{ s.store }}</strong><span>{{ s.orders }} ({{ s.delivered }} delivered)</span><span>{{ s.revenue | currency:'INR':'symbol':'1.0-0' }}</span></div>
+          </section>
+          <section class="card" *ngIf="r.earnings?.length">
+            <h3>Earnings by shop <small>(delivered orders; sales are after discounts, the store keeps delivery and handling fees)</small></h3>
+            <div class="row head"><span>Shop</span><span>Sales</span><span>Our commission</span></div>
+            <div class="row" *ngFor="let e of r.earnings"><strong>{{ e.store }}<small> {{ e.orders }} orders</small></strong><span>{{ e.sales | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ e.commission | currency:'INR':'symbol':'1.2-2' }}<small>store keeps {{ e.net | currency:'INR':'symbol':'1.0-0' }}</small></span></div>
+            <div class="row" *ngIf="r.earnings!.length > 1"><strong>All shops</strong><span>{{ sumOf(r.earnings!, 'sales') | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ sumOf(r.earnings!, 'commission') | currency:'INR':'symbol':'1.2-2' }}</span></div>
           </section>
           <section class="card" *ngIf="r.income as i">
             <h3>Platform income</h3>
@@ -189,6 +196,8 @@ export class ReportsComponent implements OnInit {
   private api = inject(ApiService);
   private http = inject(HttpClient);
   private auth = inject(AuthService);
+
+  sumOf(rows: EarningsRow[], key: 'sales' | 'commission'): number { return rows.reduce((total, row) => total + row[key], 0); }
   private config = inject(ConfigService);
 
   readonly report = signal<Report | null>(null);

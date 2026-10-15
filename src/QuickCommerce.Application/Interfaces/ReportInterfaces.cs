@@ -3,7 +3,7 @@ using QuickCommerce.Domain;
 namespace QuickCommerce.Application.Interfaces;
 
 /// <summary>One order as the reports see it. No customer name, phone or address ever reaches a report.</summary>
-public sealed record ReportOrderRow(Guid Id, string OrderNumber, Guid StoreId, Guid UserId, DateTime CreatedAt, OrderStatus Status, string PaymentMethod, PaymentState PaymentStatus, decimal Subtotal, decimal DeliveryFee, decimal HandlingFee, decimal Total);
+public sealed record ReportOrderRow(Guid Id, string OrderNumber, Guid StoreId, Guid UserId, DateTime CreatedAt, OrderStatus Status, string PaymentMethod, PaymentState PaymentStatus, decimal Subtotal, decimal DeliveryFee, decimal HandlingFee, decimal Total, decimal? CommissionAmount = null);
 
 public sealed record ReportTotals(
     int Orders,
@@ -27,6 +27,9 @@ public sealed record ReportProduct(Guid ProductId, string Name, int Quantity, de
 
 public sealed record ReportStoreRow(Guid StoreId, string Store, int Orders, int Delivered, decimal Revenue);
 
+/// <summary>What one shop earned us in the period, from delivered orders only: the product sales, our commission on them, the fees the store keeps, and what is left for the store.</summary>
+public sealed record EarningsRow(Guid StoreId, string Store, int Orders, decimal Sales, decimal Commission, decimal Fees, decimal Net);
+
 public sealed record LowStockRow(Guid StoreId, string Store, string Product, string Size, int Available, int ReorderThreshold);
 
 /// <summary>What the platform itself took in, in rupees: offer fees and placement bids that were paid, and what went back.</summary>
@@ -43,7 +46,8 @@ public sealed record SalesReport(
     IReadOnlyList<ReportProduct> TopProducts,
     IReadOnlyList<ReportStoreRow> Stores,
     IReadOnlyList<LowStockRow> LowStock,
-    PlatformIncome? Income);
+    PlatformIncome? Income,
+    IReadOnlyList<EarningsRow>? Earnings = null);
 
 public enum ReportStatus { Succeeded, Forbidden, Invalid, NotFound }
 
