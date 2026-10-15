@@ -12,6 +12,7 @@ import 'session_store.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/cart_repository.dart';
 import 'repositories/favourites_repository.dart';
+import 'repositories/offers_repository.dart';
 import 'repositories/rating_repository.dart';
 import 'repositories/local_shop.dart';
 import 'repositories/notification_repository.dart';
@@ -82,6 +83,11 @@ final cartRepositoryProvider = Provider<CartRepository>((ref) {
 final ratingRepositoryProvider = Provider<RatingRepository>((ref) {
   final config = ref.watch(appConfigProvider);
   return config.useSeedData ? LocalRatingRepository() : ApiRatingRepository(ref.watch(apiClientProvider));
+});
+
+final offersRepositoryProvider = Provider<OffersRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalOffersRepository() : ApiOffersRepository(ref.watch(apiClientProvider));
 });
 
 final favouritesRepositoryProvider = Provider<FavouritesRepository>((ref) {

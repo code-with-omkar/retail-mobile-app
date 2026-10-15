@@ -498,4 +498,22 @@ const marathi = <String, String>{
   'Call': 'कॉल करा',
   'Your delivery code': 'तुमचा डिलिव्हरी कोड',
   'Give this code to the delivery partner only when your order arrives.': 'ऑर्डर पोहोचल्यावरच हा कोड डिलिव्हरी पार्टनरला सांगा.',
+
+  // Offers, your stores, bought before
+  'Offers for you': 'तुमच्यासाठी ऑफर्स',
+  '{n}% off': '{n}% सूट',
+  'Your stores': 'तुमची दुकाने',
+  'This store does not deliver to your address.': 'हे दुकान तुमच्या पत्त्यावर डिलिव्हरी करत नाही.',
+  'Not delivering to you': 'तुमच्याकडे डिलिव्हरी नाही',
+  'Bought before': 'आधी घेतलेले',
+  'See the offer': 'ऑफर पहा',
+  'This offer is no longer available.': 'ही ऑफर आता उपलब्ध नाही.',
+  'Look at the offers on the home screen.': 'होम स्क्रीनवरील ऑफर्स पहा.',
+  'Go to home': 'होमवर जा',
+  'Ends {date}': '{date} ला संपते',
+  'Offer has ended': 'ऑफर संपली आहे',
+  'From': 'कडून',
+  'Products in this offer': 'या ऑफरमधील वस्तू',
+  'Shop at {store}': '{store} मध्ये खरेदी करा',
+  'This offer is not for a store that delivers to you.': 'ही ऑफर तुमच्याकडे डिलिव्हरी करणाऱ्या दुकानासाठी नाही.',
 };

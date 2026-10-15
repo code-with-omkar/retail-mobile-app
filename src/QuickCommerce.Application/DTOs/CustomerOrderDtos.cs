@@ -9,7 +9,9 @@ public sealed record NotificationResponse(
     bool IsRead,
     DateTime CreatedAt,
     string Category = "Order",
-    string? StoreName = null);
+    string? StoreName = null,
+    string? ImageUrl = null,
+    Guid? CampaignId = null);
 
 public sealed record MarkNotificationReadRequest(bool IsRead = true);
 

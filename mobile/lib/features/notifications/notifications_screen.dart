@@ -116,7 +116,11 @@ class _NotificationCard extends ConsumerWidget {
       onTap: () {
         ref.read(notificationsProvider.notifier).markRead(notification);
         final orderId = notification.orderId;
-        if (orderId != null) context.push('/order/$orderId');
+        if (orderId != null) {
+          context.push('/order/$orderId');
+        } else if (notification.campaignId != null) {
+          context.push('/offer/${notification.campaignId}');
+        }
       },
       child: Semantics(
         label: '${texts.title}. ${texts.message}${unread ? '. ${context.tr('Unread')}' : ''}',

@@ -329,13 +329,30 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("DiscountPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("FeePaise")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("Notify")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
@@ -349,6 +366,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("RecipientCount")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ShowOnLoad")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime>("StartsAt")
                         .HasColumnType("datetime2");
@@ -369,6 +391,8 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Campaigns", t =>
                         {
+                            t.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
+
                             t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");
                         });
                 });
@@ -452,6 +476,21 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_CampaignPayments_Amount", "[AmountPaise] > 0 AND [Attempts] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignProduct", b =>
+                {
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CampaignId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("CampaignProducts");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
@@ -845,6 +884,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("AmountPaise")
                         .HasColumnType("int");
+
+                    b.Property<int>("LoadAmountPaise")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uniqueidentifier");
@@ -2620,6 +2664,21 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignProduct", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany("Products")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Campaign", null)
@@ -3048,6 +3107,8 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("QuickCommerce.Domain.Campaign", b =>
                 {
+                    b.Navigation("Products");
+
                     b.Navigation("Stores");
                 });
 

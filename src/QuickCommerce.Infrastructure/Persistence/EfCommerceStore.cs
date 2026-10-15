@@ -365,6 +365,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
             var taken = new List<(StoreVariantInventory Row, int Quantity)>();
+            var percents = await OfferDiscounts.PercentsAsync(db, storeId, cart.Items.Select(item => item.ProductId).Distinct().ToArray(), commit.Now ?? DateTime.UtcNow, cancellationToken);
             foreach (var cartItem in cart.Items)
             {
                 var product = await db.Products.SingleOrDefaultAsync(item => item.Id == cartItem.ProductId, cancellationToken);
@@ -383,9 +384,11 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 }
 
                 // The price is the variant's, re-read here: the cart only holds what the customer saw.
-                if (variant.Price != cartItem.UnitPriceSnapshot)
+                var offerPercent = percents.GetValueOrDefault(product.Id);
+                var unitPrice = OfferPricing.Apply(variant.Price, offerPercent);
+                if (unitPrice != cartItem.UnitPriceSnapshot)
                 {
-                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: unitPrice));
                     continue;
                 }
 
@@ -397,8 +400,9 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                     VariantId = variant.Id,
                     ProductNameSnapshot = product.Name,
                     VariantLabelSnapshot = variant.Label,
-                    UnitPrice = variant.Price,
-                    UnitMrpSnapshot = variant.Mrp,
+                    UnitPrice = unitPrice,
+                    // With an offer the receipt shows what it was worth before: the MRP, or the normal price when there is none.
+                    UnitMrpSnapshot = offerPercent > 0 ? CatalogPricing.EffectiveMrp(variant.Price, variant.Mrp) : variant.Mrp,
                     Quantity = cartItem.Quantity
                 });
             }

@@ -47,6 +47,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAccountDeletionStore>(provider => (EfAccountStore)provider.GetRequiredService<IAccountStore>());
         services.AddScoped<IPaymentStore, EfPaymentStore>();
         services.AddScoped<ICampaignStore, EfCampaignStore>();
+        services.AddScoped<IOfferDiscountLookup>(provider => (EfCampaignStore)provider.GetRequiredService<ICampaignStore>());
         services.AddScoped<ICampaignPaymentStore, EfCampaignPaymentStore>();
         services.AddScoped<IOfferFeeStore, EfOfferFeeStore>();
         services.AddScoped<IPlacementStore, EfPlacementStore>();
@@ -55,6 +56,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ICatalogAdminStore, EfCatalogAdminStore>();
         services.AddScoped<IReportStore, EfReportStore>();
         services.AddScoped<IFavouriteStore, EfFavouriteStore>();
+        services.AddScoped<IPurchaseHistoryStore, EfPurchaseHistoryStore>();
         services.AddScoped<IRatingStore, EfRatingStore>();
         services.AddScoped<IDeliveryLookup>(provider => provider.GetRequiredService<IDeliveryStore>());
         // Settings are normally registered (and validated) by the API; these defaults only apply when it did not.

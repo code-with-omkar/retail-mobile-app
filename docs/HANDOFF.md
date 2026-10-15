@@ -2,8 +2,11 @@
 
 Read this first in a new session. Branch `mobile-app`, repo root `C:\Users\Omkar\Personal\retail-app\source`.
 
-## Built (all tested; dev database is current at 27 migrations)
+## Built (all tested; dev database is current at 28 migrations)
 P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 offer fees, P15 paid placement, P12 delivery partners (+ `delivery_app`), P16 catalogue editing/pictures/stock, P8 phone code + Google sign-in, account deletion, release readiness (signing, CI, security review), P17 reports + new-orders-first list, P18 order again + saved items, P19 order ratings.
+
+## P20 (offers with discounts and pictures, app-open pop-up and fee, offer notification opens, your stores, bought before)
+Built and tested (backend 907, customer app 520, portal builds). Migration `AddOfferDiscountsAndImages` is applied to the dev database (backup `retail-mobile-app_before_P20.bak`) and live-checked; commit when the user asks. Manual cases: `test-cases.md` section L. Notes: the highest percent wins (no stacking); staff pay the normal fee plus the admin-set app-open fee when they tick the pop-up; admin offers are free.
 
 ## Not committed yet
 Everything after commit `5c2a312`: reports, order-list ordering, order again, saved items, ratings (about 52 files), plus docs. Unpushed commits: `66acbc8`, `7825365`, `6eddf9d`, `5c2a312`. The user pushes. `mobile/windows/flutter/generated_plugin*` and `admin-portal/.angular` are never committed.

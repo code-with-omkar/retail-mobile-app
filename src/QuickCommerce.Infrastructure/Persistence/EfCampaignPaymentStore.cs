@@ -11,6 +11,34 @@ public sealed class EfOfferFeeStore(QuickCommerceDbContext db) : IOfferFeeStore
     public async Task<int> GetDefaultAsync(CancellationToken cancellationToken = default) =>
         await db.OfferFees.AsNoTracking().Where(fee => fee.StoreId == null).Select(fee => fee.AmountPaise).FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<int> GetLoadFeeAsync(CancellationToken cancellationToken = default) =>
+        await db.OfferFees.AsNoTracking().Where(fee => fee.StoreId == null).Select(fee => fee.LoadAmountPaise).FirstOrDefaultAsync(cancellationToken);
+
+    public async Task SetLoadFeeAsync(int amountPaise, string? by, DateTime now, CancellationToken cancellationToken = default)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var updated = await db.OfferFees.Where(fee => fee.StoreId == null)
+                .ExecuteUpdateAsync(set => set.SetProperty(fee => fee.LoadAmountPaise, amountPaise).SetProperty(fee => fee.UpdatedAt, now).SetProperty(fee => fee.UpdatedBy, by), cancellationToken);
+            if (updated > 0)
+            {
+                return;
+            }
+
+            try
+            {
+                db.OfferFees.Add(new OfferFee { StoreId = null, AmountPaise = 0, LoadAmountPaise = amountPaise, UpdatedAt = now, UpdatedBy = by });
+                await db.SaveChangesAsync(cancellationToken);
+                db.ChangeTracker.Clear();
+                return;
+            }
+            catch (DbUpdateException)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+    }
+
     public async Task<IReadOnlyDictionary<Guid, int>> GetOverridesAsync(CancellationToken cancellationToken = default) =>
         await db.OfferFees.AsNoTracking().Where(fee => fee.StoreId != null).ToDictionaryAsync(fee => fee.StoreId!.Value, fee => fee.AmountPaise, cancellationToken);
 

@@ -31,6 +31,13 @@ public sealed class CatalogAdminTests
             return Task.FromResult(path);
         }
 
+        public Task<string> SaveAsync(string folder, string name, string extension, byte[] content, CancellationToken cancellationToken = default)
+        {
+            var path = $"/media/{folder}/{name}.{extension}";
+            Files[path] = content;
+            return Task.FromResult(path);
+        }
+
         public Task DeleteAsync(string? publicPath, CancellationToken cancellationToken = default)
         {
             if (publicPath is not null)

@@ -86,6 +86,9 @@ public interface IImageStore
     /// <summary>Saves the bytes and returns the public path (for example /media/products/abc.jpg).</summary>
     Task<string> SaveAsync(string name, string extension, byte[] content, CancellationToken cancellationToken = default);
 
+    /// <summary>Saves into another folder of the media area (for example "offers") and returns the public path.</summary>
+    Task<string> SaveAsync(string folder, string name, string extension, byte[] content, CancellationToken cancellationToken = default);
+
     /// <summary>Removes a file this store saved. Anything else (an external link) is ignored.</summary>
     Task DeleteAsync(string? publicPath, CancellationToken cancellationToken = default);
 }

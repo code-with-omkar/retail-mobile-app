@@ -170,6 +170,26 @@ For the features built since the last round of testing. Tick the **Pass** column
 | K9 | Portal as `admin`, All stores then one store. | Ratings follow the store chosen. | ☐ | |
 | K10 | Delete a throwaway account that gave a rating (A: see section D). | The rating's stars still count in the portal; the comment is gone. | ☐ | |
 
+## L. Offers, discounts, your stores (customer app and portal)
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| L1 | Portal as `admin`: Offers, Offer fees. Set the app-open fee, e.g. 150. | Saved; staff see it in their form. | ☐ | |
+| L2 | Portal: new offer, title, message, upload a JPEG picture, pick a product, 20% off, end tomorrow, Create. | Offer in the list with picture, "20% off <product>, until ...". | ☐ | |
+| L3 | Customer app Home (store covered by the offer). | "Offers for you" banner with the picture and "20% off". | ☐ | |
+| L4 | Find the product. | New price, old price struck through, saving shown; every size is cheaper. | ☐ | |
+| L5 | Add it to the cart and check out. | Cart and order use the lower price; order detail keeps the old price as the MRP. | ☐ | |
+| L6 | Tap the offer notification (bell). | The offer screen opens (picture, message, products, "Shop at ..."). | ☐ | |
+| L7 | Tap the banner, then "Shop at <store>". | Same offer screen; the button goes to that store. | ☐ | |
+| L8 | Portal: End discount now. Refresh the app. | Prices back to normal; banner gone. | ☐ | |
+| L9 | Portal: new quiet offer (notification off) with a discount. | No notification arrives, the banner and prices still change. | ☐ | |
+| L10 | Portal as store staff: tick "show as a pop-up when the app opens". | The price shown includes the extra app-open fee. | ☐ | |
+| L11 | Pay it (when online payment is on), reopen the customer app. | The pop-up shows once; Close hides it; it does not come back until the app is restarted. | ☐ | |
+| L12 | Two offers on one product (10% and 30%). | 30% applies, not 40%. | ☐ | |
+| L13 | Sign in as a customer with past orders. | "Your stores" shows up to four stores you bought from, newest first; tap one that delivers to you to switch. | ☐ | |
+| L14 | Open that store's Home. | "Bought before" shows what you ordered there; add one to the cart. | ☐ | |
+| L15 | Cancel an order, look again. | A cancelled order does not count in "Your stores" or "Bought before". | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

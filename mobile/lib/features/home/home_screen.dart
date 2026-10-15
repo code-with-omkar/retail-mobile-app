@@ -14,6 +14,8 @@ import '../address/address_controller.dart';
 import '../auth/auth_controller.dart';
 import '../festival/festival_widgets.dart';
 import '../notifications/notifications_controller.dart';
+import '../offers/offers_controller.dart';
+import '../offers/offers_widgets.dart';
 import '../orders/orders_controller.dart';
 import '../stores/store_widgets.dart';
 import 'product_pager.dart';
@@ -82,6 +84,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(selectedStoreProvider, (before, after) {
       if (before?.value?.id != after.value?.id && _searching) setState(_resetPager);
     });
+    // An offer that asked to pop up when the app opens does so once, as soon as the offers are known.
+    ref.listen(activeOffersProvider, (before, after) {
+      final offers = after.value;
+      if (offers != null && offers.any((o) => o.showOnLoad)) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? showLoadOfferIfAny(context, ref, offers) : null);
+    });
     // The bell is checked every minute while Home is in front (not in the background, not on another tab).
     return Polling(
       interval: const Duration(seconds: 60),
@@ -112,6 +119,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final popular = ref.watch(popularProductsProvider);
     final maxOff = (popular.value ?? const <Product>[]).fold<int>(0, (m, x) => x.discountPct > m ? x.discountPct : m);
     return [
+      const SliverToBoxAdapter(child: YourStoresRail()),
+      const SliverToBoxAdapter(child: OffersRail()),
+      const SliverToBoxAdapter(child: BoughtBeforeRail()),
       const SliverToBoxAdapter(child: StoresRail()),
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0),

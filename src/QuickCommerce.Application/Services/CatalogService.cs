@@ -6,7 +6,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.Services;
 
-public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null, IPlacementLookup? placement = null, TimeProvider? timeProvider = null) : ICatalogService
+public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null, IPlacementLookup? placement = null, TimeProvider? timeProvider = null, IOfferDiscountLookup? offers = null) : ICatalogService
 {
     private readonly IDeliveryEstimator estimator = deliveryEstimator ?? new DeliveryEstimator(new DeliverySettings());
     private static readonly TimeSpan CategoriesTtl = TimeSpan.FromMinutes(15);
@@ -218,7 +218,42 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
 
         var variantIds = items.SelectMany(item => item.Variants ?? []).Select(variant => variant.Id).ToArray();
         var stock = (await data.GetStoreVariantInventoryAsync(storeId, variantIds, cancellationToken)).ToDictionary(row => row.VariantId);
-        return items.Select(item => ApplyStock(item, stock)).ToArray();
+        var withStock = items.Select(item => ApplyStock(item, stock)).ToArray();
+        if (offers is null)
+        {
+            return withStock;
+        }
+
+        // Offers are added fresh on every request too (like stock): they start and end by the clock, and the cached page never holds them.
+        var percents = await offers.GetPercentsAsync(storeId, withStock.Select(item => item.Id).ToArray(), (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+        return withStock.Select(item => ApplyOffer(item, percents.GetValueOrDefault(item.Id))).ToArray();
+    }
+
+    /// <summary>
+    /// Percent off every size of the product: the price drops, the MRP stays what it was (the normal price when there was no MRP), so the app
+    /// shows the old figure struck through and the saving. The same rule prices the cart and checkout.
+    /// </summary>
+    private static CatalogProductResponse ApplyOffer(CatalogProductResponse product, int percent)
+    {
+        if (percent <= 0)
+        {
+            return product;
+        }
+
+        var variants = (product.Variants ?? []).Select(variant =>
+        {
+            var price = OfferPricing.Apply(variant.Price, percent);
+            return variant with { Price = price, DiscountPercent = CatalogPricing.DiscountPercent(price, variant.Mrp), OfferPercent = percent };
+        }).ToArray();
+        var defaultVariant = variants.FirstOrDefault(variant => variant.IsDefault);
+        var productPrice = defaultVariant?.Price ?? OfferPricing.Apply(product.Price, percent);
+        return product with
+        {
+            Price = productPrice,
+            DiscountPercent = CatalogPricing.DiscountPercent(productPrice, product.Mrp),
+            Variants = product.Variants is null ? null : variants,
+            OfferPercent = percent
+        };
     }
 
     // A store with no stock row for a variant does not carry it. Only flags leave the API, never quantities.

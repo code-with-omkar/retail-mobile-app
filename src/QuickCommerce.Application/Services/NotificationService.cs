@@ -76,6 +76,8 @@ public sealed class NotificationService(
             notification.IsRead,
             DateTime.SpecifyKind(notification.CreatedAt, DateTimeKind.Utc),
             notification.Category,
-            NotificationCatalog.ReadStore(notification.DataJson));
+            NotificationCatalog.ReadStore(notification.DataJson),
+            notification.Campaign?.ImageUrl,
+            notification.CampaignId);
     }
 }

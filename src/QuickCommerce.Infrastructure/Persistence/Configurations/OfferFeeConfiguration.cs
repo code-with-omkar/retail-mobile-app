@@ -9,6 +9,7 @@ public sealed class OfferFeeConfiguration : IEntityTypeConfiguration<OfferFee>
     public void Configure(EntityTypeBuilder<OfferFee> builder)
     {
         builder.HasKey(fee => fee.Id);
+        builder.Property(fee => fee.LoadAmountPaise).HasDefaultValue(0);
         builder.Property(fee => fee.UpdatedAt).HasColumnType("datetime2");
         builder.Property(fee => fee.UpdatedBy).HasMaxLength(200);
         // One default row (no store) and one row per store: SQL Server's unique index allows a single NULL.

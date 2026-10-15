@@ -30,7 +30,8 @@ public sealed record CheckoutCommit(
     string? RequestHash = null,
     int? EstimatedDeliveryMinutes = null,
     string PaymentMethod = Domain.PaymentMethods.CashOnDelivery,
-    DateTime? PaymentExpiresAt = null);
+    DateTime? PaymentExpiresAt = null,
+    DateTime? Now = null);
 
 public enum CheckoutCommitStatus
 {

@@ -21,6 +21,29 @@ public sealed class CampaignsController(ICampaignAdminService campaigns, ICampai
         return result.Status == CampaignOperationStatus.Succeeded ? Created($"/api/admin/campaigns/{result.Value!.Id}", new { success = true, data = result.Value }) : Respond(result);
     }
 
+    /// <summary>Ends a running discount now. The message already sent stays sent.</summary>
+    [HttpPost("{id:guid}/end-discount")]
+    public async Task<IActionResult> EndDiscount(Guid id, CancellationToken cancellationToken) => Respond(await campaigns.EndDiscountAsync(id, cancellationToken));
+
+    /// <summary>Products to choose for a discount, by name.</summary>
+    [HttpGet("products")]
+    public async Task<IActionResult> Products([FromQuery] string? search, CancellationToken cancellationToken) => Respond(await campaigns.SearchProductsAsync(search, cancellationToken));
+
+    /// <summary>One banner picture as the form field "file" (JPEG, PNG or WebP, up to 2 MB, judged by content). Returns its path for the offer's imageUrl.</summary>
+    [HttpPost("image")]
+    [RequestSizeLimit(3 * 1024 * 1024)]
+    public async Task<IActionResult> UploadImage(IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null)
+        {
+            return BadRequest(new { success = false, message = "Choose a picture.", reason = (string?)null, errors = Array.Empty<string>() });
+        }
+
+        await using var stream = file.OpenReadStream();
+        var result = await campaigns.UploadImageAsync(stream, file.Length, cancellationToken);
+        return result.Status == CampaignOperationStatus.Succeeded ? Ok(new { success = true, data = new { imageUrl = result.Value } }) : Respond(result);
+    }
+
     [HttpPost("{id:guid}/cancel")]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) => Respond(await campaigns.CancelAsync(id, cancellationToken));
 

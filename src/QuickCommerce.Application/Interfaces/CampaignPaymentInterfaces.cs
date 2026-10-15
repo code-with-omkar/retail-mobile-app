@@ -5,17 +5,22 @@ namespace QuickCommerce.Application.Interfaces;
 /// <summary>What one store pays to publish an offer: its own setting if it has one, otherwise the default. 0 is free.</summary>
 public sealed record StoreOfferFee(Guid StoreId, string Name, int? OverridePaise, int EffectivePaise);
 
-public sealed record OfferFeesResponse(int DefaultPaise, IReadOnlyList<StoreOfferFee> Stores);
+public sealed record OfferFeesResponse(int DefaultPaise, IReadOnlyList<StoreOfferFee> Stores, int LoadPaise = 0);
 
 /// <summary>A fee in paise; for a store, null removes its own setting so the default applies again.</summary>
 public sealed record SetOfferFeeRequest(int? AmountPaise);
 
 /// <summary>What the person asking would pay to publish an offer: their store's fee (store staff), or nothing (an administrator).</summary>
-public sealed record MyOfferFee(int FeePaise, bool PaymentsAvailable);
+public sealed record MyOfferFee(int FeePaise, bool PaymentsAvailable, int LoadPaise = 0);
 
 public interface IOfferFeeStore
 {
     Task<int> GetDefaultAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The extra fee for an offer that is also shown when the app opens (one price for every store).</summary>
+    Task<int> GetLoadFeeAsync(CancellationToken cancellationToken = default);
+
+    Task SetLoadFeeAsync(int amountPaise, string? by, DateTime now, CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<Guid, int>> GetOverridesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Sets the default (no store) or one store's own fee; a null amount removes a store's own fee.</summary>
@@ -30,6 +35,9 @@ public interface IOfferFeeService
     Task<CampaignOperationResult<OfferFeesResponse>> GetAsync(CancellationToken cancellationToken = default);
 
     Task<CampaignOperationResult<OfferFeesResponse>> SetDefaultAsync(int amountPaise, CancellationToken cancellationToken = default);
+
+    /// <summary>Sets the extra fee for showing an offer when the app opens.</summary>
+    Task<CampaignOperationResult<OfferFeesResponse>> SetLoadAsync(int amountPaise, CancellationToken cancellationToken = default);
 
     /// <summary>Sets one store's own fee, or removes it with null so the default applies.</summary>
     Task<CampaignOperationResult<OfferFeesResponse>> SetStoreAsync(Guid storeId, int? amountPaise, CancellationToken cancellationToken = default);

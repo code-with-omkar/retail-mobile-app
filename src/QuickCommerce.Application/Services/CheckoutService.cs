@@ -77,7 +77,7 @@ public sealed partial class CheckoutService(
 
         // The estimate the customer is given now stays on the order, whatever the store's estimate becomes later.
         int? estimate = deliveryEstimator is null ? null : deliveryEstimator.EstimateMinutes(StoreSelectionService.DistanceKm(delivery.Latitude, delivery.Longitude, store.Latitude, store.Longitude));
-        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null);
+        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null, clock.GetUtcNow().UtcDateTime);
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, commit, cancellationToken);
         return result.Status switch
         {

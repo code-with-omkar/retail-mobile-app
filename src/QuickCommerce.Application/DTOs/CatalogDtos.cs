@@ -41,7 +41,8 @@ public sealed record CatalogProductResponse(
     IReadOnlyDictionary<string, CatalogTranslation> Translations,
     bool? InStock = null,
     bool? LowStock = null,
-    IReadOnlyList<CatalogVariantResponse>? Variants = null);
+    IReadOnlyList<CatalogVariantResponse>? Variants = null,
+    int OfferPercent = 0);
 
 /// <summary>One pack size of a product. The product's own price, MRP and flags describe its default variant.</summary>
 /// <param name="Mrp">Always present: equals the price when the variant has no separate MRP.</param>
@@ -54,7 +55,8 @@ public sealed record CatalogVariantResponse(
     int DiscountPercent,
     bool IsDefault,
     bool? InStock = null,
-    bool? LowStock = null);
+    bool? LowStock = null,
+    int OfferPercent = 0);
 
 /// <param name="Description">Null means "use the English description".</param>
 public sealed record CatalogTranslation(string Name, string? Description);

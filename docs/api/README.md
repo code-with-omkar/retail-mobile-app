@@ -397,3 +397,31 @@ Status: built and tested (2026-10-15); migration `AddOrderRatings` applied to th
 | `GET api/reports/ratings?from=&to=&storeId=` | Staff (own store) and administrators (any store, or all): count, average, the spread of 1 to 5 stars, the delivery average, each delivery partner's average, and the latest 30 ratings. The customer is never named |
 
 The store and the partner are taken from the order, never from the request. Deleting an account erases the comment and the link to the customer; the stars stay in the figures. The portal **Reports** page shows the ratings.
+
+## Offers with discounts, pictures and pop-ups; your stores; bought before (P20)
+
+Status: built and tested (2026-10-15); migration `AddOfferDiscountsAndImages` applied to the dev database (additive: new columns on Campaigns and OfferFees, one new table CampaignProducts, one check).
+
+An offer is a message, a percent off chosen products, a picture, or a mix. Staff (own store) and administrators (any stores) create them as before on `POST api/admin/campaigns`; new fields:
+
+| Field | Meaning |
+| --- | --- |
+| `notify` (default true) | Send the notification. False = a quiet discount (banner and prices only); then the message is optional but a discount is required |
+| `discountPercent` 1 to 90, `endsAt`, `productIds` (1 to 50) | Percent off every size of those products at the offer's stores, from the start until `endsAt` (after the start, at most 90 days). Products must exist and be active |
+| `imageUrl` | A path returned by `POST api/admin/campaigns/image` (form field `file`; JPEG, PNG or WebP by content, up to 2 MB; saved under /media/offers). Any other path is refused |
+| `showOnLoad` | Also shown as a pop-up when the app opens. Store staff pay the extra `loadPaise` fee on top of their normal fee; administrators pay nothing |
+
+Also: `GET api/admin/campaigns/products?search=` (product picker), `POST api/admin/campaigns/{id}/end-discount` (stops a running discount now; 409 when there is none), `PUT api/admin/offer-fees/load` (administrator sets the app-open fee; `loadPaise` is in `GET api/admin/offer-fees` and `.../mine`).
+
+Prices: the server decides. Where offers cover a product the highest percent wins (no stacking). The catalogue shows the lower `price`, the old figure as `mrp` (struck through), `discountPercent` and `offerPercent`; the cart and checkout charge the same price (`PriceChanged` when a discount starts or ends after an item was added, and the receipt keeps the normal price as the MRP). Unpaid, cancelled, not-yet-started and ended offers give no discount.
+
+Customer side:
+
+| Route | What |
+| --- | --- |
+| `GET api/catalog/offers?storeId=` | Banners for Home: running discounts and picture messages (7 days), with `showOnLoad` |
+| `GET api/catalog/offers/{id}` | One offer for the screen a notification or banner opens (title, message, picture, percent, `endsAt`, `running`, stores, `productIds`). 404 when not started, cancelled or unpaid |
+| `GET api/customer/recent-stores` | Up to four stores the signed-in customer bought from last (cancelled and unpaid orders do not count) |
+| `GET api/customer/stores/{storeId}/bought-before` | What they bought at that store before, newest first, with today's price, offers and stock |
+
+Notifications now carry `campaignId` and `imageUrl`, so tapping an offer notification opens the offer.

@@ -7,7 +7,7 @@ namespace QuickCommerce.Application.Services;
 /// <summary>How a campaign looks to the person managing it.</summary>
 public static class CampaignMapping
 {
-    public static CampaignResponse ToResponse(Campaign campaign) => new(
+    public static CampaignResponse ToResponse(Campaign campaign, IReadOnlyDictionary<Guid, string>? productNames = null) => new(
         campaign.Id,
         campaign.TitleEn,
         campaign.BodyEn,
@@ -20,7 +20,13 @@ public static class CampaignMapping
         campaign.Stores.Select(link => new CampaignStoreInfo(link.StoreId, link.Store?.Name ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
         campaign.Stores.Count == 0,
         campaign.FeePaise,
-        campaign.PaymentStatus);
+        campaign.PaymentStatus,
+        campaign.ImageUrl,
+        campaign.DiscountPercent,
+        campaign.EndsAt is { } ends ? DateTime.SpecifyKind(ends, DateTimeKind.Utc) : null,
+        campaign.Notify,
+        campaign.Products.Select(link => new CampaignProductInfo(link.ProductId, productNames?.GetValueOrDefault(link.ProductId) ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
+        campaign.ShowOnLoad);
 
     public static string StatusOf(Campaign campaign) =>
         !campaign.IsActive ? CampaignStatuses.Cancelled
@@ -364,6 +370,23 @@ public sealed class OfferFeeService(
         return new(CampaignOperationStatus.Succeeded, await BuildAsync(scope.OrganizationId, cancellationToken));
     }
 
+    public async Task<CampaignOperationResult<OfferFeesResponse>> SetLoadAsync(int amountPaise, CancellationToken cancellationToken = default)
+    {
+        var scope = await scopeService.ResolveAsync(cancellationToken);
+        if (scope?.IsApplicationAdmin != true)
+        {
+            return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator can see or change offer fees");
+        }
+
+        if (amountPaise < 0 || amountPaise > MaxPaise)
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: "The fee must be between 0 and ₹1,00,000");
+        }
+
+        await fees.SetLoadFeeAsync(amountPaise, scope.UserId.ToString(), clock.GetUtcNow().UtcDateTime, cancellationToken);
+        return new(CampaignOperationStatus.Succeeded, await BuildAsync(scope.OrganizationId, cancellationToken));
+    }
+
     public async Task<CampaignOperationResult<OfferFeesResponse>> SetStoreAsync(Guid storeId, int? amountPaise, CancellationToken cancellationToken = default)
     {
         var scope = await scopeService.ResolveAsync(cancellationToken);
@@ -402,7 +425,7 @@ public sealed class OfferFeeService(
             return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator or a store can manage offers");
         }
 
-        return new(CampaignOperationStatus.Succeeded, new MyOfferFee(await EffectiveAsync(fees, storeId, cancellationToken), available));
+        return new(CampaignOperationStatus.Succeeded, new MyOfferFee(await EffectiveAsync(fees, storeId, cancellationToken), available, await fees.GetLoadFeeAsync(cancellationToken)));
     }
 
     /// <summary>The fee for a store's offer: its own setting, else the default.</summary>
@@ -417,6 +440,6 @@ public sealed class OfferFeeService(
             .OrderBy(store => store.Name)
             .Select(store => new StoreOfferFee(store.Id, store.Name, overrides.TryGetValue(store.Id, out var own) ? own : null, overrides.TryGetValue(store.Id, out var effective) ? effective : defaultFee))
             .ToArray();
-        return new OfferFeesResponse(defaultFee, stores);
+        return new OfferFeesResponse(defaultFee, stores, await fees.GetLoadFeeAsync(cancellationToken));
     }
 }

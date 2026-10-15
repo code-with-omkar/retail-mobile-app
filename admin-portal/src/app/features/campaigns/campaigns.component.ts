@@ -3,10 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfigService } from '../../core/services/config.service';
 import { Role, Store } from '../../core/models/domain.model';
 
 interface StartPayment { keyId: string; providerOrderId: string; amountPaise: number; currency: string; orderNumber: string; }
-interface OfferFees { defaultPaise: number; stores: { storeId: string; name: string; overridePaise: number | null; effectivePaise: number }[]; }
+interface OfferFees { defaultPaise: number; loadPaise: number; stores: { storeId: string; name: string; overridePaise: number | null; effectivePaise: number }[]; }
 declare const Razorpay: any;
 
 interface Campaign {
@@ -22,7 +23,15 @@ interface Campaign {
   createdAt: string;
   stores: { id: string; name: string }[];
   allStores: boolean;
+  imageUrl?: string | null;
+  discountPercent: number;
+  endsAt?: string | null;
+  notify: boolean;
+  showOnLoad: boolean;
+  products: { id: string; name: string }[];
 }
+
+interface ProductChoice { id: string; name: string; price: number; imageUrl?: string | null; }
 
 /**
  * Offers and announcements for customers. An administrator picks the stores an offer is from (none picked means every store); store staff
@@ -42,13 +51,15 @@ interface Campaign {
         <h3>Offer fees</h3>
         <p class="muted-card">What a store pays to publish an offer (0 is free). A store with its own fee pays that; every other store pays the default. Offers from the business (you) are always free.</p>
         <div class="fee-row"><strong>Default for every store</strong><input type="number" min="0" step="1" name="feeDefault" [(ngModel)]="defaultRupees" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveDefault()">Save</button></div>
+        <div class="fee-row"><strong>Extra fee to also show an offer when the app opens</strong><input type="number" min="0" step="1" name="feeLoad" [(ngModel)]="loadRupees" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveLoad()">Save</button></div>
         <div class="fee-row" *ngFor="let s of fees()!.stores"><span>{{ s.name }}</span><input type="number" min="0" step="1" [name]="'fee-' + s.storeId" [ngModel]="storeRupees()[s.storeId]" (ngModelChange)="setStoreRupees(s.storeId, $event)" [placeholder]="'default ' + (fees()!.defaultPaise / 100)" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button><button type="button" class="act ghost" *ngIf="s.overridePaise !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button></div>
       </section>
 
       <form class="card" (ngSubmit)="create()" #f="ngForm">
         <h3>New offer</h3>
         <label>Title (English)<input name="titleEn" [(ngModel)]="titleEn" maxlength="160" required /></label>
-        <label>Message (English)<textarea name="bodyEn" [(ngModel)]="bodyEn" maxlength="500" rows="3" required></textarea></label>
+        <label class="check"><input type="checkbox" name="notify" [(ngModel)]="notify" /> Send a notification to customers (switch off for a discount that just runs quietly)</label>
+        <label>Message (English)<textarea name="bodyEn" [(ngModel)]="bodyEn" maxlength="500" rows="3" [required]="notify"></textarea></label>
         <label>Title (Marathi, optional)<input name="titleMr" [(ngModel)]="titleMr" maxlength="160" /></label>
         <label>Message (Marathi, optional)<textarea name="bodyMr" [(ngModel)]="bodyMr" maxlength="500" rows="3"></textarea></label>
         <fieldset class="stores" *ngIf="isAdmin()">
@@ -56,12 +67,26 @@ interface Campaign {
           <label class="check" *ngFor="let s of stores()"><input type="checkbox" [checked]="picked().has(s.id)" (change)="toggle(s.id)" /> {{ s.name }}</label>
         </fieldset>
         <p class="muted-card" *ngIf="!isAdmin()">This offer is for your store and goes to customers who have ordered from it or shopped there.</p>
+        <fieldset class="stores">
+          <legend>Picture (optional, shown on the home screen and when the offer is opened)</legend>
+          <div class="fee-row"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="pickImage($event)" /><button type="button" class="act" [disabled]="busy() || !uploadFile" (click)="uploadImage()">Upload</button><button type="button" class="act ghost" *ngIf="imageUrl()" (click)="imageUrl.set(null)">Remove</button></div>
+          <img class="banner" *ngIf="imageUrl()" [src]="img(imageUrl())" alt="" />
+        </fieldset>
+        <fieldset class="stores">
+          <legend>Discount (optional): percent off chosen products, in every size</legend>
+          <div class="fee-row"><input type="number" min="0" max="90" step="1" name="discountPercent" [(ngModel)]="discountPercent" placeholder="% off (1 to 90)" /><span>% off</span><label>Ends at<input type="datetime-local" name="endsAt" [(ngModel)]="endsAt" /></label></div>
+          <div class="fee-row"><input name="productSearch" [(ngModel)]="productSearch" placeholder="Search products by name" (keyup.enter)="searchProducts()" /><button type="button" class="act" [disabled]="busy()" (click)="searchProducts()">Search</button></div>
+          <div class="chips"><button type="button" class="chip" *ngFor="let p of productResults()" (click)="addProduct(p)">+ {{ p.name }} ({{ rupees(p.price * 100) }})</button></div>
+          <div class="chips"><span class="chip on" *ngFor="let p of pickedProductList()">{{ p.name }} <button type="button" class="x" (click)="removeProduct(p.id)">×</button></span></div>
+          <p class="muted-card">The discount is on from the start time until the end time. Where two offers cover a product, the bigger discount is used (they do not add up).</p>
+        </fieldset>
+        <label class="check"><input type="checkbox" name="showOnLoad" [(ngModel)]="showOnLoad" /> Also show this offer as a pop-up when customers open the app<span *ngIf="fee() && fee()!.loadPaise > 0"> (extra {{ rupees(fee()!.loadPaise) }})</span></label>
         <label>Send at (leave empty to send now)<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
-        <p class="muted-card" *ngIf="fee() && fee()!.feePaise > 0">Publishing fee: <strong>{{ rupees(fee()!.feePaise) }}</strong>. You pay online first, then the offer goes live at its start time. Cancel before it is sent and the fee is refunded.</p>
-        <p class="error" *ngIf="fee() && fee()!.feePaise > 0 && !fee()!.paymentsAvailable">Online payment is not available right now, so offers with a fee cannot be published yet.</p>
+        <p class="muted-card" *ngIf="totalFee() > 0">Publishing fee: <strong>{{ rupees(totalFee()) }}</strong>. You pay online first, then the offer goes live at its start time. Cancel before it is sent and the fee is refunded.</p>
+        <p class="error" *ngIf="totalFee() > 0 && !fee()!.paymentsAvailable">Online payment is not available right now, so offers with a fee cannot be published yet.</p>
         <p *ngIf="error()" class="error">{{ error() }}</p>
         <p *ngIf="notice()" class="notice">{{ notice() }}</p>
-        <button class="primary" type="submit" [disabled]="busy() || f.invalid || (fee() && fee()!.feePaise > 0 && !fee()!.paymentsAvailable)">{{ busy() ? 'Saving…' : (fee() && fee()!.feePaise > 0 ? 'Create and pay ' + rupees(fee()!.feePaise) : 'Create offer') }}</button>
+        <button class="primary" type="submit" [disabled]="busy() || f.invalid || (totalFee() > 0 && !fee()!.paymentsAvailable)">{{ busy() ? 'Saving…' : (totalFee() > 0 ? 'Create and pay ' + rupees(totalFee()) : 'Create offer') }}</button>
       </form>
 
       <p *ngIf="loading()">Loading offers…</p>
@@ -69,12 +94,12 @@ interface Campaign {
       <div class="table" *ngIf="campaigns().length">
         <div class="row head"><span>Offer</span><span>Stores</span><span>Send at</span><span>Status</span><span>Sent to</span><span>Action</span></div>
         <div class="row" *ngFor="let c of campaigns()">
-          <span><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small></span>
+          <span><img class="thumb" *ngIf="c.imageUrl" [src]="img(c.imageUrl)" alt="" /><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small><small *ngIf="c.discountPercent > 0">{{ c.discountPercent }}% off {{ productNames(c) }}, until {{ c.endsAt | date:'short' }}</small><small *ngIf="c.showOnLoad">Shown when the app opens</small><small *ngIf="!c.notify">No notification (quiet discount)</small></span>
           <span>{{ c.allStores ? 'All stores' : storeNames(c) }}</span>
           <span>{{ c.startsAt | date:'short' }}</span>
           <span class="badge" [ngClass]="'badge-' + c.status.toLowerCase()">{{ c.status === 'AwaitingPayment' ? 'Awaiting payment' : c.status }}</span>
-          <span>{{ c.status === 'Sent' ? c.recipientCount + ' customers' : '—' }}</span>
-          <span class="actions"><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button></span>
+          <span>{{ c.status === 'Sent' && c.notify ? c.recipientCount + ' customers' : '—' }}</span>
+          <span class="actions"><button class="act" *ngIf="isRunning(c) && canCancel(c)" [disabled]="busy()" (click)="endDiscount(c)">End discount now</button><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button></span>
         </div>
       </div>
     </section>
@@ -113,11 +138,18 @@ interface Campaign {
     .stores legend{font-size:12px;font-weight:700;padding:0 6px}
     .check{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;color:var(--on-card,#141118)}
     .muted-card{margin:0;font-size:12px;color:var(--on-card-muted,#5E5A66)}
+    .banner{max-width:360px;border-radius:12px}
+    .thumb{width:48px;height:32px;object-fit:cover;border-radius:6px;display:block;margin-bottom:4px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;padding:4px 10px;font:700 11px 'Inter',sans-serif;background:#fff;color:#141118;cursor:pointer}
+    .chip.on{background:#FFD400;cursor:default}
+    .chip .x{border:0;background:transparent;font-weight:900;cursor:pointer}
   `],
 })
 export class CampaignsComponent implements OnInit {
   private api = inject(ApiService);
   private auth = inject(AuthService);
+  private config = inject(ConfigService);
 
   readonly campaigns = signal<Campaign[]>([]);
   readonly loading = signal(false);
@@ -125,10 +157,11 @@ export class CampaignsComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly stores = signal<Store[]>([]);
-  readonly fee = signal<{ feePaise: number; paymentsAvailable: boolean } | null>(null);
+  readonly fee = signal<{ feePaise: number; paymentsAvailable: boolean; loadPaise: number } | null>(null);
   readonly fees = signal<OfferFees | null>(null);
   readonly storeRupees = signal<Record<string, string>>({});
   defaultRupees = '0';
+  loadRupees = '0';
   readonly picked = signal<Set<string>>(new Set());
 
   /** An administrator picks stores; store staff always announce for their own store. */
@@ -155,6 +188,7 @@ export class CampaignsComponent implements OnInit {
     if (!data) return;
     this.fees.set(data);
     this.defaultRupees = String(data.defaultPaise / 100);
+    this.loadRupees = String((data.loadPaise ?? 0) / 100);
     this.storeRupees.set(Object.fromEntries(data.stores.map(s => [s.storeId, s.overridePaise === null ? '' : String(s.overridePaise / 100)])));
   }
 
@@ -170,6 +204,7 @@ export class CampaignsComponent implements OnInit {
   }
 
   saveDefault() { this.saveFee('/admin/offer-fees/default', this.defaultRupees); }
+  saveLoad() { this.saveFee('/admin/offer-fees/load', this.loadRupees); }
   saveStore(id: string) { this.saveFee('/admin/offer-fees/stores/' + id, this.storeRupees()[id] ?? ''); }
   clearStore(id: string) { this.saveFee('/admin/offer-fees/stores/' + id, null); }
 
@@ -223,6 +258,68 @@ export class CampaignsComponent implements OnInit {
   /** Store staff can cancel only offers that are for their store alone; an administrator can cancel any. */
   canCancel(c: Campaign) { return this.isAdmin() || c.stores.length === 1; }
 
+  notify = true;
+  showOnLoad = false;
+  discountPercent: number | null = null;
+  endsAt = '';
+  productSearch = '';
+  uploadFile: File | null = null;
+  readonly imageUrl = signal<string | null>(null);
+  readonly productResults = signal<ProductChoice[]>([]);
+  readonly pickedProducts = signal<Map<string, string>>(new Map());
+
+  img(url: string | null | undefined): string { return url && url.startsWith('/') ? this.config.getBaseUrl().replace(/\/api\/?$/, '') + url : (url ?? ''); }
+
+  /** What the person asking would pay: the normal fee, plus the app-open fee when they ask for the pop-up (store staff only; the server decides). */
+  totalFee(): number {
+    const mine = this.fee();
+    return mine ? mine.feePaise + (this.showOnLoad && mine.feePaise >= 0 && !this.isAdmin() ? mine.loadPaise : 0) : 0;
+  }
+
+  pickedProductList() { return [...this.pickedProducts()].map(([id, name]) => ({ id, name })); }
+
+  searchProducts() {
+    this.api.get<ProductChoice[]>('/admin/campaigns/products?search=' + encodeURIComponent(this.productSearch.trim())).subscribe({
+      next: r => this.productResults.set(r.data ?? []),
+      error: e => this.error.set(e?.message ?? 'Could not search products.'),
+    });
+  }
+
+  addProduct(p: ProductChoice) { this.pickedProducts.set(new Map(this.pickedProducts()).set(p.id, p.name)); }
+
+  removeProduct(id: string) {
+    const next = new Map(this.pickedProducts());
+    next.delete(id);
+    this.pickedProducts.set(next);
+  }
+
+  pickImage(event: Event) { this.uploadFile = (event.target as HTMLInputElement).files?.[0] ?? null; }
+
+  uploadImage() {
+    if (!this.uploadFile || this.busy()) return;
+    const data = new FormData();
+    data.append('file', this.uploadFile);
+    this.busy.set(true); this.error.set(null);
+    this.api.post<{ imageUrl: string }>('/admin/campaigns/image', data).subscribe({
+      next: r => { this.busy.set(false); this.imageUrl.set(r.data?.imageUrl ?? null); this.uploadFile = null; this.notice.set('Picture uploaded.'); },
+      error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not upload the picture.'); },
+    });
+  }
+
+  productNames(c: Campaign) { return c.products.map(p => p.name).join(', '); }
+
+  /** A discount that is on right now can be ended early. */
+  isRunning(c: Campaign) { return c.discountPercent > 0 && c.status !== 'Cancelled' && !!c.endsAt && new Date(c.endsAt) > new Date() && new Date(c.startsAt) <= new Date(); }
+
+  endDiscount(c: Campaign) {
+    if (this.busy()) return;
+    this.busy.set(true); this.error.set(null); this.notice.set(null);
+    this.api.post<Campaign>('/admin/campaigns/' + c.id + '/end-discount').subscribe({
+      next: () => { this.busy.set(false); this.notice.set('Discount ended.'); this.load(); },
+      error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not end the discount.'); this.load(); },
+    });
+  }
+
   titleEn = '';
   bodyEn = '';
   titleMr = '';
@@ -232,7 +329,7 @@ export class CampaignsComponent implements OnInit {
   ngOnInit() {
     this.loading.set(true);
     this.load();
-    this.api.get<{ feePaise: number; paymentsAvailable: boolean }>('/admin/offer-fees/mine').subscribe({ next: r => this.fee.set(r.data ?? null), error: () => {} });
+    this.api.get<{ feePaise: number; paymentsAvailable: boolean; loadPaise: number }>('/admin/offer-fees/mine').subscribe({ next: r => this.fee.set(r.data ?? null), error: () => {} });
     if (this.isAdmin()) {
       this.loadFees();
       this.api.get<Store[]>('/stores').subscribe({ next: r => this.stores.set((r.data ?? []).filter(s => s.isActive)), error: () => {} });
@@ -259,7 +356,13 @@ export class CampaignsComponent implements OnInit {
     this.notice.set(null);
     const body = {
       titleEn: this.titleEn.trim(),
-      bodyEn: this.bodyEn.trim(),
+      bodyEn: this.bodyEn.trim() || null,
+      notify: this.notify,
+      showOnLoad: this.showOnLoad,
+      imageUrl: this.imageUrl(),
+      discountPercent: this.discountPercent ?? 0,
+      endsAt: this.discountPercent && this.endsAt ? new Date(this.endsAt).toISOString() : null,
+      productIds: this.discountPercent ? [...this.pickedProducts().keys()] : [],
       titleMr: this.titleMr.trim() || null,
       bodyMr: this.bodyMr.trim() || null,
       startsAt: this.startsAt ? new Date(this.startsAt).toISOString() : null,
@@ -271,7 +374,9 @@ export class CampaignsComponent implements OnInit {
         const owes = (created.data?.feePaise ?? 0) > 0;
         this.notice.set(owes ? 'Offer created. Pay the fee to publish it.' : this.startsAt ? 'Offer scheduled.' : 'Offer created. It is sent within a minute.');
         if (owes && created.data) setTimeout(() => this.pay(created.data!), 0);
-        this.titleEn = this.bodyEn = this.titleMr = this.bodyMr = this.startsAt = '';
+        this.titleEn = this.bodyEn = this.titleMr = this.bodyMr = this.startsAt = this.endsAt = this.productSearch = '';
+        this.notify = true; this.showOnLoad = false; this.discountPercent = null;
+        this.imageUrl.set(null); this.productResults.set([]); this.pickedProducts.set(new Map());
         this.picked.set(new Set());
         this.load();
       },

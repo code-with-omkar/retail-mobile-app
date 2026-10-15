@@ -91,6 +91,8 @@ AppNotification notificationFromJson(Map<String, dynamic> j) => AppNotification(
       createdAt: DateTime.parse(_str(j, 'createdAt')).toLocal(),
       category: (j['category'] as String?) ?? 'Order',
       storeName: j['storeName'] as String?,
+      imageUrl: j['imageUrl'] as String?,
+      campaignId: j['campaignId'] as String?,
     );
 
 List<AppNotification> notificationsFromJson(Object? data) => asList(data, notificationFromJson);

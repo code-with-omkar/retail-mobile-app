@@ -23,6 +23,7 @@ import 'features/dev/api_diagnostics_screen.dart';
 import 'features/home/categories_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/notifications/notifications_screen.dart';
+import 'features/offers/offer_screen.dart';
 import 'features/orders/order_detail_screen.dart';
 import 'features/orders/orders_screen.dart';
 import 'features/payment/pay_screen.dart';
@@ -78,6 +79,7 @@ GoRouter createRouter({AuthState Function()? auth, Listenable? refresh}) => GoRo
         GoRoute(path: '/addresses', builder: (_, _) => const AddressListScreen()),
         GoRoute(path: '/favourites', builder: (_, _) => const FavouritesScreen()),
         GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+        GoRoute(path: '/offer/:id', builder: (_, s) => OfferScreen(s.pathParameters['id']!)),
         GoRoute(path: '/addresses/new', builder: (_, s) => AddressEditorScreen(args: s.extra as AddressEditorArgs?)),
         GoRoute(path: '/addresses/:id/edit', builder: (_, s) => _EditAddressRoute(s.pathParameters['id']!, s.extra as AddressEditorArgs?)),
         GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),

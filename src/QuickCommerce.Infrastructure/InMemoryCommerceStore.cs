@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Infrastructure;
 
-public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore, ICatalogAdminStore
+public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICampaignStore, IOfferDiscountLookup, ICampaignPaymentStore, IOfferFeeStore, IPlacementStore, IDeliveryStore, ICatalogAdminStore
 {
     public List<Category> Categories { get; } = [];
     public List<Organization> Organizations { get; } = [];
@@ -408,6 +408,34 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
     }
     public List<OfferFee> OfferFees { get; } = [];
 
+    public Task<int> GetLoadFeeAsync(CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult(OfferFees.FirstOrDefault(fee => fee.StoreId is null)?.LoadAmountPaise ?? 0);
+        }
+    }
+
+    public Task SetLoadFeeAsync(int amountPaise, string? by, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var row = OfferFees.FirstOrDefault(fee => fee.StoreId is null);
+            if (row is null)
+            {
+                OfferFees.Add(new OfferFee { StoreId = null, AmountPaise = 0, LoadAmountPaise = amountPaise, UpdatedAt = now, UpdatedBy = by });
+            }
+            else
+            {
+                row.LoadAmountPaise = amountPaise;
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     // ---- offer fees ----
 
     public Task<int> GetDefaultAsync(CancellationToken cancellationToken = default)
@@ -612,6 +640,11 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 link.Store = Stores.First(item => item.Id == link.StoreId);
             }
 
+            foreach (var link in campaign.Products)
+            {
+                link.CampaignId = campaign.Id;
+            }
+
             Campaigns.Add(campaign);
         }
 
@@ -649,6 +682,78 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
+    public Task<IReadOnlyList<Product>> GetActiveProductsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Product>>(Products.Where(item => ids.Contains(item.Id) && item.IsActive).ToArray());
+        }
+    }
+
+    public Task<IReadOnlyList<Product>> SearchActiveProductsAsync(string? search, int take, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<Product>>(Products.Where(item => item.IsActive && (search is null || item.Name.Contains(search, StringComparison.OrdinalIgnoreCase))).OrderBy(item => item.Name).Take(take).ToArray());
+        }
+    }
+
+    public Task<IReadOnlyDictionary<Guid, string>> GetProductNamesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyDictionary<Guid, string>>(Products.Where(item => ids.Contains(item.Id)).ToDictionary(item => item.Id, item => item.Name));
+        }
+    }
+
+    public Task<Campaign?> TryEndDiscountAsync(Guid id, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var campaign = Campaigns.FirstOrDefault(item => item.Id == id);
+            if (campaign is not null && OfferRules.DiscountRunning(campaign, now))
+            {
+                campaign.EndsAt = now;
+            }
+
+            return Task.FromResult(campaign);
+        }
+    }
+
+    public Task<IReadOnlyDictionary<Guid, int>> GetPercentsAsync(Guid storeId, IReadOnlyCollection<Guid> productIds, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var percents = Campaigns
+                .Where(campaign => OfferRules.DiscountRunning(campaign, now) && OfferRules.AppliesToStore(campaign, storeId))
+                .SelectMany(campaign => campaign.Products.Where(link => productIds.Contains(link.ProductId)).Select(link => (link.ProductId, campaign.DiscountPercent)))
+                .GroupBy(entry => entry.ProductId)
+                .ToDictionary(group => group.Key, group => OfferPricing.Best(group.Select(entry => entry.DiscountPercent)));
+            return Task.FromResult<IReadOnlyDictionary<Guid, int>>(percents);
+        }
+    }
+
+    public Task<OfferDetail?> GetOfferAsync(Guid id, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var campaign = Campaigns.FirstOrDefault(item => item.Id == id);
+            return Task.FromResult(campaign is not null && OfferRules.IsOpenable(campaign, now) ? OfferRules.Detail(campaign, now) : null);
+        }
+    }
+
+    public Task<IReadOnlyList<ActiveOffer>> GetActiveOffersAsync(Guid storeId, DateTime now, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            return Task.FromResult<IReadOnlyList<ActiveOffer>>(Campaigns
+                .Where(campaign => OfferRules.ShowsAsBanner(campaign, now) && OfferRules.AppliesToStore(campaign, storeId))
+                .OrderByDescending(campaign => campaign.StartsAt)
+                .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad))
+                .ToArray());
+        }
+    }
+
     public Task<int> PublishDueCampaignsAsync(DateTime now, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
@@ -664,7 +769,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                     .Select(link => link.Store.Name)
                     .Order()
                     .FirstOrDefault();
-                var recipients = Customers.Where(customer => customer.IsActive && customer.OffersEnabled && (storeIds.Count == 0 || KnownStore(customer) is not null)).ToArray();
+                var recipients = campaign.Notify
+                    ? Customers.Where(customer => customer.IsActive && customer.OffersEnabled && (storeIds.Count == 0 || KnownStore(customer) is not null)).ToArray()
+                    : [];
                 foreach (var customer in recipients)
                 {
                     var store = KnownStore(customer);
@@ -761,6 +868,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             var notEnough = new List<CheckoutIssue>();
             var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
+            var percents = GetPercentsAsync(storeId, cart.Items.Select(item => item.ProductId).Distinct().ToArray(), commit.Now ?? DateTime.UtcNow).GetAwaiter().GetResult();
             foreach (var cartItem in cart.Items)
             {
                 var product = Products.FirstOrDefault(item => item.Id == cartItem.ProductId);
@@ -778,9 +886,11 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                     continue;
                 }
 
-                if (variant.Price != cartItem.UnitPriceSnapshot)
+                var offerPercent = percents.GetValueOrDefault(product.Id);
+                var unitPrice = OfferPricing.Apply(variant.Price, offerPercent);
+                if (unitPrice != cartItem.UnitPriceSnapshot)
                 {
-                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: unitPrice));
                     continue;
                 }
 
@@ -790,8 +900,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                     VariantId = variant.Id,
                     ProductNameSnapshot = product.Name,
                     VariantLabelSnapshot = variant.Label,
-                    UnitPrice = variant.Price,
-                    UnitMrpSnapshot = variant.Mrp,
+                    UnitPrice = unitPrice,
+                    // With an offer the receipt shows what it was worth before: the MRP, or the normal price when there is none.
+                    UnitMrpSnapshot = offerPercent > 0 ? CatalogPricing.EffectiveMrp(variant.Price, variant.Mrp) : variant.Mrp,
                     Quantity = cartItem.Quantity
                 });
             }

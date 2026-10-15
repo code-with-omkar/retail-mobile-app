@@ -10,8 +10,19 @@ public sealed class CartService(
     ICurrentUserContextResolver currentUserContextResolver,
     IValidator<AddCartItemRequest> addItemValidator,
     IValidator<UpdateCartItemRequest> updateItemValidator,
-    PricingSettings? pricingSettings = null) : ICartService
+    PricingSettings? pricingSettings = null,
+    IOfferDiscountLookup? offers = null,
+    TimeProvider? timeProvider = null) : ICartService
 {
+    private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
+    /// <summary>The percent off each product has at this store right now (products without an offer are missing). The server is the only price authority.</summary>
+    private async Task<IReadOnlyDictionary<Guid, int>> PercentsAsync(Guid storeId, IEnumerable<Guid> productIds, CancellationToken cancellationToken)
+    {
+        var ids = productIds.Distinct().ToArray();
+        return offers is null || ids.Length == 0 ? new Dictionary<Guid, int>() : await offers.GetPercentsAsync(storeId, ids, clock.GetUtcNow().UtcDateTime, cancellationToken);
+    }
+
     public async Task<CartResponse?> GetCartAsync(Guid storeId, CancellationToken cancellationToken = default)
     {
         var scope = await ResolveScopeAsync(storeId, cancellationToken);
@@ -51,10 +62,11 @@ public sealed class CartService(
         }
 
         var cart = await data.GetCartAsync(scope.Value.Customer.Id, storeId, cancellationToken);
+        var unitPrice = OfferPricing.Apply(variant.Price, (await PercentsAsync(storeId, [product.Id], cancellationToken)).GetValueOrDefault(product.Id));
         if (cart is null)
         {
             cart = new Cart { CustomerId = scope.Value.Customer.Id, StoreId = storeId };
-            cart.Items.Add(CreateItem(product, variant, request.Quantity));
+            cart.Items.Add(CreateItem(product, variant, request.Quantity, unitPrice));
             await data.AddCartAsync(cart, cancellationToken);
         }
         else
@@ -62,7 +74,7 @@ public sealed class CartService(
             var item = cart.Items.FirstOrDefault(item => item.VariantId == variant.Id);
             if (item is null)
             {
-                cart.Items.Add(CreateItem(product, variant, request.Quantity));
+                cart.Items.Add(CreateItem(product, variant, request.Quantity, unitPrice));
             }
             else if (item.Quantity + request.Quantity > 1000)
             {
@@ -176,13 +188,13 @@ public sealed class CartService(
         return lines.FirstOrDefault(item => item.VariantId == defaultVariant?.Id);
     }
 
-    private static CartItem CreateItem(Product product, ProductVariant variant, int quantity) => new()
+    private static CartItem CreateItem(Product product, ProductVariant variant, int quantity, decimal unitPrice) => new()
     {
         ProductId = product.Id,
         VariantId = variant.Id,
         ProductNameSnapshot = product.Name,
         VariantLabelSnapshot = variant.Label,
-        UnitPriceSnapshot = variant.Price,
+        UnitPriceSnapshot = unitPrice,
         Quantity = quantity
     };
 
@@ -271,6 +283,7 @@ public sealed class CartService(
 
         var stock = (await data.GetStoreVariantInventoryAsync(storeId, wanted.Select(item => item.Variant.Id).ToArray(), cancellationToken))
             .ToDictionary(row => row.VariantId, row => row.AvailableQuantity);
+        var offerPercents = await PercentsAsync(storeId, wanted.Select(item => item.Product.Id), cancellationToken);
         foreach (var (product, variant, quantity) in wanted)
         {
             var existing = cart.Items.FirstOrDefault(item => item.VariantId == variant.Id);
@@ -290,7 +303,7 @@ public sealed class CartService(
 
             if (existing is null)
             {
-                cart.Items.Add(CreateItem(product, variant, add));
+                cart.Items.Add(CreateItem(product, variant, add, OfferPricing.Apply(variant.Price, offerPercents.GetValueOrDefault(product.Id))));
             }
             else
             {
@@ -325,6 +338,7 @@ public sealed class CartService(
             return CartOperationResult.NotFound("Cart not found");
         }
 
+        var repricePercents = await PercentsAsync(storeId, cart.Items.Select(item => item.ProductId), cancellationToken);
         foreach (var item in cart.Items)
         {
             var product = await data.GetProductAsync(item.ProductId, cancellationToken);
@@ -334,7 +348,7 @@ public sealed class CartService(
                 continue; // a line that is gone stays, marked unavailable, for the customer to remove
             }
 
-            item.UnitPriceSnapshot = variant.Price;
+            item.UnitPriceSnapshot = OfferPricing.Apply(variant.Price, repricePercents.GetValueOrDefault(item.ProductId));
             item.ProductNameSnapshot = product!.Name;
             item.VariantLabelSnapshot = variant.Label;
         }
@@ -381,15 +395,19 @@ public sealed class CartService(
             activeProducts[productId] = (await data.GetProductAsync(productId, cancellationToken)) is { IsActive: true };
         }
 
+        var percents = await PercentsAsync(cart.StoreId, productIds, cancellationToken);
         var items = cart.Items.Select(item =>
         {
             var variant = variants.GetValueOrDefault(item.VariantId);
+            var percent = percents.GetValueOrDefault(item.ProductId);
             var sellable = variant is { IsActive: true } && activeProducts.GetValueOrDefault(item.ProductId);
             return new CartItemResponse(
                 item.ProductId, item.ProductNameSnapshot, item.UnitPriceSnapshot, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot,
                 Available: stock.GetValueOrDefault(item.VariantId),
                 Unavailable: !sellable,
-                CurrentUnitPrice: sellable ? variant!.Price : null);
+                CurrentUnitPrice: sellable ? OfferPricing.Apply(variant!.Price, percent) : null,
+                OriginalUnitPrice: sellable && percent > 0 ? variant!.Price : null,
+                OfferPercent: sellable ? percent : 0);
         }).ToArray();
 
         var subtotal = items.Sum(item => item.TotalPrice);

@@ -597,6 +597,31 @@ public sealed class Campaign
 
 	/// <summary>NotRequired while free; otherwise the offer is sent only once this is Paid. Refunding or Refunded after a paid offer is cancelled before it was sent.</summary>
 	public PaymentState PaymentStatus { get; set; } = PaymentState.NotRequired;
+
+	/// <summary>Whether customers get a notification. False for a discount that runs quietly (banner and prices only).</summary>
+	public bool Notify { get; set; } = true;
+
+	/// <summary>Percent off the chosen <see cref="Products"/> while the offer runs, 1 to 90; 0 means this offer is only a message.</summary>
+	public int DiscountPercent { get; set; }
+
+	/// <summary>When the discount stops. Required with a discount; null for a message-only offer.</summary>
+	public DateTime? EndsAt { get; set; }
+
+	/// <summary>The banner picture, a path this API saved under /media/offers.</summary>
+	public string? ImageUrl { get; set; }
+
+	/// <summary>The products the discount is for.</summary>
+	public List<CampaignProduct> Products { get; set; } = [];
+
+	/// <summary>Also shown as a pop-up when a customer opens the app. Costs the extra "app open" fee the administrator sets.</summary>
+	public bool ShowOnLoad { get; set; }
+}
+
+/// <summary>One product an offer's discount is for (all its sizes).</summary>
+public sealed class CampaignProduct
+{
+	public Guid CampaignId { get; set; }
+	public Guid ProductId { get; set; }
 }
 
 /// <summary>
@@ -608,6 +633,9 @@ public sealed class OfferFee
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public Guid? StoreId { get; set; }
 	public int AmountPaise { get; set; }
+
+	/// <summary>Extra fee, in paise, for an offer that is also shown when the app opens. Kept on the default row only (it is one price for every store).</summary>
+	public int LoadAmountPaise { get; set; }
 	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 	public string? UpdatedBy { get; set; }
 }

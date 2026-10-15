@@ -20,6 +20,12 @@ public sealed class OfferFeesController(IOfferFeeService fees) : ControllerBase
     public async Task<IActionResult> SetDefault(SetOfferFeeRequest request, CancellationToken cancellationToken) =>
         request.AmountPaise is null ? BadRequest(new { success = false, message = "Give the fee in paise", errors = Array.Empty<string>() }) : Respond(await fees.SetDefaultAsync(request.AmountPaise.Value, cancellationToken));
 
+    /// <summary>Sets the extra fee, in paise, for an offer that is also shown when the app opens (0 is free).</summary>
+    [HttpPut("load")]
+    [Authorize(Policy = SecurityPolicies.AdminManagement)]
+    public async Task<IActionResult> SetLoad(SetOfferFeeRequest request, CancellationToken cancellationToken) =>
+        request.AmountPaise is null ? BadRequest(new { success = false, message = "Give the fee in paise", errors = Array.Empty<string>() }) : Respond(await fees.SetLoadAsync(request.AmountPaise.Value, cancellationToken));
+
     /// <summary>Sets one store's own fee, or removes it (null) so the default applies.</summary>
     [HttpPut("stores/{storeId:guid}")]
     [Authorize(Policy = SecurityPolicies.AdminManagement)]
