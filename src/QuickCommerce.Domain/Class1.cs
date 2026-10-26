@@ -503,9 +503,35 @@ public sealed class Payment
 	public int Attempts { get; set; }
 	public string? FailureReason { get; set; }
 	public string? RefundId { get; set; }
+
+	/// <summary>Paise already given back for items the store removed from the order. A full refund later is for the rest only.</summary>
+	public long PartialRefundedPaise { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A change the store made to an order while packing it (items removed or reduced), and what went back to the customer.</summary>
+public sealed class OrderAdjustment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public Guid ChangedBy { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? Reason { get; set; }
+
+	/// <summary>What changed, as JSON: product, size, quantity before and after, unit price.</summary>
+	public string ChangesJson { get; set; } = "[]";
+	public decimal OldSubtotal { get; set; }
+	public decimal NewSubtotal { get; set; }
+
+	/// <summary>Paise to give back to the original payment; 0 for cash on delivery and unpaid orders.</summary>
+	public long RefundPaise { get; set; }
+
+	/// <summary>None, Pending (waiting to be asked of the provider), Started (asked, not yet confirmed), Processed or Failed.</summary>
+	public string RefundStatus { get; set; } = "None";
+	public string? RefundId { get; set; }
+	public string? RefundFailure { get; set; }
 }
 
 /// <summary>A notification from the provider that has been handled, so the same one arriving again does nothing.</summary>
@@ -575,6 +601,7 @@ public static class NotificationTypes
 	public const string OrderDelivered = "OrderDelivered";
 	public const string OrderRejected = "OrderRejected";
 	public const string OrderCancelled = "OrderCancelled";
+	public const string OrderChanged = "OrderChanged";
 	public const string PaymentReceived = "PaymentReceived";
 	public const string PaymentNotCompleted = "PaymentNotCompleted";
 	public const string PaymentProblem = "PaymentProblem";

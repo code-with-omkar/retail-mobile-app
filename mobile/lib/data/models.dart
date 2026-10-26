@@ -190,6 +190,24 @@ class OrderLine {
   String get key => variantId ?? productId;
 }
 
+/// One line the store reduced or removed while packing the order.
+class ChangedLine {
+  const ChangedLine({required this.name, this.label, required this.from, required this.to});
+  final String name;
+  final String? label;
+  final int from, to;
+}
+
+/// What the store changed in an order and what goes back to the customer. [refundStatus]: None, Pending, Started, Processed or Failed.
+class OrderChange {
+  const OrderChange({required this.at, required this.lines, required this.refund, required this.refundStatus, this.reason});
+  final DateTime at;
+  final List<ChangedLine> lines;
+  final double refund;
+  final String refundStatus;
+  final String? reason;
+}
+
 /// A placed order (`api/customer/orders`).
 class Order {
   const Order({
@@ -217,7 +235,11 @@ class Order {
     this.deliveryOtp,
     this.note,
     this.outOfStockChoice,
+    this.changes = const [],
   });
+
+  /// What the store removed or reduced while packing, newest first (empty when nothing changed).
+  final List<OrderChange> changes;
 
   /// What the customer wrote for the store, and what to do about an item that is out of stock (Remove, CallMe or Replace).
   final String? note, outOfStockChoice;
@@ -250,7 +272,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
@@ -258,7 +280,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);

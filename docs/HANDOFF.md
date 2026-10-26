@@ -1,8 +1,8 @@
-# Handoff: where the project stands (2026-10-17)
+# Handoff: where the project stands (2026-10-26)
 
 Read this first in a new session. Branch `mobile-app`, repo root `C:\Users\Omkar\Personal\retail-app\source`.
 
-## Built, tested and applied (dev database is current at 31 migrations)
+## Built, tested and applied (dev database is current at 32 migrations)
 P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 offer fees, P15 paid placement, P12 delivery partners (+ `delivery_app`), P16 catalogue editing/pictures/stock, P8 phone code + Google sign-in, account deletion, release readiness, P17 reports, P18 order again + saved items, P19 ratings.
 - P20: offers with discounts, pictures, app-open pop-up (+ admin-set fee), offer notification opens the offer, Home banners (7 days), Your stores, Bought before.
 - P21: order note and out-of-stock choice (Remove, CallMe, Replace).
@@ -11,10 +11,12 @@ P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 o
 - Notification rule: bell only for placed, delivered, declined, cancelled and payments; accepted/packing/ready/out for delivery only update the timeline.
 
 ## Git
-All committed on `mobile-app` (latest `4b173d7`). Unpushed: `d3c1c5a` (CI fix: `LocalImageStore.cs` had been gitignored) and `4b173d7`. The user pushes. Generated plugin files and `admin-portal/.angular` are never committed.
+All committed on `mobile-app` (latest `b625918`). Unpushed: `d3c1c5a` (CI fix: `LocalImageStore.cs` had been gitignored), `4b173d7`, `b625918`. The user pushes; then read the CI result.
 
-## P23 delivery tracking (built, tested, migration not applied)
-Partner app shares its position every 20 s while out for delivery; customer sees distance and ETA only (no map). Migration `AddDeliveryLocations` generated, **not applied**: ask the user, apply, restart the APIs, live-check, commit. Cases: section Q. Backend 972, customer app 528, partner app 20.
+- P23: delivery tracking. Partner app shares its position every 20 s while out for delivery; customer sees distance and ETA only (no map). Latest position only, erased on delivery. Applied, live-checked, committed. Cases: section Q. Tests: backend 972, customer app 528, partner app 20.
+
+## P24 store changes an order (built, tested, migration not applied)
+Staff remove or reduce items of an Accepted or Preparing order (portal: Change items). Fees stay; commission recomputed; stock NOT returned; paid online gets an automatic partial refund via the payment maintenance job (live refund needs Razorpay methods enabled); customer sees the change on the order. Migration `AddOrderChanges` generated, **not applied**. Cases: section R. Backend 991, customer app 531.
 
 ## Ideas not started
 Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, substitutions that adjust the order.

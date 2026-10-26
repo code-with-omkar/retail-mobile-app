@@ -7,7 +7,8 @@ namespace QuickCommerce.Application.Services;
 public sealed class CustomerOrderService(
     ICommerceStore data,
     ICurrentUserContextResolver currentUserContextResolver,
-    IDeliveryLookup? delivery = null) : ICustomerOrderService
+    IDeliveryLookup? delivery = null,
+    IOrderChangeStore? changes = null) : ICustomerOrderService
 {
     public async Task<IReadOnlyList<OrderResponse>?> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
@@ -43,7 +44,14 @@ public sealed class CustomerOrderService(
         }
 
         var order = await data.GetCustomerOrderAsync(orderId, context.UserId, context.OrganizationId, cancellationToken);
-        return order is null ? null : await WithDeliveryAsync(WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken)), order, cancellationToken);
+        if (order is null)
+        {
+            return null;
+        }
+
+        var detail = await WithDeliveryAsync(WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken)), order, cancellationToken);
+        // What the store changed while packing it, newest first, so the customer can see what they will receive and what was refunded.
+        return changes is null ? detail : detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
     }
 
     /// <summary>While the order is out for delivery the customer sees who has it and the code to give them at the door. Nobody else is shown the code.</summary>

@@ -43,7 +43,8 @@ public sealed record OrderResponse(
     string? DeliveryPartnerPhone = null,
     string? DeliveryOtp = null,
     string? Note = null,
-    string? OutOfStockChoice = null);
+    string? OutOfStockChoice = null,
+    IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,

@@ -333,6 +333,34 @@ class _DetailState extends ConsumerState<_Detail> {
               ),
             ]),
           ),
+          for (final change in order.changes) ...[
+            const SizedBox(height: 12),
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(context.tr('The store changed your order'), key: const Key('order-change'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                for (final line in change.lines)
+                  Text(
+                    line.to == 0
+                        ? context.tr('{item} removed (was {n})', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'n': '${line.from}'})
+                        : context.tr('{item}: {from} to {to}', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'from': '${line.from}', 'to': '${line.to}'}),
+                    style: TextStyle(color: p.onCard),
+                  ),
+                if (change.reason != null) Text(change.reason!, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                if (change.refund > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.tr(switch (change.refundStatus) {
+                      'Processed' => 'Refund of {amount} done',
+                      'Failed' => 'We could not refund {amount} automatically. Please contact the store.',
+                      _ => 'Refund of {amount} is on its way to your original payment method',
+                    }, {'amount': rupees(change.refund)}),
+                    style: TextStyle(color: change.refundStatus == 'Failed' ? Pal.pink : p.onCard, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ]),
+            ),
+          ],
           if (order.note != null || order.outOfStockChoice != null) ...[
             const SizedBox(height: 12),
             Surface(

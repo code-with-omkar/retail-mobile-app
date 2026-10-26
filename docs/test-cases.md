@@ -249,6 +249,19 @@ For the features built since the last round of testing. Tick the **Pass** column
 | Q5 | Partner delivers with the code. | Tracking line gone; the order shows Delivered. | ☐ | |
 | Q6 | Another customer or another partner tries the order. | No access (not found). | ☐ | |
 
+## R. Store changes an order
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| R1 | Place a cash order of 3 of one item; portal as storemanager: Accept it. | The order row shows **Change items**. | ☐ | |
+| R2 | Change items: set 1 instead of 3, add a reason, Apply. | Done; new total shown; the row total drops. | ☐ | |
+| R3 | Customer app: open the order. | "The store changed your order": the item 3 to 1, the reason; the total is lower; a bell notification arrived. | ☐ | |
+| R4 | Try to increase a quantity or remove every item. | Refused with a clear message (remove all: decline or cancel instead). | ☐ | |
+| R5 | Order already Ready or out for delivery. | No Change items button; the API refuses. | ☐ | |
+| R6 | A paid online order: change it. | Customer sees "Refund of ₹X is on its way", then "done" after a minute or two. Needs Razorpay methods enabled. | ☐ | |
+| R7 | Delivery partner delivers a changed cash order. | Cash to collect is the new total. | ☐ | |
+| R8 | Reports, Earnings by shop. | Sales and commission use the new product total. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

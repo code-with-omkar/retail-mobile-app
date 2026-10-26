@@ -532,4 +532,12 @@ const marathi = <String, String>{
   // Delivery tracking
   '{name} is {km} km away, about {n} min': '{name} {km} किमी अंतरावर आहेत, सुमारे {n} मिनिटे',
   'Your delivery partner': 'तुमचा डिलिव्हरी पार्टनर',
+
+  // Order changed by the store
+  'The store changed your order': 'दुकानाने तुमच्या ऑर्डरमध्ये बदल केला',
+  '{item} removed (was {n})': '{item} काढली (आधी {n})',
+  '{item}: {from} to {to}': '{item}: {from} वरून {to}',
+  'Refund of {amount} done': '{amount} चा परतावा पूर्ण झाला',
+  'We could not refund {amount} automatically. Please contact the store.': '{amount} आपोआप परत करता आले नाहीत. कृपया दुकानाशी संपर्क साधा.',
+  'Refund of {amount} is on its way to your original payment method': '{amount} चा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे',
 };

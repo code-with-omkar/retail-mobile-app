@@ -8,6 +8,7 @@ import 'package:quickcart_customer/core/prefs.dart';
 import 'package:quickcart_customer/core/riverpod_config.dart';
 import 'package:quickcart_customer/data/api/api_client.dart';
 import 'package:quickcart_customer/data/dto/auth_dto.dart';
+import 'package:quickcart_customer/data/dto/order_dto.dart';
 import 'package:quickcart_customer/data/models.dart';
 import 'package:quickcart_customer/data/providers.dart';
 import 'package:quickcart_customer/data/repositories/catalog_repository.dart';
@@ -96,5 +97,54 @@ void main() {
 
     expect(tracking.asked, isEmpty);
     expect(find.byKey(const Key('tracking-line')), findsNothing);
+  });
+
+  group('an order the store changed', () {
+    Map<String, dynamic> json(String refundStatus, {int to = 1}) => {
+          'id': 'o7',
+          'orderNumber': 'ORD-7',
+          'storeId': 's1',
+          'totalAmount': 100,
+          'status': 3,
+          'deliveryAddress': '12 Marine Drive',
+          'createdAt': '2026-10-26T10:00:00Z',
+          'items': [
+            {'productId': 'p1', 'productNameSnapshot': 'Milk', 'unitPrice': 34, 'quantity': 1, 'totalPrice': 34, 'variantId': 'v1', 'variantLabel': '1 l'}
+          ],
+          'changes': [
+            {
+              'at': '2026-10-26T10:30:00Z',
+              'lines': [
+                {'name': 'Milk', 'label': '1 l', 'from': 3, 'to': to}
+              ],
+              'refundAmount': 68,
+              'refundStatus': refundStatus,
+              'reason': 'Out of stock'
+            }
+          ],
+        };
+
+    test('the changes are read from the order', () {
+      final order = orderFromJson(json('Pending'));
+
+      final change = order.changes.single;
+      expect((change.lines.single.name, change.lines.single.from, change.lines.single.to, change.refund, change.refundStatus, change.reason), ('Milk', 3, 1, 68.0, 'Pending', 'Out of stock'));
+      expect(orderFromJson({...json('None'), 'changes': null}).changes, isEmpty);
+    });
+
+    testWidgets('the order screen says what changed and where the refund is', (tester) async {
+      await _open(tester, orderFromJson(json('Pending')), const Tracking(available: false));
+
+      expect(find.byKey(const Key('order-change')), findsOneWidget);
+      expect(find.text('Milk 1 l: 3 to 1'), findsOneWidget);
+      expect(find.text('Refund of ₹68 is on its way to your original payment method'), findsOneWidget);
+    });
+
+    testWidgets('a removed item and a finished refund read plainly', (tester) async {
+      await _open(tester, orderFromJson(json('Processed', to: 0)), const Tracking(available: false));
+
+      expect(find.text('Milk 1 l removed (was 3)'), findsOneWidget);
+      expect(find.text('Refund of ₹68 done'), findsOneWidget);
+    });
   });
 }

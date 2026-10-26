@@ -468,3 +468,12 @@ Status: built and tested (2026-10-17); migration `AddDeliveryLocations` **not ye
 - `PUT api/delivery/{orderId}/location {latitude, longitude}` (partner of that order only): the partner app sends it about every 20 seconds while the order is out for delivery. 404 for someone else's order, 400 for an impossible position, 409 when the order is not out for delivery (the app stops; any stored position is erased). Only the latest position is kept (no route); positions older than a day are purged; delivery completion and account deletion erase it.
 - `GET api/customer/orders/{id}/tracking` (customer of that order): `{available, distanceKm, etaMinutes, updatedAt, partnerName}`. Available only while out for delivery and when a position is under 5 minutes old; never coordinates. ETA = straight-line distance at 20 km/h, at least 1 minute.
 - Partner app (`delivery_app`): shares its position (location permission asked on first use) and says so on screen. Customer app: a green line "Rina is 1.2 km away, about 6 min" on an out-for-delivery order, refreshed every 15 seconds.
+
+## The store changes an order it is packing (P24)
+
+Status: built and tested (2026-10-26); migration `AddOrderChanges` **not yet applied** (OrderAdjustments table, Payments.PartialRefundedPaise).
+
+- `POST api/operations/orders/{orderId}/change` (store staff of that store, or an administrator): `{ changes: [{productId, variantId?, quantity}], reason? }`. Each quantity is the new, lower amount (0 removes the line). Only while the order is Accepted or Preparing (409 otherwise); an increase, unknown item, duplicate or a reason with < > is 400; removing every item is 400 with reason `UseCancel` (decline or cancel instead).
+- Effects, in one step: items and totals updated; delivery and handling fees stay as charged; commission is taken again on the new product total; **stock is not returned** (the item was out of stock, so the store corrects its own count); the customer gets a bell notification; the change is recorded (who, when, what, reason).
+- Paid online: the removed amount is queued as a partial refund to the original payment and sent by the payment maintenance job (Pending, Started, Processed or Failed). A later full refund gives back only what is left. Cash on delivery: the partner collects the new total.
+- The customer order detail has `changes` (newest first): lines, refund amount and refund status. Portal: Orders, **Change items** on accepted or packing orders.

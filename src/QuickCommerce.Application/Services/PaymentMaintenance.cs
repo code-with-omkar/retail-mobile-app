@@ -8,7 +8,7 @@ namespace QuickCommerce.Application.Services;
 /// The work no customer triggers: release the items of orders that were not paid in time, ask the provider for the refunds that are due,
 /// and look up payments whose notification never arrived. Every step is safe to run twice and from several servers at once.
 /// </summary>
-public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gateway, PaymentSettings settings, TimeProvider time, ILogger<PaymentMaintenance> log) : IPaymentMaintenance
+public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gateway, PaymentSettings settings, TimeProvider time, ILogger<PaymentMaintenance> log, IOrderChangeStore? changes = null) : IPaymentMaintenance
 {
     private const int BatchSize = 50;
 
@@ -38,7 +38,7 @@ public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gate
 
             try
             {
-                var refund = await gateway.RefundAsync(payment.ProviderPaymentId, payment.AmountPaise, "refund-" + payment.Id.ToString("N"), cancellationToken);
+                var refund = await gateway.RefundAsync(payment.ProviderPaymentId, payment.AmountPaise - payment.PartialRefundedPaise, "refund-" + payment.Id.ToString("N"), cancellationToken);
                 await store.SetRefundStartedAsync(payment.Id, refund.Id, string.Equals(refund.Status, "processed", StringComparison.OrdinalIgnoreCase), now, cancellationToken);
                 started++;
             }
@@ -46,6 +46,49 @@ public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gate
             {
                 log.LogWarning("Refund for payment {PaymentId} was not made ({Code}, transient: {Transient})", payment.Id, ex.Code, ex.Transient);
                 await store.SetRefundFailedAsync(payment.Id, ex.Message, permanent: !ex.Transient, now, cancellationToken);
+            }
+        }
+
+        return started + await StartChangeRefundsAsync(cancellationToken);
+    }
+
+    /// <summary>Refunds for items the store removed from paid orders: asked of the provider once, then confirmed by looking at what it shows as refunded.</summary>
+    private async Task<int> StartChangeRefundsAsync(CancellationToken cancellationToken)
+    {
+        if (changes is null)
+        {
+            return 0;
+        }
+
+        var started = 0;
+        foreach (var (adjustment, providerPaymentId) in await changes.GetRefundsToStartAsync(BatchSize, cancellationToken))
+        {
+            try
+            {
+                var refund = await gateway.RefundAsync(providerPaymentId, adjustment.RefundPaise, "adj-" + adjustment.Id.ToString("N"), cancellationToken);
+                await changes.SetRefundStartedAsync(adjustment.Id, refund.Id, string.Equals(refund.Status, "processed", StringComparison.OrdinalIgnoreCase), cancellationToken);
+                started++;
+            }
+            catch (PaymentGatewayException ex)
+            {
+                log.LogWarning("Refund for order change {AdjustmentId} was not made ({Code}, transient: {Transient})", adjustment.Id, ex.Code, ex.Transient);
+                await changes.SetRefundFailedAsync(adjustment.Id, ex.Message, permanent: !ex.Transient, cancellationToken);
+            }
+        }
+
+        foreach (var (adjustment, providerPaymentId, refundedBefore) in await changes.GetStartedRefundsAsync(BatchSize, cancellationToken))
+        {
+            try
+            {
+                var current = await gateway.FetchPaymentAsync(providerPaymentId, cancellationToken);
+                if (current is not null && current.AmountRefundedPaise >= refundedBefore + adjustment.RefundPaise)
+                {
+                    await changes.MarkRefundProcessedAsync(adjustment.Id, cancellationToken);
+                }
+            }
+            catch (PaymentGatewayException ex)
+            {
+                log.LogWarning("Refund for order change {AdjustmentId} could not be looked up ({Code})", adjustment.Id, ex.Code);
             }
         }
 

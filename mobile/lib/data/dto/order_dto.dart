@@ -77,6 +77,16 @@ Order orderFromJson(Map<String, dynamic> j) {
     deliveryOtp: j['deliveryOtp'] as String?,
     note: j['note'] as String?,
     outOfStockChoice: j['outOfStockChoice'] as String?,
+    changes: [
+      for (final c in (j['changes'] as List? ?? const []))
+        OrderChange(
+          at: DateTime.parse((c as Map)['at'] as String).toLocal(),
+          lines: [for (final l in (c['lines'] as List? ?? const [])) ChangedLine(name: (l as Map)['name'] as String, label: l['label'] as String?, from: (l['from'] as num).toInt(), to: (l['to'] as num).toInt())],
+          refund: (c['refundAmount'] as num?)?.toDouble() ?? 0,
+          refundStatus: (c['refundStatus'] as String?) ?? 'None',
+          reason: c['reason'] as String?,
+        ),
+    ],
   );
 }
 

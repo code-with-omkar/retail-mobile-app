@@ -17,7 +17,7 @@ const NEXT_STEPS: Record<string, { label: string; code: number; danger?: boolean
 
 interface Partner { id: string; name: string; phone?: string | null; activeDeliveries: number; }
 
-@Component({ selector: 'app-orders', standalone: true, imports: [CommonModule, FormsModule], template: `<section class="page"><h2>Orders</h2><p class="muted">Orders returned for your authorized scope</p><p *ngIf="loading()">Loading orders...</p><p *ngIf="error()" class="error">{{ error() }}</p><p *ngIf="notice()" class="notice">{{ notice() }}</p><p *ngIf="!loading() && !error() && orders().length === 0">No orders found.</p><div class="table" *ngIf="orders().length"><div class="row head"><span>Order</span><span>Customer</span><span>Store</span><span>Order date</span><span>Amount</span><span>Status</span><span>Action</span></div><div class="row" [class.fresh]="order.status === 'Pending'" *ngFor="let order of orders()"><strong>{{ order.orderNumber }}<em class="new" *ngIf="order.status === 'Pending'">NEW</em></strong><span>{{ order.customer }}<small class="note" *ngIf="order.note">Note: {{ order.note }}</small><small class="note" *ngIf="order.outOfStockChoice">If an item is out of stock: {{ choiceLabel(order.outOfStockChoice) }}</small></span><span>{{ order.store }}</span><span>{{ order.createdAt | date:'short' }}</span><span>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span><span><span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span><em class="by" *ngIf="order.deliveryPartner">by {{ order.deliveryPartner }}</em></span><span class="actions"><button *ngFor="let step of stepsFor(order)" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button><ng-container *ngIf="order.status === 'Ready'"><select class="pick" [attr.aria-label]="'Delivery partner for ' + order.orderNumber" [ngModel]="picked()[order.id] ?? order.deliveryPartnerId ?? ''" (ngModelChange)="pick(order.id, $event)"><option value="">Delivery partner</option><option *ngFor="let p of partnersOf(order)" [value]="p.id">{{ p.name }} ({{ p.activeDeliveries }})</option></select><button class="act give" [disabled]="busyId() === order.id || !(picked()[order.id] || order.deliveryPartnerId) || (picked()[order.id] ?? order.deliveryPartnerId) === order.deliveryPartnerId" (click)="assign(order)">{{ order.deliveryPartnerId ? 'Change' : 'Give' }}</button></ng-container></span></div></div></section>`, styles: [`
+@Component({ selector: 'app-orders', standalone: true, imports: [CommonModule, FormsModule], template: `<section class="page"><h2>Orders</h2><p class="muted">Orders returned for your authorized scope</p><p *ngIf="loading()">Loading orders...</p><p *ngIf="error()" class="error">{{ error() }}</p><p *ngIf="notice()" class="notice">{{ notice() }}</p><p *ngIf="!loading() && !error() && orders().length === 0">No orders found.</p><div class="table" *ngIf="orders().length"><div class="row head"><span>Order</span><span>Customer</span><span>Store</span><span>Order date</span><span>Amount</span><span>Status</span><span>Action</span></div><div class="row" [class.fresh]="order.status === 'Pending'" *ngFor="let order of orders()"><strong>{{ order.orderNumber }}<em class="new" *ngIf="order.status === 'Pending'">NEW</em></strong><span>{{ order.customer }}<small class="note" *ngIf="order.note">Note: {{ order.note }}</small><small class="note" *ngIf="order.outOfStockChoice">If an item is out of stock: {{ choiceLabel(order.outOfStockChoice) }}</small></span><span>{{ order.store }}</span><span>{{ order.createdAt | date:'short' }}</span><span>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</span><span><span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span><em class="by" *ngIf="order.deliveryPartner">by {{ order.deliveryPartner }}</em></span><span class="actions"><button *ngFor="let step of stepsFor(order)" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button><button class="act" *ngIf="order.status === 'Accepted' || order.status === 'Preparing'" [disabled]="busyId() === order.id" (click)="openChange(order)">Change items</button><ng-container *ngIf="order.status === 'Ready'"><select class="pick" [attr.aria-label]="'Delivery partner for ' + order.orderNumber" [ngModel]="picked()[order.id] ?? order.deliveryPartnerId ?? ''" (ngModelChange)="pick(order.id, $event)"><option value="">Delivery partner</option><option *ngFor="let p of partnersOf(order)" [value]="p.id">{{ p.name }} ({{ p.activeDeliveries }})</option></select><button class="act give" [disabled]="busyId() === order.id || !(picked()[order.id] || order.deliveryPartnerId) || (picked()[order.id] ?? order.deliveryPartnerId) === order.deliveryPartnerId" (click)="assign(order)">{{ order.deliveryPartnerId ? 'Change' : 'Give' }}</button></ng-container></span><div class="panel" *ngIf="editing() === order.id"><strong>Items the store cannot supply</strong><p class="note">Only reduce or remove. Delivery and handling fees stay as the customer saw them. If it was paid online, the difference is refunded automatically.</p><div class="line" *ngFor="let l of lines()"><span>{{ l.productNameSnapshot }}<small *ngIf="l.variantLabel"> {{ l.variantLabel }}</small> <small>({{ l.unitPrice | currency:'INR':'symbol':'1.0-0' }} each)</small></span><span>ordered {{ l.quantity }}</span><label>now <input type="number" min="0" [max]="l.quantity" [name]="'q' + l.productId + (l.variantId || '')" [ngModel]="newQty()[key(l)]" (ngModelChange)="setQty(l, $event)" /></label></div><input class="reason" maxlength="200" placeholder="Reason (optional, the customer sees it)" [ngModel]="reason()" (ngModelChange)="reason.set($event)" name="reason" /><div class="panel-actions"><button class="act" [disabled]="busyId() === order.id || !changed()" (click)="applyChange(order)">Apply change</button><button class="act ghost" (click)="editing.set(null)">Close</button></div></div></div></div></section>`, styles: [`
     :host{display:block;font-family:'Inter',sans-serif;color:#fff}
     h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
     .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
@@ -43,6 +43,13 @@ interface Partner { id: string; name: string; phone?: string | null; activeDeliv
     .new{font-style:normal;background:#141118;color:#FFD400;border-radius:999px;padding:1px 8px;font-size:9px;font-weight:800;margin-left:6px;vertical-align:middle}
     .act.give{background:#02F34C;color:#141118}
     .note{display:block;font-size:11px;font-weight:700;margin-top:2px;color:#7A4B00;white-space:normal}
+    .panel{grid-column:1/-1;background:#fff;border-radius:16px;padding:12px 14px;display:grid;gap:8px;color:#141118;margin-top:6px}
+    .panel .note{margin:0;font-size:11px;color:#5E5A66}
+    .panel .line{display:flex;gap:12px;align-items:center;font-size:12px}
+    .panel .line>span:first-child{flex:1}
+    .panel input{width:70px;border:1px solid rgba(20,17,24,.25);border-radius:10px;padding:6px 8px;font:inherit}
+    .panel input.reason{width:100%}
+    .panel-actions{display:flex;gap:8px}
     .by{display:block;font-style:normal;font-size:10px;margin-top:2px}
     .pick{border:1px solid rgba(20,17,24,.2);border-radius:999px;padding:5px 10px;font:700 11px 'Inter',sans-serif;background:#fff;color:#141118;max-width:170px}
   `] })
@@ -64,6 +71,27 @@ export class OrdersComponent implements OnInit, OnDestroy { private api=inject(A
   }
   choiceLabel(choice:string){return choice==='Remove'?'remove it':choice==='Replace'?'replace with a similar item':'call the customer'}
   label(status:string){return status==='Preparing'?'Packing':status}
+  readonly editing=signal<string|null>(null); readonly lines=signal<{productId:string;variantId?:string|null;productNameSnapshot:string;variantLabel?:string|null;unitPrice:number;quantity:number}[]>([]); readonly newQty=signal<Record<string,number>>({}); readonly reason=signal('');
+  key(l:{productId:string;variantId?:string|null}){return l.productId+'|'+(l.variantId??'')}
+  setQty(l:{productId:string;variantId?:string|null},v:number){this.newQty.set({...this.newQty(),[this.key(l)]:Number(v)})}
+  changed(){return this.lines().some(l=>(this.newQty()[this.key(l)]??l.quantity)<l.quantity)}
+  openChange(order:AdminOrder){
+    if(this.editing()===order.id){this.editing.set(null);return}
+    this.error.set(null);this.notice.set(null);
+    this.api.get<any>('/orders/'+order.id).subscribe({
+      next:r=>{const items=(r.data?.items??[]) as any[];this.lines.set(items);this.newQty.set(Object.fromEntries(items.map(i=>[this.key(i),i.quantity])));this.reason.set('');this.editing.set(order.id)},
+      error:e=>this.error.set(e?.error?.message??e?.message??'Could not open the order.')
+    })
+  }
+  applyChange(order:AdminOrder){
+    if(this.busyId()||!this.changed()) return;
+    const changes=this.lines().filter(l=>(this.newQty()[this.key(l)]??l.quantity)<l.quantity).map(l=>({productId:l.productId,variantId:l.variantId??null,quantity:this.newQty()[this.key(l)]}));
+    this.busyId.set(order.id);this.error.set(null);this.notice.set(null);
+    this.api.post<any>('/operations/orders/'+order.id+'/change',{changes,reason:this.reason().trim()||null}).subscribe({
+      next:r=>{this.busyId.set(null);this.editing.set(null);const refund=r.data?.change?.refundAmount??0;this.notice.set(order.orderNumber+': changed. New total ₹'+r.data?.newTotal+(refund>0?'; ₹'+refund+' is being refunded to the customer.':'.'));this.load()},
+      error:e=>{this.busyId.set(null);this.error.set(e?.error?.message??e?.message??'Could not change the order.');this.load()}
+    })
+  }
   stepsFor(order:AdminOrder){return (NEXT_STEPS[order.status]??[]).filter(s=>!(order.deliveryPartnerId&&s.code===4))}
   change(order:AdminOrder,step:{label:string;code:number}){
     if(this.busyId()) return;
