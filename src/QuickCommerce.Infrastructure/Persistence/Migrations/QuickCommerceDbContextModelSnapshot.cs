@@ -827,6 +827,33 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.DeliveryLocation", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("DeliveryLocations", t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliveryLocations_Range", "[Latitude] BETWEEN -90 AND 90 AND [Longitude] BETWEEN -180 AND 180");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
                 {
                     b.Property<Guid>("CustomerId")
@@ -2846,6 +2873,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasOne("QuickCommerce.Domain.Customer", null)
                         .WithMany()
                         .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.DeliveryLocation", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithOne()
+                        .HasForeignKey("QuickCommerce.Domain.DeliveryLocation", "OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

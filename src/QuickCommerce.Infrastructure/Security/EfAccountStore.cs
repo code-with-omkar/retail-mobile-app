@@ -179,6 +179,7 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, I
 
         var customerId = user.Customer!.Id;
         var phone = Phones.ToE164(user.PhoneNumber);
+        await db.DeliveryLocations.Where(location => db.Orders.Any(order => order.Id == location.OrderId && order.UserId == userId)).ExecuteDeleteAsync(cancellationToken);
         await db.Orders.Where(order => order.UserId == userId).ExecuteUpdateAsync(set => set
             .SetProperty(order => order.ReceiverName, (string?)null)
             .SetProperty(order => order.ReceiverPhone, (string?)null)

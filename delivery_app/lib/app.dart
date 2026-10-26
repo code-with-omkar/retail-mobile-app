@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
+import 'location.dart';
 
 const _ink = Color(0xFF141118);
 const _yellow = Color(0xFFFFD400);
@@ -17,10 +18,12 @@ Future<bool> _defaultOpen(Uri uri) => launchUrl(uri);
 String rupees(double v) => '₹${v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2)}';
 
 class PartnerApp extends StatelessWidget {
-  const PartnerApp({super.key, required this.api, this.open = _defaultOpen, this.pollEvery = const Duration(seconds: 20)});
+  const PartnerApp({super.key, required this.api, this.open = _defaultOpen, this.pollEvery = const Duration(seconds: 20), this.locate = currentPosition, this.shareEvery = const Duration(seconds: 20)});
   final DeliveryApi api;
   final OpenUri open;
   final Duration pollEvery;
+  final LocationSource locate;
+  final Duration shareEvery;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -32,15 +35,17 @@ class PartnerApp extends StatelessWidget {
           filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(backgroundColor: _ink, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)))),
           inputDecorationTheme: InputDecorationTheme(border: OutlineInputBorder(borderRadius: BorderRadius.circular(16))),
         ),
-        home: _Gate(api: api, open: open, pollEvery: pollEvery),
+        home: _Gate(api: api, open: open, pollEvery: pollEvery, locate: locate, shareEvery: shareEvery),
       );
 }
 
 class _Gate extends StatefulWidget {
-  const _Gate({required this.api, required this.open, required this.pollEvery});
+  const _Gate({required this.api, required this.open, required this.pollEvery, required this.locate, required this.shareEvery});
   final DeliveryApi api;
   final OpenUri open;
   final Duration pollEvery;
+  final LocationSource locate;
+  final Duration shareEvery;
   @override
   State<_Gate> createState() => _GateState();
 }
@@ -63,7 +68,7 @@ class _GateState extends State<_Gate> {
   Widget build(BuildContext context) {
     if (_checking) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     return _signedIn
-        ? DeliveriesScreen(api: widget.api, open: widget.open, pollEvery: widget.pollEvery, onSignedOut: () => setState(() => _signedIn = false))
+        ? DeliveriesScreen(api: widget.api, open: widget.open, pollEvery: widget.pollEvery, locate: widget.locate, shareEvery: widget.shareEvery, onSignedOut: () => setState(() => _signedIn = false))
         : LoginScreen(api: widget.api, onSignedIn: () => setState(() => _signedIn = true));
   }
 }
@@ -119,8 +124,12 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class DeliveriesScreen extends StatefulWidget {
-  const DeliveriesScreen({super.key, required this.api, required this.open, required this.pollEvery, required this.onSignedOut});
+  const DeliveriesScreen({super.key, required this.api, required this.open, required this.pollEvery, required this.onSignedOut, this.locate = currentPosition, this.shareEvery = const Duration(seconds: 20)});
   final DeliveryApi api;
+
+  /// Where the phone is, and how often it is told to the server while an order is out for delivery.
+  final LocationSource locate;
+  final Duration shareEvery;
   final OpenUri open;
   final Duration pollEvery;
   final VoidCallback onSignedOut;
@@ -132,17 +141,41 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
   List<Delivery>? _items;
   String? _error;
   Timer? _timer;
+  Timer? _shareTimer;
+  bool _sharing = false;
 
   @override
   void initState() {
     super.initState();
     _load();
     _timer = Timer.periodic(widget.pollEvery, (_) => _load());
+    _shareTimer = Timer.periodic(widget.shareEvery, (_) => _share());
+  }
+
+  /// While any order is out for delivery the phone's position goes to the server (the customer sees distance and ETA). Nothing is sent otherwise.
+  Future<void> _share() async {
+    final out = _items?.where((d) => d.isOut).toList() ?? const <Delivery>[];
+    if (_sharing || out.isEmpty) return;
+    _sharing = true;
+    try {
+      final here = await widget.locate();
+      if (here == null) return;
+      for (final d in out) {
+        try {
+          await widget.api.shareLocation(d.orderId, here.latitude, here.longitude);
+        } on ApiError {
+          // The next list refresh shows what changed; sharing is best effort.
+        }
+      }
+    } finally {
+      _sharing = false;
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _shareTimer?.cancel();
     super.dispose();
   }
 
@@ -179,6 +212,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             : ListView(padding: const EdgeInsets.all(16), children: [
                 if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_items == null ? _error! : 'Could not refresh. Showing the last update.', key: const Key('list-error'), style: const TextStyle(color: Color(0xFFB00060), fontWeight: FontWeight.w700))),
                 if (items != null && items.isEmpty) const Padding(padding: EdgeInsets.only(top: 80), child: Center(child: Text('Nothing to deliver right now.'))),
+                if (todo.any((d) => d.isOut)) const Padding(padding: EdgeInsets.only(bottom: 8), child: Text('Sharing your distance with the customer while you deliver.', key: Key('sharing-note'), style: TextStyle(fontSize: 12))),
                 if (todo.isNotEmpty) const _Heading('To do'),
                 for (final d in todo) _Card(d, () => _openDetail(d)),
                 if (done.isNotEmpty) const _Heading('Delivered in the last day'),

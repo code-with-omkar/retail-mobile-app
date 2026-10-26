@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models.dart';
 import '../../data/providers.dart';
+import '../../data/repositories/tracking_repository.dart';
 import '../auth/auth_controller.dart';
 
 /// Whether the last quiet check of the orders worked. When it did not, the screen keeps showing what it had and says so.
@@ -102,6 +103,15 @@ final orderProvider = FutureProvider.family<Order, String>((ref, id) async {
   final known = ref.watch(ordersProvider).value?.where((o) => o.id == id).firstOrNull ?? ref.watch(lastPlacedOrderProvider.select((o) => o?.id == id ? o : null));
   if (known != null) return known;
   return ref.watch(orderRepositoryProvider).get(id);
+});
+
+/// How far the delivery partner is, for an order out for delivery. A failure just means nothing is shown.
+final trackingProvider = FutureProvider.autoDispose.family<Tracking, String>((ref, id) async {
+  try {
+    return await ref.watch(trackingRepositoryProvider).get(id);
+  } catch (_) {
+    return const Tracking(available: false);
+  }
 });
 
 /// Where "now" comes from for "arriving in N minutes"; tests replace it.

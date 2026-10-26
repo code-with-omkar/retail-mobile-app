@@ -184,7 +184,11 @@ class _DetailState extends ConsumerState<_Detail> {
     return Polling(
       interval: const Duration(seconds: 15),
       active: order.stage.isActive && TickerMode.valuesOf(context).enabled,
-      onTick: () => ref.read(ordersProvider.notifier).pollOne(order.id),
+      onTick: () async {
+        await ref.read(ordersProvider.notifier).pollOne(order.id);
+        // The partner's distance is asked again on the same beat, only while the order is out for delivery.
+        if (order.deliveryOtp != null) ref.invalidate(trackingProvider(order.id));
+      },
       child: AppScaffold(
         appBar: appTopBar(context, '${context.tr('Order')} #${order.number}', backFallback: '/orders'),
         body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
@@ -253,6 +257,7 @@ class _DetailState extends ConsumerState<_Detail> {
           if (failing && order.stage.isActive)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(height: 16),
+          if (order.deliveryOtp != null) _TrackingLine(order.id),
           if (order.deliveryOtp != null) ...[
             Surface(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -403,5 +408,35 @@ class _Timeline extends StatelessWidget {
           );
         }),
     ]);
+  }
+}
+
+/// "Rina is 1.2 km away, about 6 min" while the partner's phone is reporting; nothing otherwise.
+class _TrackingLine extends ConsumerWidget {
+  const _TrackingLine(this.orderId);
+  final String orderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tracking = ref.watch(trackingProvider(orderId)).value;
+    if (tracking == null || !tracking.available || tracking.distanceKm == null || tracking.etaMinutes == null) return const SizedBox.shrink();
+    final name = tracking.partnerName ?? context.tr('Your delivery partner');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Surface(
+        color: Pal.green,
+        child: Row(children: [
+          const Icon(Icons.near_me_outlined, color: Pal.ink),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.tr('{name} is {km} km away, about {n} min', {'name': name, 'km': tracking.distanceKm!.toStringAsFixed(1), 'n': '${tracking.etaMinutes}'}),
+              key: const Key('tracking-line'),
+              style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }

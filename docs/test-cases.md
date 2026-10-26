@@ -238,6 +238,17 @@ For the features built since the last round of testing. Tick the **Pass** column
 | P3 | Partner completes delivery with the code. | Bell: "Order delivered". | ☐ | |
 | P4 | Store declines or customer cancels an order. | Bell: declined / cancelled. | ☐ | |
 
+## Q. Delivery tracking
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| Q1 | Store gives a Ready order to the partner; partner opens My deliveries and picks it up. | A note "Sharing your distance with the customer while you deliver." shows; the phone asks for location permission once. | ☐ | |
+| Q2 | Customer opens that order. | Within about 20 seconds a green line "<Name> is X km away, about N min" shows with the delivery code card. | ☐ | |
+| Q3 | Partner moves closer. | The distance and minutes fall on the next refresh. | ☐ | |
+| Q4 | Partner turns location off or the phone goes offline for over 5 minutes. | The tracking line disappears; the code card stays. | ☐ | |
+| Q5 | Partner delivers with the code. | Tracking line gone; the order shows Delivered. | ☐ | |
+| Q6 | Another customer or another partner tries the order. | No access (not found). | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

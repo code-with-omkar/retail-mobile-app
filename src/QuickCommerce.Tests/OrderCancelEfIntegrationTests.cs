@@ -113,7 +113,7 @@ public sealed class OrderCancelEfIntegrationTests
             Assert.NotEqual(cancelled, accepted); // exactly one of the two
             Assert.Equal(cancelled ? OrderStatus.Cancelled : OrderStatus.Accepted, final.Status);
             Assert.Equal(cancelled ? 10 : 8, await world.Stock());
-            Assert.Equal(2, await verify.Notifications.CountAsync(n => n.OrderId == final.Id)); // "placed", then whichever won (cancelled or accepted), once
+            Assert.Equal(cancelled ? 2 : 1, await verify.Notifications.CountAsync(n => n.OrderId == final.Id)); // "placed", then "cancelled" if that won (accepting only updates the timeline)
         }
     }
 

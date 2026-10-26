@@ -630,6 +630,16 @@ public sealed class Campaign
 	public bool ShowOnLoad { get; set; }
 }
 
+/// <summary>The latest known position of the partner delivering an order. One row per order, replaced on every update and erased when the delivery ends. No route is kept.</summary>
+public sealed class DeliveryLocation
+{
+	public Guid OrderId { get; set; }
+	public Guid PartnerId { get; set; }
+	public double Latitude { get; set; }
+	public double Longitude { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
 /// <summary>One product an offer's discount is for (all its sizes).</summary>
 public sealed class CampaignProduct
 {

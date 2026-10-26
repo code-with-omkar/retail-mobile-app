@@ -115,7 +115,8 @@ public static class DeliveryRules
 public sealed class DeliveryService(
     IDeliveryStore store,
     ICurrentUserContextResolver contextResolver,
-    TimeProvider time) : IDeliveryService
+    TimeProvider time,
+    ITrackingStore? tracking = null) : IDeliveryService
 {
     private static readonly TimeSpan RecentlyDelivered = TimeSpan.FromHours(24);
 
@@ -201,6 +202,12 @@ public sealed class DeliveryService(
         }
 
         var change = await store.DeliverAsync(orderId, context.UserId, request.Otp, request.CashCollected, time.GetUtcNow().UtcDateTime, cancellationToken);
+        if (tracking is not null && change.Status is DeliveryChangeStatus.Succeeded or DeliveryChangeStatus.Unchanged)
+        {
+            // The delivery is over: the partner's last position is erased.
+            await tracking.DeleteLocationAsync(orderId, cancellationToken);
+        }
+
         return await Finish(change, context.UserId, cancellationToken);
     }
 

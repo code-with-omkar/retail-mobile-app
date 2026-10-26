@@ -76,6 +76,9 @@ abstract class DeliveryApi {
   Future<void> signOut();
   Future<List<Delivery>> mine();
   Future<Delivery> pickUp(String orderId);
+
+  /// Tells the server where the partner is while an order is out for delivery (the customer sees distance and ETA only).
+  Future<void> shareLocation(String orderId, double latitude, double longitude);
   Future<Delivery> deliver(String orderId, {required String otp, required double cash});
 }
 
@@ -175,6 +178,11 @@ class HttpDeliveryApi implements DeliveryApi {
   Future<List<Delivery>> mine() async {
     final r = await _send('GET', '/api/delivery/mine');
     return [for (final j in (r.data as Map)['data'] as List) Delivery.fromJson(j as Map<String, dynamic>)];
+  }
+
+  @override
+  Future<void> shareLocation(String orderId, double latitude, double longitude) async {
+    await _send('PUT', '/api/delivery/$orderId/location', body: {'latitude': latitude, 'longitude': longitude});
   }
 
   @override

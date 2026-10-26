@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickcart_delivery/api.dart';
 import 'package:quickcart_delivery/app.dart';
+import 'package:quickcart_delivery/location.dart';
 
 Delivery delivery({String number = 'KH-261012-0001', String status = 'Ready', double cash = 250, String id = 'o1'}) => Delivery.fromJson({
       'orderId': id,
@@ -27,6 +28,12 @@ Delivery delivery({String number = 'KH-261012-0001', String status = 'Ready', do
     });
 
 class FakeApi implements DeliveryApi {
+  /// Every position sent: order id, latitude, longitude.
+  final shared = <(String, double, double)>[];
+
+  @override
+  Future<void> shareLocation(String orderId, double latitude, double longitude) async => shared.add((orderId, latitude, longitude));
+
   FakeApi({this.signedIn = false, List<Delivery>? items}) : items = items ?? [];
   bool signedIn;
   final List<Delivery> items;
@@ -85,7 +92,7 @@ class FakeApi implements DeliveryApi {
   }
 }
 
-Future<void> open(WidgetTester tester, FakeApi api, {List<Uri>? opened}) async {
+Future<void> open(WidgetTester tester, FakeApi api, {List<Uri>? opened, LocationSource? locate, Duration shareEvery = const Duration(hours: 1)}) async {
   tester.view.physicalSize = const Size(390 * 3, 1000 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -93,6 +100,8 @@ Future<void> open(WidgetTester tester, FakeApi api, {List<Uri>? opened}) async {
   await tester.pumpWidget(PartnerApp(
     api: api,
     pollEvery: const Duration(hours: 1),
+    shareEvery: shareEvery,
+    locate: locate ?? () async => null,
     open: (uri) async {
       opened?.add(uri);
       return true;
@@ -102,6 +111,7 @@ Future<void> open(WidgetTester tester, FakeApi api, {List<Uri>? opened}) async {
 }
 
 void main() {
+  sharingTests();
   group('signing in', () {
     testWidgets('a signed-out partner sees the sign-in screen, and a wrong password says so', (tester) async {
       await open(tester, FakeApi());
@@ -348,4 +358,39 @@ class _Adapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+
+}
+
+void sharingTests() {
+  group('sharing the position', () {
+    testWidgets('while an order is out for delivery the position goes to the server, with a note saying so', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery', id: 'o9')]);
+      await open(tester, api, shareEvery: const Duration(seconds: 1), locate: () async => (latitude: 19.01, longitude: 73.02));
+
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(api.shared, isNotEmpty);
+      expect(api.shared.first, ('o9', 19.01, 73.02));
+      expect(find.byKey(const Key('sharing-note')), findsOneWidget);
+    });
+
+    testWidgets('nothing is sent when no order is out for delivery', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery(status: 'Ready')]);
+      await open(tester, api, shareEvery: const Duration(seconds: 1), locate: () async => (latitude: 19.01, longitude: 73.02));
+
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(api.shared, isEmpty);
+      expect(find.byKey(const Key('sharing-note')), findsNothing);
+    });
+
+    testWidgets('when the phone cannot say where it is, nothing is sent', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery')]);
+      await open(tester, api, shareEvery: const Duration(seconds: 1));
+
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(api.shared, isEmpty);
+    });
+  });
 }

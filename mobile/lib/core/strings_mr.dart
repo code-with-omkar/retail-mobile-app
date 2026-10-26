@@ -528,4 +528,8 @@ const marathi = <String, String>{
   'Note for the store': 'दुकानासाठी सूचना',
   'Optional, for example: ring the bell twice': 'ऐच्छिक, उदा. दोनदा बेल वाजवा',
   'Your note': 'तुमची सूचना',
+
+  // Delivery tracking
+  '{name} is {km} km away, about {n} min': '{name} {km} किमी अंतरावर आहेत, सुमारे {n} मिनिटे',
+  'Your delivery partner': 'तुमचा डिलिव्हरी पार्टनर',
 };

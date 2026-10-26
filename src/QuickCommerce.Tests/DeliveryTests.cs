@@ -520,7 +520,7 @@ public sealed class DeliveryEfIntegrationTests
     }
 
     [Fact]
-    public async Task A_delivery_goes_from_ready_to_delivered_with_its_code_cash_and_two_notifications()
+    public async Task A_delivery_goes_from_ready_to_delivered_with_its_code_cash_and_one_notification()
     {
         if (ConnectionString is null)
         {
@@ -560,7 +560,7 @@ public sealed class DeliveryEfIntegrationTests
             Assert.Equal((OrderStatus.Delivered, 120m, partner.Id), (saved.Status, saved.CashCollected, saved.DeliveryPartnerId));
             Assert.Equal([OrderStatus.Ready, OrderStatus.OutForDelivery, OrderStatus.Delivered], saved.StatusHistory.OrderBy(item => item.ChangedAt).Select(item => item.Status));
             var types = await verify.Notifications.AsNoTracking().Where(note => note.OrderId == order.Id).Select(note => note.Type).ToListAsync();
-            Assert.Equal(new[] { NotificationTypes.OutForDelivery, NotificationTypes.OrderDelivered }.OrderBy(type => type), types.OrderBy(type => type));
+            Assert.Equal(new[] { NotificationTypes.OrderDelivered }, types); // only the delivery rings the bell; pickup updates the timeline
         }
         finally
         {
@@ -636,7 +636,7 @@ public sealed class DeliveryEfIntegrationTests
             var saved = await verify.Orders.AsNoTracking().Include(item => item.StatusHistory).SingleAsync(item => item.Id == order.Id);
             Assert.Equal(1, saved.StatusHistory.Count(item => item.Status == OrderStatus.OutForDelivery));
             Assert.Equal(1, saved.StatusHistory.Count(item => item.Status == OrderStatus.Delivered));
-            Assert.Equal(2, await verify.Notifications.CountAsync(note => note.OrderId == order.Id));
+            Assert.Equal(1, await verify.Notifications.CountAsync(note => note.OrderId == order.Id)); // the delivery, once
         }
         finally
         {

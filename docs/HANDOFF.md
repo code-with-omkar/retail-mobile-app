@@ -1,32 +1,29 @@
-# Handoff: where the project stands (2026-10-15)
+# Handoff: where the project stands (2026-10-17)
 
 Read this first in a new session. Branch `mobile-app`, repo root `C:\Users\Omkar\Personal\retail-app\source`.
 
-## Built (all tested; dev database is current at 28 migrations)
-P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 offer fees, P15 paid placement, P12 delivery partners (+ `delivery_app`), P16 catalogue editing/pictures/stock, P8 phone code + Google sign-in, account deletion, release readiness (signing, CI, security review), P17 reports + new-orders-first list, P18 order again + saved items, P19 order ratings.
+## Built, tested and applied (dev database is current at 31 migrations)
+P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 offer fees, P15 paid placement, P12 delivery partners (+ `delivery_app`), P16 catalogue editing/pictures/stock, P8 phone code + Google sign-in, account deletion, release readiness, P17 reports, P18 order again + saved items, P19 ratings.
+- P20: offers with discounts, pictures, app-open pop-up (+ admin-set fee), offer notification opens the offer, Home banners (7 days), Your stores, Bought before.
+- P21: order note and out-of-stock choice (Remove, CallMe, Replace).
+- P22 A: store-own prices set by managers, original price struck through, pink corner ribbon on discounted cards.
+- P22 B: admin-set commission % per store (default + overrides), fixed on each order, "Earnings by shop" in Reports (delivered orders; store keeps fees).
+- Notification rule: bell only for placed, delivered, declined, cancelled and payments; accepted/packing/ready/out for delivery only update the timeline.
 
-## P20 (offers with discounts and pictures, app-open pop-up and fee, offer notification opens, your stores, bought before)
-Built and tested (backend 907, customer app 520, portal builds). Migration `AddOfferDiscountsAndImages` is applied to the dev database (backup `retail-mobile-app_before_P20.bak`) and live-checked; commit when the user asks. Manual cases: `test-cases.md` section L. Notes: the highest percent wins (no stacking); staff pay the normal fee plus the admin-set app-open fee when they tick the pop-up; admin offers are free.
+## Git
+All committed on `mobile-app` (latest `4b173d7`). Unpushed: `d3c1c5a` (CI fix: `LocalImageStore.cs` had been gitignored) and `4b173d7`. The user pushes. Generated plugin files and `admin-portal/.angular` are never committed.
 
-## P21 (order note and out-of-stock choice)
-Built and tested (backend 919, customer app 523, portal builds). Migration `AddOrderNotes` generated, **not applied**: ask the user, back up, apply, restart the APIs, live-check, then commit. Manual cases: `test-cases.md` section M. CI note: the backend job failed on `d1b0981` because `LocalImageStore.cs` was gitignored; fixed in `d3c1c5a` (push it).
+## P23 delivery tracking (built, tested, migration not applied)
+Partner app shares its position every 20 s while out for delivery; customer sees distance and ETA only (no map). Migration `AddDeliveryLocations` generated, **not applied**: ask the user, apply, restart the APIs, live-check, commit. Cases: section Q. Backend 972, customer app 528, partner app 20.
 
-## P22 phase A (store prices + ribbon)
-Built and tested (backend 937, app 524, portal builds). Migration `AddStorePriceOverride` generated, **not applied**. Cases: `test-cases.md` section N. Phase B (admin-set commission % per store, per-shop earnings report) not started; the user was advised to switch to a stronger model for it.
-
-## P22 phase B (commission and earnings)
-Built and tested (backend 954, portal builds). Migration `AddCommission` generated, **not applied**. Cases: `test-cases.md` section O. Decisions: % of product total after discounts; store keeps fees; only delivered orders earn; refunds/cancels earn nothing; only orders placed after setting get a commission.
-
-## Not committed yet
-Everything after commit `5c2a312`: reports, order-list ordering, order again, saved items, ratings (about 52 files), plus docs. Unpushed commits: `66acbc8`, `7825365`, `6eddf9d`, `5c2a312`. The user pushes. `mobile/windows/flutter/generated_plugin*` and `admin-portal/.angular` are never committed.
+## Ideas not started
+Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, substitutions that adjust the order.
 
 ## Waiting on the user
 - Try the manual lists in `docs/test-cases.md` (sections A to K) and `docs/testing-notes.md`; send failed IDs.
 - Google sign-in needs a Google Cloud web client id (testing notes A8). MSG91 account for real SMS. Razorpay methods enabled for the live payment test.
 - Release steps are in `docs/RELEASE_AND_SECURITY.md`. Rotate the leaked SQL password (testing notes C).
 
-## Ideas not started
-Delivery tracking (partner location), substitutions and order notes, push notifications (needs Firebase), Google Maps picker (needs a key), crash reporting (needs an account), portal tests.
 
 ## How we work (the user's rules)
 - Short replies. Decisions one at a time with AskUserQuestion; recommended option first.
