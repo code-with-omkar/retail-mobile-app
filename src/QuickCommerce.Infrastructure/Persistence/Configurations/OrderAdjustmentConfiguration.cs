@@ -21,6 +21,6 @@ public sealed class OrderAdjustmentConfiguration : IEntityTypeConfiguration<Orde
         builder.HasIndex(adjustment => adjustment.OrderId);
         // The refund sender looks for refunds that are waiting or started.
         builder.HasIndex(adjustment => adjustment.RefundStatus).HasFilter("[RefundStatus] IN ('Pending', 'Started')");
-        builder.ToTable(table => table.HasCheckConstraint("CK_OrderAdjustments_Refund", "[RefundPaise] >= 0 AND [NewSubtotal] >= 0 AND [NewSubtotal] <= [OldSubtotal]"));
+        builder.ToTable(table => table.HasCheckConstraint("CK_OrderAdjustments_Refund", "[RefundPaise] >= 0 AND [NewSubtotal] >= 0"));
     }
 }

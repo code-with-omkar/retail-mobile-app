@@ -534,6 +534,35 @@ public sealed class OrderAdjustment
 	public string? RefundFailure { get; set; }
 }
 
+/// <summary>A replacement the store offers for an item it cannot supply. The customer has a few minutes to accept or decline.</summary>
+public sealed class ReplacementProposal
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public Guid LineProductId { get; set; }
+	public Guid? LineVariantId { get; set; }
+	public string LineName { get; set; } = string.Empty;
+	public string? LineLabel { get; set; }
+	public int OldQuantity { get; set; }
+	public decimal OldUnitPrice { get; set; }
+	public Guid NewProductId { get; set; }
+	public Guid NewVariantId { get; set; }
+	public string NewName { get; set; } = string.Empty;
+	public string? NewLabel { get; set; }
+	public int NewQuantity { get; set; }
+
+	/// <summary>The price at the moment of the proposal (the store's own price, less any offer). What the customer sees and what is charged if accepted.</summary>
+	public decimal NewUnitPrice { get; set; }
+	public decimal? NewUnitMrp { get; set; }
+	public Guid ProposedBy { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime ExpiresAt { get; set; }
+
+	/// <summary>Pending, Accepted, Declined or Expired.</summary>
+	public string Status { get; set; } = "Pending";
+	public DateTime? DecidedAt { get; set; }
+}
+
 /// <summary>A notification from the provider that has been handled, so the same one arriving again does nothing.</summary>
 public sealed class PaymentEvent
 {
@@ -602,6 +631,7 @@ public static class NotificationTypes
 	public const string OrderRejected = "OrderRejected";
 	public const string OrderCancelled = "OrderCancelled";
 	public const string OrderChanged = "OrderChanged";
+	public const string ReplacementProposed = "ReplacementProposed";
 	public const string PaymentReceived = "PaymentReceived";
 	public const string PaymentNotCompleted = "PaymentNotCompleted";
 	public const string PaymentProblem = "PaymentProblem";

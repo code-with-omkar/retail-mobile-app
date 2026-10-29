@@ -2,7 +2,7 @@
 
 Read this first in a new session. Branch `mobile-app`, repo root `C:\Users\Omkar\Personal\retail-app\source`.
 
-## Built, tested and applied (dev database is current at 32 migrations)
+## Built, tested and applied (dev database is current at 33 migrations)
 P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 offer fees, P15 paid placement, P12 delivery partners (+ `delivery_app`), P16 catalogue editing/pictures/stock, P8 phone code + Google sign-in, account deletion, release readiness, P17 reports, P18 order again + saved items, P19 ratings.
 - P20: offers with discounts, pictures, app-open pop-up (+ admin-set fee), offer notification opens the offer, Home banners (7 days), Your stores, Bought before.
 - P21: order note and out-of-stock choice (Remove, CallMe, Replace).
@@ -11,15 +11,17 @@ P7 online payment, P10 order numbers, P11 notifications, P13 store offers, P14 o
 - Notification rule: bell only for placed, delivered, declined, cancelled and payments; accepted/packing/ready/out for delivery only update the timeline.
 
 ## Git
-All committed on `mobile-app` (latest `b625918`). Unpushed: `d3c1c5a` (CI fix: `LocalImageStore.cs` had been gitignored), `4b173d7`, `b625918`. The user pushes; then read the CI result.
+All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `LocalImageStore.cs` had been gitignored), `4b173d7`, `b625918`, `65dd7b1`. The user pushes; then read the CI result.
 
 - P23: delivery tracking. Partner app shares its position every 20 s while out for delivery; customer sees distance and ETA only (no map). Latest position only, erased on delivery. Applied, live-checked, committed. Cases: section Q. Tests: backend 972, customer app 528, partner app 20.
 
-## P24 store changes an order (built, tested, migration not applied)
-Staff remove or reduce items of an Accepted or Preparing order (portal: Change items). Fees stay; commission recomputed; stock NOT returned; paid online gets an automatic partial refund via the payment maintenance job (live refund needs Razorpay methods enabled); customer sees the change on the order. Migration `AddOrderChanges` generated, **not applied**. Cases: section R. Backend 991, customer app 531.
+- P24: the store removes or reduces items of an Accepted or Preparing order (portal: Change items). Fees stay, commission recomputed, stock NOT returned; paid online gets an automatic partial refund via the payment maintenance job (live refund needs Razorpay methods enabled); the customer sees the change on the order. Applied, live-checked, committed. Cases: section R. Backend 991, customer app 531.
+
+## P25 replacement products (built, tested, migration not applied)
+Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
 ## Ideas not started
-Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, substitutions that adjust the order.
+Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, replacement products when an item is out of stock.
 
 ## Waiting on the user
 - Try the manual lists in `docs/test-cases.md` (sections A to K) and `docs/testing-notes.md`; send failed IDs.

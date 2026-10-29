@@ -262,6 +262,20 @@ For the features built since the last round of testing. Tick the **Pass** column
 | R7 | Delivery partner delivers a changed cash order. | Cash to collect is the new total. | ☐ | |
 | R8 | Reports, Earnings by shop. | Sales and commission use the new product total. | ☐ | |
 
+## S. Replacement products
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| S1 | Place a cash order of two different items; storemanager accepts it; Change items, Replace on one line: search a product, choose a size, quantity, Offer. | "Waiting for the customer" with a time. | ☐ | |
+| S2 | Customer app: bell, open the order. | Yellow card: store is out of X, instead N × Y at ₹, total goes up/down by ₹, time left. | ☐ | |
+| S3 | Tap Accept. | Order shows the new item and new total; the delivery partner will collect the new total. | ☐ | |
+| S4 | Repeat; tap Decline. | The item is removed; the order shows what changed. | ☐ | |
+| S5 | Repeat; wait over 5 minutes (about 6 with the job). | The item is removed on its own; the card goes. | ☐ | |
+| S6 | Offer a second replacement while one is open. | Refused: already waiting. | ☐ | |
+| S7 | Offer a replacement that is out of stock or the same size. | Refused with a clear message. | ☐ | |
+| S8 | Paid online order: offer a dearer item. | Refused (cannot be charged); a cheaper one works and the saving is refunded. Needs Razorpay methods enabled. | ☐ | |
+| S9 | An order with one line only: decline. | Proposal closes; item stays (the store cancels the order instead). | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

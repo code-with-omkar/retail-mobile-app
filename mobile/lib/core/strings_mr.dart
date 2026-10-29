@@ -540,4 +540,16 @@ const marathi = <String, String>{
   'Refund of {amount} done': '{amount} चा परतावा पूर्ण झाला',
   'We could not refund {amount} automatically. Please contact the store.': '{amount} आपोआप परत करता आले नाहीत. कृपया दुकानाशी संपर्क साधा.',
   'Refund of {amount} is on its way to your original payment method': '{amount} चा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे',
+
+  // Replacement products
+  'A replacement for your order': 'तुमच्या ऑर्डरसाठी पर्याय',
+  'The store is out of {item}.': 'दुकानाकडे {item} संपली आहे.',
+  'Instead: {n} × {item} at {price} each': 'त्याऐवजी: {n} × {item}, प्रत्येकी {price}',
+  'Your total stays the same.': 'तुमची एकूण रक्कम तीच राहते.',
+  'Your total goes up by {amount}.': 'तुमची एकूण रक्कम {amount} ने वाढते.',
+  'Your total goes down by {amount}.': 'तुमची एकूण रक्कम {amount} ने कमी होते.',
+  'Answer within {n} min or the item is removed.': '{n} मिनिटांत उत्तर द्या, नाहीतर वस्तू काढली जाईल.',
+  'Could not send your answer. Please try again.': 'तुमचे उत्तर पाठवता आले नाही. कृपया पुन्हा प्रयत्न करा.',
+  'Accept': 'स्वीकारा',
+  'Decline': 'नाकारा',
 };

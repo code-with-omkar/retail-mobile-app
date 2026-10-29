@@ -44,7 +44,8 @@ public sealed record OrderResponse(
     string? DeliveryOtp = null,
     string? Note = null,
     string? OutOfStockChoice = null,
-    IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null);
+    IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null,
+    Interfaces.ReplacementInfo? Replacement = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,

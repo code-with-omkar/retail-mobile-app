@@ -477,3 +477,11 @@ Status: built and tested (2026-10-26); migration `AddOrderChanges` **not yet app
 - Effects, in one step: items and totals updated; delivery and handling fees stay as charged; commission is taken again on the new product total; **stock is not returned** (the item was out of stock, so the store corrects its own count); the customer gets a bell notification; the change is recorded (who, when, what, reason).
 - Paid online: the removed amount is queued as a partial refund to the original payment and sent by the payment maintenance job (Pending, Started, Processed or Failed). A later full refund gives back only what is left. Cash on delivery: the partner collects the new total.
 - The customer order detail has `changes` (newest first): lines, refund amount and refund status. Portal: Orders, **Change items** on accepted or packing orders.
+
+## Replacement products (P25)
+
+Status: built and tested (2026-10-27); migration `AddReplacementProposals` **not yet applied** (ReplacementProposals table; one open proposal per order).
+
+- `POST api/operations/orders/{orderId}/replacements` (store staff of that store, or admin): `{ productId, variantId?, replacementProductId, replacementVariantId, quantity 1-99 }` for an Accepted or Preparing order. The replacement is priced at the store price now (less any running offer) and stock must cover it. Refused: the same size (400); not enough stock (409 `ReplacementOutOfStock`); a dearer replacement on an order paid online (409 `OnlinePaidDearer`, no top-up payment exists); a second open proposal (409 `ReplacementAlreadyOpen`). `GET` on the same path lists the order's proposals.
+- The customer gets a bell notification, and the order detail has `replacement` (the open one, 5 minutes). `POST api/customer/orders/{id}/replacements/{proposalId}/accept` swaps the line, takes the replacement's stock, recalculates the totals (fees stay, commission again), and refunds a saving on a paid order. `.../decline` removes the item and refunds it. An answer after the time removes the item (409 `ReplacementExpired`). Unanswered proposals close on the payment maintenance job (about every minute): the item is removed and refunded. If removing would empty the order the proposal just closes (the store cancels).
+- Portal: Orders, Change items, **Replace** on a line. Customer app: a yellow card with Accept and Decline.

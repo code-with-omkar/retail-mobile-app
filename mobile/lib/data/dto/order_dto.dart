@@ -77,6 +77,21 @@ Order orderFromJson(Map<String, dynamic> j) {
     deliveryOtp: j['deliveryOtp'] as String?,
     note: j['note'] as String?,
     outOfStockChoice: j['outOfStockChoice'] as String?,
+    replacement: j['replacement'] is Map
+        ? Replacement(
+            id: (j['replacement'] as Map)['id'] as String,
+            oldName: (j['replacement'] as Map)['oldName'] as String,
+            oldLabel: (j['replacement'] as Map)['oldLabel'] as String?,
+            oldQuantity: ((j['replacement'] as Map)['oldQuantity'] as num).toInt(),
+            oldUnitPrice: ((j['replacement'] as Map)['oldUnitPrice'] as num).toDouble(),
+            newName: (j['replacement'] as Map)['newName'] as String,
+            newLabel: (j['replacement'] as Map)['newLabel'] as String?,
+            newQuantity: ((j['replacement'] as Map)['newQuantity'] as num).toInt(),
+            newUnitPrice: ((j['replacement'] as Map)['newUnitPrice'] as num).toDouble(),
+            priceChange: ((j['replacement'] as Map)['priceChange'] as num).toDouble(),
+            expiresAt: DateTime.parse((j['replacement'] as Map)['expiresAt'] as String).toLocal(),
+          )
+        : null,
     changes: [
       for (final c in (j['changes'] as List? ?? const []))
         OrderChange(

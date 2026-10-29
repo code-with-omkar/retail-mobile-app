@@ -8,7 +8,9 @@ public sealed class CustomerOrderService(
     ICommerceStore data,
     ICurrentUserContextResolver currentUserContextResolver,
     IDeliveryLookup? delivery = null,
-    IOrderChangeStore? changes = null) : ICustomerOrderService
+    IOrderChangeStore? changes = null,
+    IReplacementStore? replacements = null,
+    TimeProvider? timeProvider = null) : ICustomerOrderService
 {
     public async Task<IReadOnlyList<OrderResponse>?> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
@@ -51,7 +53,20 @@ public sealed class CustomerOrderService(
 
         var detail = await WithDeliveryAsync(WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken)), order, cancellationToken);
         // What the store changed while packing it, newest first, so the customer can see what they will receive and what was refunded.
-        return changes is null ? detail : detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
+        if (changes is not null)
+        {
+            detail = detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
+        }
+
+        if (replacements is not null)
+        {
+            // An open proposal the customer can still answer; an overdue one is not shown (it is closed by the maintenance job).
+            var now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+            var open = (await replacements.ListAsync(order.Id, cancellationToken)).FirstOrDefault(item => item.Status == "Pending" && item.ExpiresAt > now);
+            detail = detail with { Replacement = open is null ? null : ReplacementRules.ToInfo(open) };
+        }
+
+        return detail;
     }
 
     /// <summary>While the order is out for delivery the customer sees who has it and the code to give them at the door. Nobody else is shown the code.</summary>

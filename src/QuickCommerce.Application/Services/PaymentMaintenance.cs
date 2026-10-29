@@ -8,7 +8,7 @@ namespace QuickCommerce.Application.Services;
 /// The work no customer triggers: release the items of orders that were not paid in time, ask the provider for the refunds that are due,
 /// and look up payments whose notification never arrived. Every step is safe to run twice and from several servers at once.
 /// </summary>
-public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gateway, PaymentSettings settings, TimeProvider time, ILogger<PaymentMaintenance> log, IOrderChangeStore? changes = null) : IPaymentMaintenance
+public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gateway, PaymentSettings settings, TimeProvider time, ILogger<PaymentMaintenance> log, IOrderChangeStore? changes = null, IReplacementStore? replacements = null) : IPaymentMaintenance
 {
     private const int BatchSize = 50;
 
@@ -61,6 +61,12 @@ public sealed class PaymentMaintenance(IPaymentStore store, IPaymentGateway gate
         }
 
         var started = 0;
+        if (replacements is not null)
+        {
+            // Proposals the customer did not answer in time close here, which may queue a refund the next lines then send.
+            await replacements.ExpireDueAsync(time.GetUtcNow().UtcDateTime, BatchSize, cancellationToken);
+        }
+
         foreach (var (adjustment, providerPaymentId) in await changes.GetRefundsToStartAsync(BatchSize, cancellationToken))
         {
             try

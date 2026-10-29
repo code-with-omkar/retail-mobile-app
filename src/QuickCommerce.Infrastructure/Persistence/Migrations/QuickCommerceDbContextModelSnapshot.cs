@@ -1177,7 +1177,7 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.ToTable("OrderAdjustments", t =>
                         {
-                            t.HasCheckConstraint("CK_OrderAdjustments_Refund", "[RefundPaise] >= 0 AND [NewSubtotal] >= 0 AND [NewSubtotal] <= [OldSubtotal]");
+                            t.HasCheckConstraint("CK_OrderAdjustments_Refund", "[RefundPaise] >= 0 AND [NewSubtotal] >= 0");
                         });
                 });
 
@@ -1947,6 +1947,96 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "SessionId", "ExpiresAt");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.ReplacementProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LineLabel")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("LineName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<Guid>("LineProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LineVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewLabel")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("NewName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<Guid>("NewProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("NewQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("NewUnitMrp")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("NewUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("NewVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("OldQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OldUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProposedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ReplacementProposals_OnePending")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.ToTable("ReplacementProposals", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReplacementProposals_Quantity", "[OldQuantity] > 0 AND [NewQuantity] > 0 AND [NewUnitPrice] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>
@@ -3131,6 +3221,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.ReplacementProposal", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>

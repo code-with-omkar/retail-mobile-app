@@ -333,6 +333,7 @@ class _DetailState extends ConsumerState<_Detail> {
               ),
             ]),
           ),
+          if (order.replacement != null) _ReplacementCard(order.id, order.replacement!),
           for (final change in order.changes) ...[
             const SizedBox(height: 12),
             Surface(
@@ -463,6 +464,76 @@ class _TrackingLine extends ConsumerWidget {
               style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900),
             ),
           ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// The store is out of an item and offers another: accept or decline within the time shown. Not answering removes the item.
+class _ReplacementCard extends ConsumerStatefulWidget {
+  const _ReplacementCard(this.orderId, this.replacement);
+  final String orderId;
+  final Replacement replacement;
+
+  @override
+  ConsumerState<_ReplacementCard> createState() => _ReplacementCardState();
+}
+
+class _ReplacementCardState extends ConsumerState<_ReplacementCard> {
+  bool _busy = false;
+  String? _problem;
+
+  Future<void> _answer(bool accept) async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await ref.read(replacementRepositoryProvider).answer(widget.orderId, widget.replacement.id, accept: accept);
+    } on ConflictException catch (e) {
+      if (mounted) setState(() => _problem = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _problem = context.tr('Could not send your answer. Please try again.'));
+    } finally {
+      // The order is read again: it now shows the swap, or the removed item, or what changed meanwhile.
+      await ref.read(ordersProvider.notifier).pollOne(widget.orderId);
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final r = widget.replacement;
+    String item(String name, String? label) => label == null ? name : '$name $label';
+    final change = r.priceChange;
+    final minutes = r.expiresAt.difference(DateTime.now()).inMinutes;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Surface(
+        color: Pal.yellow,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(context.tr('A replacement for your order'), key: const Key('replacement-card'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 6),
+          Text(context.tr('The store is out of {item}.', {'item': item(r.oldName, r.oldLabel)}), style: const TextStyle(color: Pal.ink)),
+          Text(context.tr('Instead: {n} × {item} at {price} each', {'n': '${r.newQuantity}', 'item': item(r.newName, r.newLabel), 'price': rupees(r.newUnitPrice)}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800)),
+          Text(
+            change == 0
+                ? context.tr('Your total stays the same.')
+                : change > 0
+                    ? context.tr('Your total goes up by {amount}.', {'amount': rupees(change)})
+                    : context.tr('Your total goes down by {amount}.', {'amount': rupees(-change)}),
+            style: const TextStyle(color: Pal.ink),
+          ),
+          Text(context.tr('Answer within {n} min or the item is removed.', {'n': '${minutes < 1 ? 1 : minutes}'}), style: TextStyle(color: p.dark ? Pal.ink : Pal.ink, fontSize: 12)),
+          if (_problem != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_problem!, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800))),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: PillButton(context.tr('Accept'), height: 46, onPressed: _busy ? null : () => _answer(true))),
+            const SizedBox(width: 10),
+            Expanded(child: SoftPillButton(context.tr('Decline'), height: 46, onPressed: _busy ? () {} : () => _answer(false))),
+          ]),
         ]),
       ),
     );
