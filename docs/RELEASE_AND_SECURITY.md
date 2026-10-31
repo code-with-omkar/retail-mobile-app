@@ -22,6 +22,15 @@ Done in the build: R8 shrinking and resource shrinking, Razorpay keep rules (`an
 
 **Still to do before Play review (you):** app icon and splash artwork, store listing text and screenshots, privacy policy page (what we hold: name, email, phone, addresses, order history, location only when "Use my current location" is tapped; how to delete: Profile, Delete account), the Data safety form (collects: personal info, location, purchase history, app activity; encrypted in transit; deletion available), content rating, and a test account for the reviewers.
 
+## 1b. Google Maps key (customer app)
+
+The map picker in the address editor needs a Maps SDK for Android key.
+
+- **Local builds:** add one line to `mobile/android/local.properties` (already ignored by git): `MAPS_API_KEY=your_key`. Type it yourself; never paste it in chat, commits or screenshots. Without it the app still builds and simply hides the **Choose on map** button.
+- **Releases:** add a GitHub secret `MAPS_API_KEY`; the release workflow writes it into `local.properties` for the build.
+- **Restrict the key in Google Cloud Console:** Application restriction **Android apps** (package `com.quickcart.quickcart_customer` plus the SHA-1 of the debug key for testing and of the Play app signing key for release), and API restriction **Maps SDK for Android** only. A key in an app can be extracted, so the restrictions are what protect it. Set a daily quota and a budget alert.
+- Address lookups still use the phone's own geocoder, which needs no key.
+
 ## 2. Continuous integration (`.github/workflows`)
 
 - `ci.yml` on every push and pull request: backend build and tests **with a real SQL Server container**, portal type-check and production build, customer app analyze, test and release build, delivery app analyze and test.

@@ -552,4 +552,10 @@ const marathi = <String, String>{
   'Could not send your answer. Please try again.': 'तुमचे उत्तर पाठवता आले नाही. कृपया पुन्हा प्रयत्न करा.',
   'Accept': 'स्वीकारा',
   'Decline': 'नाकारा',
+
+  // Map picker
+  'Choose on map': 'नकाशावर निवडा',
+  'Move the map to put the pin on your door': 'पिन तुमच्या दारावर येईल असा नकाशा हलवा',
+  'Finding the address…': 'पत्ता शोधत आहे…',
+  'No address found here. You can still use this spot.': 'येथे पत्ता सापडला नाही. तरीही तुम्ही ही जागा वापरू शकता.',
 };

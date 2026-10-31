@@ -13,6 +13,13 @@ val keyProperties = Properties().apply {
 }
 val hasReleaseKey = keyProperties.getProperty("storeFile") != null
 
+// The Google Maps key lives in android/local.properties as MAPS_API_KEY=... (never committed; CI writes it from a secret).
+// Without it the build still works and the app simply hides the map.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.quickcart.quickcart_customer"
     compileSdk = flutter.compileSdkVersion
@@ -36,6 +43,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY") ?: ""
     }
 
     signingConfigs {

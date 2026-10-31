@@ -20,6 +20,9 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P26 Google Maps address picker (built and tested, not committed)
+Full-screen map with a fixed centre pin in the address editor (**Choose on map**), hidden when the build has no key. The key is read at build time from `mobile/android/local.properties` (`MAPS_API_KEY=`, git-ignored; GitHub secret in the release workflow); the app only asks Android whether a key exists, never reads it. No server change, no migration. Not yet on a device: needs the user to add the key, then `flutter run` (first build with the maps plugin is slow). Cases: section T. Customer app 543 tests. Not done: store service-area circles, live delivery map, store/portal maps (the user chose only the address picker for now).
+
 ## Ideas not started
 Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, replacement products when an item is out of stock.
 

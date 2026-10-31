@@ -276,6 +276,19 @@ For the features built since the last round of testing. Tick the **Pass** column
 | S8 | Paid online order: offer a dearer item. | Refused (cannot be charged); a cheaper one works and the saving is refunded. Needs Razorpay methods enabled. | ☐ | |
 | S9 | An order with one line only: decline. | Proposal closes; item stays (the store cancels the order instead). | ☐ | |
 
+## T. Map picker (customer app)
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| T1 | Without a key in `android/local.properties`: Addresses, Add address. | No **Choose on map** button; typing an address, current location and coordinates still work. | ☐ | |
+| T2 | With the key: Add address. | **Choose on map** is shown under the other buttons. | ☐ | |
+| T3 | Tap it. | Full-screen map with a pin in the middle, the address of that spot below, **Confirm location**. | ☐ | |
+| T4 | Move the map. | The address text updates after you stop moving. | ☐ | |
+| T5 | Confirm. | Back in the editor: the point is set, "We deliver here" (or not) shows, and the address line is filled if it was empty. | ☐ | |
+| T6 | Type an address first, then choose on map and confirm. | Your typed address is kept; only the point changes. | ☐ | |
+| T7 | Back without confirming. | Nothing changes. | ☐ | |
+| T8 | Marathi language. | Buttons and hints are in Marathi. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

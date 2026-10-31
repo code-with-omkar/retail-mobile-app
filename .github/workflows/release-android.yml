@@ -49,6 +49,10 @@ jobs:
             echo "keyAlias=$KEY_ALIAS"
             echo "keyPassword=$KEY_PASSWORD"
           } > android/key.properties
+      - name: Put the Google Maps key in place (never printed, never committed)
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+        run: echo "MAPS_API_KEY=$MAPS_API_KEY" >> android/local.properties
       - name: Build the signed app bundle
         env:
           RELEASE_REQUIRE_SIGNING: "true"
