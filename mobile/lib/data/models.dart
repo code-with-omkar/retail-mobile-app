@@ -250,7 +250,13 @@ class Order {
     this.outOfStockChoice,
     this.changes = const [],
     this.replacement,
+    this.couponCode,
+    this.couponDiscount = 0,
   });
+
+  /// The coupon used on this order and what it took off the total (0 and null when none).
+  final String? couponCode;
+  final double couponDiscount;
 
   /// An open replacement waiting for the customer's answer, if any.
   final Replacement? replacement;
@@ -289,7 +295,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement, couponCode: couponCode, couponDiscount: couponDiscount,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
@@ -297,7 +303,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement, couponCode: couponCode, couponDiscount: couponDiscount,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);
@@ -375,6 +381,7 @@ class CheckoutReasons {
   static const priceChanged = 'PriceChanged';
   static const inventoryConflict = 'InventoryConflict';
   static const idempotencyKeyReused = 'IdempotencyKeyReused';
+  static const couponInvalid = 'CouponInvalid';
 }
 
 /// A cart line that stopped checkout.

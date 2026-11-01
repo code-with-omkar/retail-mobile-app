@@ -77,6 +77,8 @@ Order orderFromJson(Map<String, dynamic> j) {
     deliveryOtp: j['deliveryOtp'] as String?,
     note: j['note'] as String?,
     outOfStockChoice: j['outOfStockChoice'] as String?,
+    couponCode: j['couponCode'] as String?,
+    couponDiscount: (j['couponDiscount'] as num?)?.toDouble() ?? 0,
     replacement: j['replacement'] is Map
         ? Replacement(
             id: (j['replacement'] as Map)['id'] as String,

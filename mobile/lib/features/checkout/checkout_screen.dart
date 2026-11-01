@@ -14,6 +14,7 @@ import '../../data/repositories/payment_repository.dart';
 import '../address/address_controller.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_problems.dart';
+import '../cart/coupon_controller.dart';
 import '../orders/orders_controller.dart';
 import '../payment/payment_controller.dart';
 
@@ -33,6 +34,9 @@ enum _Failure {
 
   /// Online payment was chosen but is switched off or unreachable: cash on delivery still works.
   paymentsOff,
+
+  /// The server turned the coupon down (used up, expired, or it no longer fits the cart).
+  couponRefused,
 
   /// No answer: the order may or may not exist.
   unconfirmed,
@@ -81,7 +85,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (storeId == null) throw const ConflictException('No store', statusCode: 409, reason: 'OutsideServiceArea');
       _key ??= newIdempotencyKey();
       final online = _online && (ref.read(paymentOptionsProvider).value?.online ?? false);
-      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online, note: _note.text, outOfStockChoice: _choice);
+      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online, note: _note.text, outOfStockChoice: _choice, couponCode: ref.read(couponProvider).orderCode);
       _key = null;
       ref.read(lastPlacedOrderProvider.notifier).set(order);
       ref.read(ordersProvider.notifier).placed(order);
@@ -119,6 +123,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (mounted) setState(() => _failure = _Failure.cartEmpty);
       case ServiceabilityReasons.outsideServiceArea:
         if (mounted) setState(() => _failure = _Failure.outsideArea);
+      case CheckoutReasons.couponInvalid:
+        // The server turned the code down (used up, expired, or it no longer fits the cart): show why, drop the code, let them order without it.
+        ref.read(couponProvider.notifier).clear();
+        if (mounted) setState(() => _failure = _Failure.couponRefused);
       case PaymentReasons.unavailable:
         if (mounted) {
           setState(() {
@@ -140,6 +148,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _Failure.outsideArea => ('We do not deliver to this address yet. Choose another address to place your order.', 'Choose another address', () => context.push('/addresses')),
       _Failure.unconfirmed => ('We could not confirm your order. Check Your orders before trying again; if it is not there, tap Place order again.', 'View your orders', () => context.go('/orders')),
       _Failure.paymentsOff => ('Online payment is not available right now. You can pay cash on delivery instead.', null, null),
+      _Failure.couponRefused => ('That coupon could not be used, so it was removed. Place your order again to continue without it.', null, null),
       _Failure.other => ('We could not place your order. Please try again.', null, null),
     };
     return Padding(
@@ -261,11 +270,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     BillRow(context.tr('Handling fee'), rupees(t.handling)),
                     Divider(color: p.border),
                   ],
-                  BillRow(context.tr('To pay'), rupees(t.total), bold: true),
+                  if (ref.watch(couponProvider).applied) BillRow(context.tr('Coupon ({code})', {'code': ref.watch(couponProvider).code ?? ''}), '−${rupees(ref.watch(couponProvider).discount)}', accent: true),
+                  BillRow(context.tr('To pay'), rupees(t.total - ref.watch(couponProvider).discount), bold: true),
                 ]),
               ),
             ]),
-      bottom: t.isEmpty ? null : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton(_busy ? context.tr('Placing your order…') : '${context.tr(online ? 'Pay online' : 'Place order')} · ${rupees(t.total)}', arrow: !_busy, onPressed: blocked ? null : _place))),
+      bottom: t.isEmpty ? null : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton(_busy ? context.tr('Placing your order…') : '${context.tr(online ? 'Pay online' : 'Place order')} · ${rupees(t.total - ref.watch(couponProvider).discount)}', arrow: !_busy, onPressed: blocked ? null : _place))),
     );
   }
 }

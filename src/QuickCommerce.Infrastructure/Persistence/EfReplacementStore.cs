@@ -74,11 +74,12 @@ public sealed class EfReplacementStore(QuickCommerceDbContext db) : IReplacement
         }
 
         var payment = await db.Payments.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
+        var coupon = await db.CouponRedemptions.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
         ReplacementCommit commit;
         if (accept && now <= proposal.ExpiresAt)
         {
             var stock = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == proposal.NewVariantId, cancellationToken);
-            commit = ReplacementRules.Accept(order, payment, proposal, stock, userId, now);
+            commit = ReplacementRules.Accept(order, payment, proposal, stock, userId, now, coupon);
             if (commit.Outcome == ReplacementOutcome.Applied)
             {
                 db.OrderAdjustments.Add(commit.Adjustment!);
@@ -86,14 +87,14 @@ public sealed class EfReplacementStore(QuickCommerceDbContext db) : IReplacement
             else if (commit.Reason == ReplacementReasons.OutOfStock)
             {
                 // The replacement ran out while the customer was deciding: the item goes, as if declined.
-                ApplyRemoval(order, payment, proposal, userId, now, "Declined");
+                ApplyRemoval(order, payment, coupon, proposal, userId, now, "Declined");
                 commit = new(ReplacementOutcome.Conflict, commit.Message, commit.Reason);
             }
         }
         else
         {
             var late = accept;
-            ApplyRemoval(order, payment, proposal, userId, now, late ? "Expired" : "Declined");
+            ApplyRemoval(order, payment, coupon, proposal, userId, now, late ? "Expired" : "Declined");
             commit = late
                 ? new(ReplacementOutcome.Conflict, "That replacement has run out of time. The item was removed and any payment for it refunded.", ReplacementReasons.Expired, proposal)
                 : new(ReplacementOutcome.Applied, Proposal: proposal);
@@ -126,18 +127,19 @@ public sealed class EfReplacementStore(QuickCommerceDbContext db) : IReplacement
 
         var order = await db.Orders.Include(current => current.Items).SingleAsync(current => current.Id == orderId, cancellationToken);
         var payment = await db.Payments.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
-        ApplyRemoval(order, payment, proposal, order.UserId, now, "Expired");
+        var coupon = await db.CouponRedemptions.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
+        ApplyRemoval(order, payment, coupon, proposal, order.UserId, now, "Expired");
         var commit = await SaveAsync(new(ReplacementOutcome.Applied, Proposal: proposal), order, cancellationToken);
         db.ChangeTracker.Clear();
         return commit.Outcome == ReplacementOutcome.Applied ? 1 : 0;
     }
 
     /// <summary>A declined or expired proposal removes the item. When that would leave the order empty nothing changes; the store cancels it instead.</summary>
-    private void ApplyRemoval(Order order, Payment? payment, ReplacementProposal proposal, Guid by, DateTime now, string status)
+    private void ApplyRemoval(Order order, Payment? payment, CouponRedemption? coupon, ReplacementProposal proposal, Guid by, DateTime now, string status)
     {
         proposal.Status = status;
         proposal.DecidedAt = now;
-        var removal = OrderChangeRules.Apply(order, payment, [new ItemChange(proposal.LineProductId, proposal.LineVariantId, 0)], status == "Expired" ? "Replacement not answered in time" : "Replacement declined", by, now, out var adjustment);
+        var removal = OrderChangeRules.Apply(order, payment, [new ItemChange(proposal.LineProductId, proposal.LineVariantId, 0)], status == "Expired" ? "Replacement not answered in time" : "Replacement declined", by, now, out var adjustment, coupon);
         if (removal.Status != OrderChangeStatus.Succeeded || adjustment is null)
         {
             return;

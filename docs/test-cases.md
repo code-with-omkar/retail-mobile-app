@@ -289,6 +289,28 @@ For the features built since the last round of testing. Tick the **Pass** column
 | T7 | Back without confirming. | Nothing changes. | ☐ | |
 | T8 | Marathi language. | Buttons and hints are in Marathi. | ☐ | |
 
+## U. Coupons
+
+Needs the coupon migration applied to the dev database first (ask me). Sign in to the portal as an administrator.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| U1 | Portal: **Coupons** in the menu (administrators only). | The screen opens; store staff do not see it. | ☐ | |
+| U2 | Create WELCOME10: Percent, 10, cap ₹50, minimum ₹200. | It appears in the list as Active with 0 used. | ☐ | |
+| U3 | Create the same code again (any case). | Refused: that code already exists. | ☐ | |
+| U4 | App: cart worth ₹250, type welcome10 (lower case), Apply. | "WELCOME10 applied", a Coupon line with the discount (₹25), To pay and the Checkout button are lower by that. | ☐ | |
+| U5 | Remove two items so the cart is under ₹200. | The code stops applying and says how much more to add. | ☐ | |
+| U6 | Type a wrong code. | "That code is not valid." and nothing changes. | ☐ | |
+| U7 | Add the items back, check out (cash). | The order bill shows the Coupon line; the total is lower; portal shows the use (Used 1, Cost ₹25). | ☐ | |
+| U8 | Set Uses per customer to 1, try the same code again on a new order. | "You have already used that code." | ☐ | |
+| U9 | Cancel the first order in the app (before the store accepts). | The use is given back: portal Used goes down; the customer can use the code again. | ☐ | |
+| U10 | Create a Flat ₹50 and a Free delivery coupon; try both. | Flat never takes more than the item total; free delivery takes off exactly the delivery fee and says so if delivery is already free. | ☐ | |
+| U11 | Create one with First order only; try it with a customer who has ordered. | Refused: only for a first order. | ☐ | |
+| U12 | Switch a coupon off in the portal; try it in the app. | "No longer available". Orders that used it keep their discount. | ☐ | |
+| U13 | Store: accept an order that used a percent coupon, then Change items and remove one. | The discount shrinks with the order; for an online order the refund is the drop in what was paid. | ☐ | |
+| U14 | Portal Reports for the period. | A **Coupons** card with the total given; Earnings by shop do not change because of coupons. | ☐ | |
+| U15 | Marathi language: cart coupon box. | Labels are in Marathi (server messages stay English). | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

@@ -14,6 +14,8 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.SubtotalAmount).HasPrecision(18, 2).IsRequired();
         builder.Property(order => order.DeliveryFee).HasPrecision(18, 2).IsRequired();
         builder.Property(order => order.HandlingFee).HasPrecision(18, 2).IsRequired();
+        builder.Property(order => order.CouponCode).HasMaxLength(20);
+        builder.Property(order => order.CouponDiscount).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
         builder.Property(order => order.PaymentMethod).HasMaxLength(32).IsRequired().HasDefaultValue(PaymentMethods.CashOnDelivery);
         builder.Property(order => order.ReceiverName).HasMaxLength(120);
         builder.Property(order => order.OrderNote).HasMaxLength(200);

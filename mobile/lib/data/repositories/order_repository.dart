@@ -16,7 +16,7 @@ abstract interface class OrderRepository {
   ///
   /// [online] asks to pay now through the payment provider: the order then comes back [OrderStage.awaitingPayment] and must be paid
   /// (see PaymentRepository) before the store sees it. The default is cash on delivery.
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe'});
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode});
 
   /// The customer's orders, newest first.
   Future<List<Order>> list();
@@ -34,7 +34,7 @@ class ApiOrderRepository implements OrderRepository {
   final ApiClient _api;
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe'}) {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode}) {
     assert(addressId != null || place != null, 'Delivery needs a saved address or a place');
     return _api.post(
       '/api/checkout/$storeId',
@@ -42,6 +42,7 @@ class ApiOrderRepository implements OrderRepository {
       body: {
         ...(addressId != null ? {'addressId': addressId} : {'deliveryAddress': place!.line, 'latitude': place.latitude, 'longitude': place.longitude}),
         if (online) 'paymentMethod': 'Online',
+        if (couponCode != null && couponCode.isNotEmpty) 'couponCode': couponCode,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
         'outOfStockChoice': outOfStockChoice,
       },
@@ -68,7 +69,8 @@ class LocalOrderRepository implements OrderRepository {
   final LocalShop _shop;
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe'}) async {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode}) async {
+    if (couponCode != null && couponCode.isNotEmpty) throw const ConflictException('Coupons are not available here.', statusCode: 409, reason: CheckoutReasons.couponInvalid);
     if (online) throw const ConflictException('Online payment is not available', statusCode: 409, reason: 'PaymentsUnavailable');
     if (_shop.cart() == null) throw const ConflictException('Cart is empty', statusCode: 409, reason: CheckoutReasons.cartEmpty);
     return _shop.placeOrder(address: place?.line ?? 'Saved address');

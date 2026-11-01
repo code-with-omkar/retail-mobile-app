@@ -421,6 +421,31 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             }
 
             var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
+
+            // A coupon is checked again here, inside the order's transaction, with the same rules the cart used to show the discount.
+            Coupon? coupon = null;
+            var couponDiscount = 0m;
+            if (commit.CouponCode is not null)
+            {
+                var organizationId = await db.Stores.Where(item => item.Id == storeId).Select(item => item.OrganizationId).SingleAsync(cancellationToken);
+                coupon = await db.Coupons.SingleOrDefaultAsync(item => item.OrganizationId == organizationId && item.Code == commit.CouponCode, cancellationToken);
+                var mine = coupon is null ? 0 : await db.CouponRedemptions.CountAsync(item => item.CouponId == coupon.Id && item.UserId == userId && item.ReleasedAt == null, cancellationToken);
+                var hasOrders = await db.Orders.AnyAsync(item => item.UserId == userId && item.Status != OrderStatus.Cancelled && item.Status != OrderStatus.Rejected, cancellationToken);
+                var outcome = CouponRules.Check(coupon, new CouponContext(price.Subtotal, price.DeliveryFee, commit.Now ?? DateTime.UtcNow, coupon?.UsedCount ?? 0, mine, hasOrders));
+                if (outcome.Check != CouponCheck.Valid)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: outcome.Message);
+                }
+
+                couponDiscount = outcome.Discount;
+                if (commit.PaymentMethod == PaymentMethods.Online && price.Total - couponDiscount <= 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: "That code covers the whole order. Pay with cash on delivery, or remove the code.");
+                }
+            }
+
             var order = new Order
             {
                 OrderNumber = await NextOrderNumberAsync(storeId, transaction, cancellationToken),
@@ -440,7 +465,9 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 HandlingFee = price.HandlingFee,
                 CommissionPercent = commit.CommissionPercent,
                 CommissionAmount = commit.CommissionPercent is { } percent ? CommissionMath.Amount(price.Subtotal, percent) : null,
-                TotalAmount = price.Total,
+                CouponCode = coupon?.Code,
+                CouponDiscount = couponDiscount,
+                TotalAmount = price.Total - couponDiscount,
                 PaymentMethod = commit.PaymentMethod,
                 Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
                 PaymentStatus = commit.PaymentMethod == PaymentMethods.Online ? PaymentState.Created : PaymentState.NotRequired,
@@ -451,6 +478,19 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
 
             db.Orders.Add(order);
+            if (coupon is not null)
+            {
+                // One conditional update takes the use, so two orders racing for the last use cannot both get it.
+                var usesTaken = await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE Coupons SET UsedCount = UsedCount + 1 WHERE Id = {coupon.Id} AND (TotalLimit IS NULL OR UsedCount < TotalLimit)", cancellationToken);
+                if (usesTaken == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: "That code has been used up.");
+                }
+
+                db.CouponRedemptions.Add(new CouponRedemption { CouponId = coupon.Id, OrderId = order.Id, UserId = userId, Kind = coupon.Kind, Value = coupon.Value, MaxDiscount = coupon.MaxDiscount, Amount = couponDiscount });
+            }
+
             if (order.Status == OrderStatus.Pending)
             {
                 db.Notifications.Add(NotificationCatalog.Create(customerId, order.Id, NotificationTypes.OrderPlaced, order.OrderNumber));
@@ -570,12 +610,15 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
         }
 
+        // A rejected order gives its coupon use back; that is a direct update, so it shares one transaction with the status change.
+        await using var rejectTransaction = targetStatus == OrderStatus.Rejected ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         order.Status = targetStatus;
         order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
         if (targetStatus == OrderStatus.Rejected)
         {
             // A paid order the shop declines is refunded in full, and the stock it took goes back to the store (as when the customer cancels).
             await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
             {
                 var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
@@ -599,6 +642,11 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         try
         {
             await db.SaveChangesAsync(cancellationToken);
+            if (rejectTransaction is not null)
+            {
+                await rejectTransaction.CommitAsync(cancellationToken);
+            }
+
             return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
         }
         catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
@@ -682,7 +730,9 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         PaymentStatus: order.PaymentStatus,
         PaymentExpiresAt: order.PaymentExpiresAt,
         Note: order.OrderNote,
-        OutOfStockChoice: order.OutOfStockChoice);
+        OutOfStockChoice: order.OutOfStockChoice,
+        CouponCode: order.CouponCode,
+        CouponDiscount: order.CouponDiscount);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);
@@ -739,6 +789,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             order.Status = OrderStatus.Cancelled;
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
             await EndPaymentAsync(order, wasAwaitingPayment, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
 
             // The stock the order took goes back to the store, line by line. Orders from before packs existed have no variant and took none from here.
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))

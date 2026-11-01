@@ -20,8 +20,9 @@ public sealed class EfOrderChangeStore(QuickCommerceDbContext db) : IOrderChange
         }
 
         var payment = await db.Payments.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
+        var coupon = await db.CouponRedemptions.SingleOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
         var before = order.Items.ToArray();
-        var commit = OrderChangeRules.Apply(order, payment, changes, reason, changedBy, now, out var adjustment);
+        var commit = OrderChangeRules.Apply(order, payment, changes, reason, changedBy, now, out var adjustment, coupon);
         if (commit.Status != OrderChangeStatus.Succeeded)
         {
             return commit;

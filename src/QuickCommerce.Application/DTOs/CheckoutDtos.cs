@@ -11,7 +11,8 @@ public sealed record CheckoutRequest(
     Guid? AddressId = null,
     string? PaymentMethod = null,
     string? Note = null,
-    string? OutOfStockChoice = null);
+    string? OutOfStockChoice = null,
+    string? CouponCode = null);
 
 /// <summary>The delivery details after the server has resolved them: what is stored on the order.</summary>
 public sealed record CheckoutDelivery(
@@ -36,7 +37,8 @@ public sealed record CheckoutCommit(
     DateTime? Now = null,
     string? Note = null,
     string? OutOfStockChoice = null,
-    decimal? CommissionPercent = null);
+    decimal? CommissionPercent = null,
+    string? CouponCode = null);
 
 public enum CheckoutCommitStatus
 {
@@ -46,7 +48,10 @@ public enum CheckoutCommitStatus
     ProductUnavailable,
     PriceChanged,
     InventoryConflict,
-    KeyReused
+    KeyReused,
+
+    /// <summary>The coupon was refused (see the message). Nothing was changed.</summary>
+    CouponRejected
 }
 
 /// <summary>A cart line that stopped checkout. Which fields are filled in depends on the reason.</summary>
@@ -68,7 +73,8 @@ public sealed record CheckoutCommitResult(
     CheckoutCommitStatus Status,
     OrderResponse? Order = null,
     IReadOnlyList<CheckoutIssue>? Issues = null,
-    bool Replayed = false);
+    bool Replayed = false,
+    string? Message = null);
 
 /// <summary>Stable codes in the <c>reason</c> field of a failed checkout, next to the human message.</summary>
 public static class CheckoutReasons
@@ -79,6 +85,7 @@ public static class CheckoutReasons
     public const string InventoryConflict = "InventoryConflict";
     public const string IdempotencyKeyReused = "IdempotencyKeyReused";
     public const string PaymentsUnavailable = "PaymentsUnavailable";
+    public const string CouponInvalid = "CouponInvalid";
 }
 
 public enum CheckoutOperationStatus

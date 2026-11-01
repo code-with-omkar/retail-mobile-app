@@ -177,9 +177,9 @@ public sealed class ReportTests
         var csv = ReportMath.OrdersCsv(rows, new Dictionary<Guid, string> { [StoreA] = "Kharghar, Navi Mumbai" });
         var lines = csv.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
 
-        Assert.Equal("Order,Placed (India time),Store,Status,Payment method,Payment status,Item total,Delivery fee,Handling fee,Total", lines[0]);
-        Assert.Equal("'=EVIL(),2026-10-14 10:00,\"Kharghar, Navi Mumbai\",Cancelled,CashOnDelivery,NotRequired,50.00,25.00,5.00,80.00", lines[1]);
-        Assert.Equal("KHG-2,2026-10-14 12:30,\"Kharghar, Navi Mumbai\",Delivered,CashOnDelivery,NotRequired,120.50,25.00,5.00,150.50", lines[2]);
+        Assert.Equal("Order,Placed (India time),Store,Status,Payment method,Payment status,Item total,Delivery fee,Handling fee,Total,Coupon", lines[0]);
+        Assert.Equal("'=EVIL(),2026-10-14 10:00,\"Kharghar, Navi Mumbai\",Cancelled,CashOnDelivery,NotRequired,50.00,25.00,5.00,80.00,0.00", lines[1]);
+        Assert.Equal("KHG-2,2026-10-14 12:30,\"Kharghar, Navi Mumbai\",Delivered,CashOnDelivery,NotRequired,120.50,25.00,5.00,150.50,0.00", lines[2]);
         Assert.DoesNotContain(user.ToString(), csv);
     }
 

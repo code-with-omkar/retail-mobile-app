@@ -82,6 +82,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'coupons',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/coupons/coupons.component').then(
+            m => m.CouponsComponent
+          ),
+      },
+      {
         path: 'commission',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin, Role.Admin] },

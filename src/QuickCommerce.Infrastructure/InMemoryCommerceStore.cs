@@ -886,6 +886,12 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
 
     public Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default)
     {
+        if (commit.CouponCode is not null)
+        {
+            // Coupons live in the database; the in-memory store (demo data) has none, so a code is refused rather than ignored.
+            return Task.FromResult(new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: "Coupons are not available here."));
+        }
+
         lock (SyncRoot)
         {
             if (commit.IdempotencyKey is not null)

@@ -14,7 +14,7 @@ public static class OrderChangeRules
     public const int MaxChanges = 50;
     public const int ReasonMax = 200;
 
-    public static OrderChangeCommit Apply(Order order, Payment? payment, IReadOnlyList<ItemChange> changes, string? reason, Guid changedBy, DateTime now, out OrderAdjustment? adjustment)
+    public static OrderChangeCommit Apply(Order order, Payment? payment, IReadOnlyList<ItemChange> changes, string? reason, Guid changedBy, DateTime now, out OrderAdjustment? adjustment, CouponRedemption? coupon = null)
     {
         adjustment = null;
         if (order.Status is not (OrderStatus.Accepted or OrderStatus.Preparing))
@@ -63,9 +63,17 @@ public static class OrderChangeRules
         }
 
         var newSubtotal = order.Items.Sum(item => item.UnitPrice * item.Quantity);
-        var removed = oldSubtotal - newSubtotal;
+        // A coupon that shrinks with the order is part of what the customer gets back: the removed products less the discount that went with them.
+        var oldTotal = order.TotalAmount;
         order.SubtotalAmount = newSubtotal;
-        order.TotalAmount = newSubtotal + order.DeliveryFee + order.HandlingFee;
+        if (coupon is { ReleasedAt: null })
+        {
+            order.CouponDiscount = CouponRules.After(coupon, newSubtotal, order.DeliveryFee);
+            coupon.Amount = order.CouponDiscount;
+        }
+
+        order.TotalAmount = newSubtotal + order.DeliveryFee + order.HandlingFee - order.CouponDiscount;
+        var removed = oldTotal - order.TotalAmount;
         if (order.CommissionPercent is { } percent)
         {
             order.CommissionAmount = CommissionMath.Amount(newSubtotal, percent);

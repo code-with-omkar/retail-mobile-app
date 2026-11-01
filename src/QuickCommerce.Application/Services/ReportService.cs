@@ -43,7 +43,8 @@ public static class ReportMath
             delivered.Where(row => row.PaymentMethod == PaymentMethods.Online).Sum(row => row.Total),
             newCustomers,
             refunded.Length,
-            refunded.Sum(row => row.Total));
+            refunded.Sum(row => row.Total),
+            delivered.Sum(row => row.CouponDiscount));
     }
 
     /// <summary>One entry for every day of the range, empty days included, so a chart never skips a date.</summary>
@@ -103,7 +104,7 @@ public static class ReportMath
 
     public static string OrdersCsv(IEnumerable<ReportOrderRow> rows, IReadOnlyDictionary<Guid, string> storeNames)
     {
-        var text = new StringBuilder("Order,Placed (India time),Store,Status,Payment method,Payment status,Item total,Delivery fee,Handling fee,Total\r\n");
+        var text = new StringBuilder("Order,Placed (India time),Store,Status,Payment method,Payment status,Item total,Delivery fee,Handling fee,Total,Coupon\r\n");
         foreach (var row in rows.OrderBy(item => item.CreatedAt))
         {
             text.Append(string.Join(',',
@@ -116,7 +117,8 @@ public static class ReportMath
                 row.Subtotal.ToString("0.00", CultureInfo.InvariantCulture),
                 row.DeliveryFee.ToString("0.00", CultureInfo.InvariantCulture),
                 row.HandlingFee.ToString("0.00", CultureInfo.InvariantCulture),
-                row.Total.ToString("0.00", CultureInfo.InvariantCulture))).Append("\r\n");
+                row.Total.ToString("0.00", CultureInfo.InvariantCulture),
+                row.CouponDiscount.ToString("0.00", CultureInfo.InvariantCulture))).Append("\r\n");
         }
 
         return text.ToString();

@@ -3,7 +3,7 @@ using QuickCommerce.Domain;
 namespace QuickCommerce.Application.Interfaces;
 
 /// <summary>One order as the reports see it. No customer name, phone or address ever reaches a report.</summary>
-public sealed record ReportOrderRow(Guid Id, string OrderNumber, Guid StoreId, Guid UserId, DateTime CreatedAt, OrderStatus Status, string PaymentMethod, PaymentState PaymentStatus, decimal Subtotal, decimal DeliveryFee, decimal HandlingFee, decimal Total, decimal? CommissionAmount = null);
+public sealed record ReportOrderRow(Guid Id, string OrderNumber, Guid StoreId, Guid UserId, DateTime CreatedAt, OrderStatus Status, string PaymentMethod, PaymentState PaymentStatus, decimal Subtotal, decimal DeliveryFee, decimal HandlingFee, decimal Total, decimal? CommissionAmount = null, decimal CouponDiscount = 0);
 
 public sealed record ReportTotals(
     int Orders,
@@ -17,7 +17,8 @@ public sealed record ReportTotals(
     decimal OnlineRevenue,
     int NewCustomers,
     int Refunds,
-    decimal RefundedAmount);
+    decimal RefundedAmount,
+    decimal CouponDiscount = 0);
 
 public sealed record ReportDay(DateOnly Date, int Orders, int Delivered, decimal Revenue);
 

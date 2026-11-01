@@ -20,6 +20,18 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P28 Coupons (built; migration APPLIED to the dev DB 2026-11-01; not committed)
+- Admin-only coupon codes (Percent with cap, Flat, Free delivery; minimum order, date window, total and per-customer limits, first order only). The business pays: commission and store earnings are on the price before the coupon.
+- Backend: Coupon and CouponRedemption tables, Order.CouponCode/CouponDiscount (migration AddCoupons); CouponRules (pure, shared); checkout applies it inside the order transaction with an atomic use counter; use is released on customer cancel, staff reject and unpaid-hold expiry; a store reducing an order recomputes the discount (percent follows, never grows) and the refund is the drop in what was paid. API: GET/POST/PUT api/admin/coupons, POST api/carts/{storeId}/coupon (preview). Reports: coupon cost card and CSV column. 1072 backend tests pass on a throwaway DB.
+- Portal: Coupons screen (administrators). 179 portal tests.
+- Customer app: coupon box in the cart, discount in cart/checkout/order bill, code sent with the order. 566 tests. Server messages are English only.
+- Applied: backup retail-mobile-app_pre_coupons_20261101.bak (in the SQL Server Backup folder, verified), AddCoupons applied, both APIs rebuilt and restarted (5067 and 5000, health ready, coupon routes answer 401 without sign-in). Still to do: you walk section U of test-cases.md (no coupon exists yet; create one in the portal first). Phone app needs a rebuild for the coupon box, picture cache and accessibility fixes. Throwaway DBs on NCIT-08: qc_coupon_test, qc_throwaway_p27 (drop when done).
+
+## 9.2 / 9.4 / 9.7 hardening (built, passing, not committed)
+- 9.7: start-up warning when Media:RootPath is unset; "Several servers" checklist in RELEASE_AND_SECURITY.md.
+- 9.4: product and offer pictures use cached_network_image (disk cache, decoded at display size). New package: the phone app needs a rebuild. flutter pub add also printed a Windows symlink message (Developer Mode); if the Android build complains, turn it on.
+- 9.2: test/accessibility_test.dart (tap targets, labels, palette contrast). Fixed: See all / Voice search / EN-मराठी toggle now 48 dp; muted text colour lightened and the light gradient end darkened slightly for contrast.
+
 ## P27 portal tests (built, passing, not committed)
 Admin portal now has a test runner: Vitest + jsdom through Angular's unit-test builder (`npm test` in admin-portal; dev packages vitest, jsdom). 170 tests: storage, config, auth service, guards, token-refresh interceptor, API service, and every screen except notifications, not-found and unauthorized (static pages). Writing them found and fixed five bugs: Stores page looped over the signal instead of its value; Products save messages were wiped at once; Placement bid message/error were wiped by the market reload; User master stayed on Loading after a failed load, save or status change. `src/test-setup.js` gives tests an in-memory localStorage (Node 25 breaks the built-in one). CI portal job runs `npm test` before the build. Screens are tested by calling their methods with a stand-in ApiService.
 

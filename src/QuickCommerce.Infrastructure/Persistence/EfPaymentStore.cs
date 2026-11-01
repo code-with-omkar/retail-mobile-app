@@ -142,7 +142,9 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
         }
 
         var payment = await db.Payments.FirstOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var note = PaymentTransitions.ExpireHold(order, payment, now);
+        await CouponUsage.ReleaseAsync(db, order.Id, now, cancellationToken);
         foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
         {
             var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
@@ -154,6 +156,7 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
 
         await AddNoteAsync(order, note, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         db.ChangeTracker.Clear();
         return true;
     }

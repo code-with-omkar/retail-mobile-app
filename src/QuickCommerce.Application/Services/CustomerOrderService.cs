@@ -137,5 +137,7 @@ public sealed class CustomerOrderService(
         PaymentStatus: order.PaymentStatus,
         PaymentExpiresAt: order.PaymentExpiresAt,
         Note: order.OrderNote,
-        OutOfStockChoice: order.OutOfStockChoice);
+        OutOfStockChoice: order.OutOfStockChoice,
+        CouponCode: order.CouponCode,
+        CouponDiscount: order.CouponDiscount);
 }

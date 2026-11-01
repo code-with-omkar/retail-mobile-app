@@ -312,6 +312,7 @@ class _DetailState extends ConsumerState<_Detail> {
               BillRow(context.tr('Item total'), rupees(order.subtotal)),
               BillRow(context.tr('Delivery fee'), order.deliveryFee == 0 ? context.tr('FREE') : rupees(order.deliveryFee), accent: order.deliveryFee == 0),
               BillRow(context.tr('Handling fee'), rupees(order.handlingFee)),
+              if (order.couponDiscount > 0) BillRow(context.tr('Coupon ({code})', {'code': order.couponCode ?? ''}), '−${rupees(order.couponDiscount)}', accent: true),
               Divider(color: p.border),
               BillRow(context.tr('Payment'), context.tr(order.payment == 'CashOnDelivery' ? 'Cash on delivery' : order.isOnline ? 'Online payment' : order.payment)),
               BillRow(context.tr('Total'), rupees(order.total), bold: true),

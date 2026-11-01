@@ -399,11 +399,15 @@ public sealed class Order
 	public required string OrderNumber { get; set; }
 	public Guid UserId { get; set; }
 	public Guid StoreId { get; set; }
-	/// <summary>What the customer pays: <see cref="SubtotalAmount"/> + <see cref="DeliveryFee"/> + <see cref="HandlingFee"/>.</summary>
+	/// <summary>What the customer pays: <see cref="SubtotalAmount"/> + <see cref="DeliveryFee"/> + <see cref="HandlingFee"/> - <see cref="CouponDiscount"/>.</summary>
 	public decimal TotalAmount { get; set; }
 	public decimal SubtotalAmount { get; set; }
 	public decimal DeliveryFee { get; set; }
 	public decimal HandlingFee { get; set; }
+
+	/// <summary>The coupon the customer used and what it took off the total (0 and null when none). The business pays it: commission is not reduced.</summary>
+	public string? CouponCode { get; set; }
+	public decimal CouponDiscount { get; set; }
 
 	/// <summary>How the customer pays. Only <see cref="PaymentMethods.CashOnDelivery"/> exists until online payment (P7).</summary>
 	public string PaymentMethod { get; set; } = PaymentMethods.CashOnDelivery;

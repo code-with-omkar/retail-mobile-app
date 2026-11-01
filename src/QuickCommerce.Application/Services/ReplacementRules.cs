@@ -78,7 +78,7 @@ public static class ReplacementRules
     }
 
     /// <summary>The customer accepted: swap the line. Changes the order, the replacement's stock and (for a saving on a paid order) queues a refund.</summary>
-    public static ReplacementCommit Accept(Order order, Payment? payment, ReplacementProposal proposal, StoreVariantInventory? stock, Guid decidedBy, DateTime now)
+    public static ReplacementCommit Accept(Order order, Payment? payment, ReplacementProposal proposal, StoreVariantInventory? stock, Guid decidedBy, DateTime now, CouponRedemption? coupon = null)
     {
         if (proposal.Status != "Pending")
         {
@@ -118,8 +118,16 @@ public static class ReplacementRules
         line.Quantity = proposal.NewQuantity;
         stock.AvailableQuantity -= proposal.NewQuantity;
         var newSubtotal = order.Items.Sum(item => item.UnitPrice * item.Quantity);
+        // A coupon that shrinks with the order is part of what the customer gets back: the removed products less the discount that went with them.
+        var oldTotal = order.TotalAmount;
         order.SubtotalAmount = newSubtotal;
-        order.TotalAmount = newSubtotal + order.DeliveryFee + order.HandlingFee;
+        if (coupon is { ReleasedAt: null })
+        {
+            order.CouponDiscount = CouponRules.After(coupon, newSubtotal, order.DeliveryFee);
+            coupon.Amount = order.CouponDiscount;
+        }
+
+        order.TotalAmount = newSubtotal + order.DeliveryFee + order.HandlingFee - order.CouponDiscount;
         if (order.CommissionPercent is { } percent)
         {
             order.CommissionAmount = CommissionMath.Amount(newSubtotal, percent);
@@ -128,7 +136,7 @@ public static class ReplacementRules
         proposal.Status = "Accepted";
         proposal.DecidedAt = now;
 
-        var saving = oldSubtotal - newSubtotal;
+        var saving = oldTotal - order.TotalAmount;
         var refundPaise = 0L;
         var refundStatus = "None";
         if (saving > 0 && payment is { Status: PaymentState.Paid })

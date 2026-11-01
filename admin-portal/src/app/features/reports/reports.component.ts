@@ -7,7 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { ConfigService } from '../../core/services/config.service';
 import { Role, Store } from '../../core/models/domain.model';
 
-interface Totals { orders: number; delivered: number; inProgress: number; cancelled: number; rejected: number; revenue: number; averageOrder: number; cashRevenue: number; onlineRevenue: number; newCustomers: number; refunds: number; refundedAmount: number; }
+interface Totals { orders: number; delivered: number; inProgress: number; cancelled: number; rejected: number; revenue: number; averageOrder: number; cashRevenue: number; onlineRevenue: number; newCustomers: number; refunds: number; refundedAmount: number; couponDiscount?: number; }
 interface Day { date: string; orders: number; delivered: number; revenue: number; }
 interface Hour { hour: number; orders: number; }
 interface Product { productId: string; name: string; quantity: number; revenue: number; }
@@ -69,6 +69,7 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
           <article class="kpi green"><p>Paid online</p><strong>{{ r.totals.onlineRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>delivered</small></article>
           <article class="kpi yellow"><p>New customers</p><strong>{{ r.totals.newCustomers }}</strong><small>first order in this period</small></article>
           <article class="kpi pink"><p>Refunds</p><strong>{{ r.totals.refunds }}</strong><small>{{ r.totals.refundedAmount | currency:'INR':'symbol':'1.0-0' }} returned</small></article>
+          <article class="kpi yellow" *ngIf="r.totals.couponDiscount"><p>Coupons</p><strong>{{ r.totals.couponDiscount | currency:'INR':'symbol':'1.0-0' }}</strong><small>given as discounts</small></article>
         </div>
 
         <h3>Revenue by day</h3>
