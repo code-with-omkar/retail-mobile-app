@@ -315,6 +315,7 @@ export class UserMasterComponent implements OnInit {
       },
       error: error => {
         this.apiError.set(error?.message ?? 'User management API is unavailable in the current backend.');
+        this.isLoading.set(false);
       },
       complete: () => {
         this.isLoading.set(false);
@@ -336,6 +337,7 @@ export class UserMasterComponent implements OnInit {
       },
       error: error => {
         this.apiError.set(error?.message ?? 'User status update is unavailable until the backend contract is added.');
+        this.isLoading.set(false);
       },
       complete: () => {
         this.isLoading.set(false);
@@ -438,6 +440,7 @@ export class UserMasterComponent implements OnInit {
       },
       error: error => {
         this.apiError.set(error?.message ?? 'User master data is unavailable until the backend exposes its user API.');
+        this.isLoading.set(false);
       },
       complete: () => {
         this.isLoading.set(false);

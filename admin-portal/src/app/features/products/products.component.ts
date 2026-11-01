@@ -283,7 +283,7 @@ export class ProductsComponent implements OnInit {
     if (this.busy()) return;
     this.busy.set(true); this.error.set(null); this.notice.set(null);
     call.subscribe({
-      next: (r: { data?: AdminProduct }) => { this.busy.set(false); this.notice.set(done); if (r.data) then(r.data); },
+      next: (r: { data?: AdminProduct }) => { this.busy.set(false); if (r.data) then(r.data); this.notice.set(done); },
       error: (e: { message?: string }) => { this.busy.set(false); this.error.set(e?.message ?? 'Could not save.'); },
     });
   }

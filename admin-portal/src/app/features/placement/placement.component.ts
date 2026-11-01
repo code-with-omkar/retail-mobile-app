@@ -178,8 +178,9 @@ export class PlacementComponent implements OnInit {
     });
   }
 
-  loadMarket() {
-    this.error.set(null); this.notice.set(null);
+  /** `keepMessages` is for the reads that follow an action, so its result message is not wiped. */
+  loadMarket(keepMessages = false) {
+    if (!keepMessages) { this.error.set(null); this.notice.set(null); }
     this.api.get<Market>('/placement/market', { params: { pincode: this.pincode } }).subscribe({
       next: r => { this.market.set(r.data ?? null); this.amounts.set({}); },
       error: e => { this.market.set(null); this.error.set(e?.message ?? 'Could not load the weeks.'); },
@@ -194,10 +195,10 @@ export class PlacementComponent implements OnInit {
       next: r => {
         this.busy.set(false);
         this.notice.set('Bid placed. Pay to take the lead; it leads only once it is paid and the highest.');
-        this.loadBids(); this.loadMarket();
+        this.loadBids(); this.loadMarket(true);
         if (r.data) setTimeout(() => this.pay(r.data!), 0);
       },
-      error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not place the bid.'); this.loadMarket(); },
+      error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not place the bid.'); this.loadMarket(true); },
     });
   }
 
@@ -205,7 +206,7 @@ export class PlacementComponent implements OnInit {
     if (this.busy()) return;
     this.busy.set(true); this.error.set(null); this.notice.set(null);
     this.api.post<Bid>('/placement/bids/' + b.id + '/cancel').subscribe({
-      next: () => { this.busy.set(false); this.notice.set('Bid cancelled.'); this.loadBids(); if (this.market()) this.loadMarket(); },
+      next: () => { this.busy.set(false); this.notice.set('Bid cancelled.'); this.loadBids(); if (this.market()) this.loadMarket(true); },
       error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not cancel the bid.'); this.loadBids(); },
     });
   }
@@ -241,9 +242,9 @@ export class PlacementComponent implements OnInit {
       providerPaymentId: response.razorpay_payment_id,
       signature: response.razorpay_signature,
     }).subscribe({
-      next: () => { this.busy.set(false); this.notice.set('Paid. Your store leads this pincode for that week.'); this.loadBids(); if (this.market()) this.loadMarket(); },
+      next: () => { this.busy.set(false); this.notice.set('Paid. Your store leads this pincode for that week.'); this.loadBids(); if (this.market()) this.loadMarket(true); },
       // The money is not lost: a higher bid paid first means a full refund, and a payment we could not confirm is found on its own.
-      error: e => { this.busy.set(false); this.error.set((e?.message ?? 'We could not confirm the payment yet.') + ' If you were charged and did not win, it is refunded in full.'); this.loadBids(); if (this.market()) this.loadMarket(); },
+      error: e => { this.busy.set(false); this.error.set((e?.message ?? 'We could not confirm the payment yet.') + ' If you were charged and did not win, it is refunded in full.'); this.loadBids(); if (this.market()) this.loadMarket(true); },
     });
   }
 }
