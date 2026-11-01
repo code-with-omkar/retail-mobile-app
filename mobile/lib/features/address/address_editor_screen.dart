@@ -6,6 +6,7 @@ import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/location_services.dart';
+import 'map_picker.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../auth/auth_controller.dart';
@@ -103,6 +104,16 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
     } finally {
       if (mounted) setState(() => _locating = false);
     }
+  }
+
+  /// Opens the map on the current point (or the delivery place already chosen, or Mumbai) and takes the spot the customer confirms.
+  Future<void> _chooseOnMap() async {
+    final start = _hasPoint ? (latitude: _lat!, longitude: _lng!) : ref.read(deliveryPlaceProvider) != null ? (latitude: ref.read(deliveryPlaceProvider)!.latitude, longitude: ref.read(deliveryPlaceProvider)!.longitude) : (latitude: 19.0760, longitude: 72.8777);
+    final picked = await Navigator.of(context).push<PickedPlace>(MaterialPageRoute(builder: (_) => MapPickerScreen(start: start)));
+    if (picked == null || !mounted) return;
+    // The address text is filled in only when nothing was typed: what the customer wrote is never replaced.
+    if (_line.text.trim().isEmpty && picked.line != null) _line.text = picked.line!;
+    _setPoint(picked.latitude, picked.longitude);
   }
 
   Future<void> _findAddress() async {
@@ -213,6 +224,10 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
             const SizedBox(width: 10),
             Expanded(child: SoftPillButton(context.tr('Use my current location'), height: 52, onPressed: _busy || _locating ? () {} : _useMyLocation)),
           ]),
+          if (ref.watch(mapsAvailableProvider).value ?? false) ...[
+            const SizedBox(height: 10),
+            SoftPillButton(context.tr('Choose on map'), height: 52, onPressed: _busy ? () {} : _chooseOnMap),
+          ],
           const SizedBox(height: 12),
           _LocationStatus(lat: _lat, lng: _lng, service: _service, error: _locationError, working: _finding || _locating),
           Theme(

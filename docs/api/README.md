@@ -193,7 +193,7 @@ Status: built, tested and applied to the dev database (2026-10-09). Everything b
 | **409** `{ success: false, message, reason: "OrderNotCancellable" }` | The shop has already accepted or finished with it (Accepted, Preparing, Ready, Completed, Rejected). The customer is told to contact the store. |
 | **404** | Not the caller's order, or no such order. |
 
-A successful cancel, in one transaction: the status becomes Cancelled (with a status-history row), the stock of every line goes back to the store, and the customer gets a notification ("Order cancelled" / "Your order was cancelled."). If the shop accepts at the same moment, exactly one of the two wins; staff can no longer accept a cancelled order (the existing transition rule refuses it). No refund is involved while payment is cash on delivery.
+A successful cancel, in one transaction: the status becomes Cancelled (with a status-history row), the stock of every line goes back to the store, and the customer gets a notification ("Order cancelled" / "Your order was cancelled."). If the shop accepts at the same moment, exactly one of the two wins; staff can no longer accept a cancelled order (the existing transition rule refuses it). No refund is involved while payment is cash on delivery. When the shop rejects an order instead, its stock goes back to the store the same way (once).
 
 **Notifications:**
 
@@ -224,3 +224,264 @@ Status: built and tested (2026-10-09); migration `AddOnlinePayments` applied to 
 Reasons on a **409** from start or confirm: `PaymentsUnavailable`, `NotAnOnlineOrder`, `PaymentHoldExpired`, `AlreadyPaid`, `OrderNotAwaitingPayment`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another customer's order is **404**.
 
 **Rules:** the shop sees an online order only after it is paid. A payment that arrives after the hold ran out, or for a different amount, is refunded automatically and the order stays cancelled. The customer cancelling a paid order (while still Pending) or the shop rejecting it queues a full refund to the original method; an unpaid order cancelled just releases the items. A background job (every `JobIntervalSeconds`) releases the items of unpaid orders after the hold, starts queued refunds (retrying temporary provider errors, marking permanent refusals `RefundFailed`), and looks up payments whose notification never arrived. Every state change is one transaction and safe to run twice or on several servers.
+
+## Order numbers (P10)
+
+Status: built and tested (2026-10-09); migration `AddStoreCodesAndOrderNumberCounters` applied to the dev database (backup `retail-mobile-app_pre-P10-order-numbers.bak`).
+
+New orders are numbered `STORE-yyMMdd-nnnn`, for example `KHG-261009-0042`: the store's code (`Stores.Code`, up to 8 letters or digits, unique), the day in India time, and that store's count for the day (restarts at 0001 each day, grows past four digits if needed). The number is given inside the order's own transaction, so two orders never share one and a refused order does not use up a number. Orders placed before keep their old numbers. `orderNumber` in every answer is simply this string. Existing stores get a code from the first three letters of their name when the migration runs; `docs/sql/dev-store-codes.sql` sets the preferred dev codes (KHG, PNV, HBR, BLP, CDR, NSF).
+
+## Notification system (P11)
+
+Status: built and tested (2026-10-09); migration `AddNotificationSystem` applied to the dev database (backup `retail-mobile-app_pre-P11-notifications.bak`).
+
+**Types.** Every notification has a `type` and a `category` (`Order`, `Payment`, `Offer`, `System`). Types: OrderPlaced, OrderAccepted, OrderPacking, OutForDelivery, OrderDelivered, OrderRejected, OrderCancelled, PaymentReceived, PaymentNotCompleted, PaymentProblem, PaymentWillBeRefunded, RefundProcessed, Offer. The words for each (English and Marathi) live in one place (`NotificationCatalog`); an order event only names the type and the order number. Older rows with other types are shown exactly as stored.
+
+**Reading.** `GET api/customer/notifications?unreadOnly=&lang=mr` returns `title` and `message` written in the requested language (`mr` for Marathi, anything else English) plus `category`. Everything else on that route is unchanged.
+
+**Order events** now notify the customer: placed (cash orders, at checkout; online orders get "Payment received" once paid), accepted, packing (Preparing), out for delivery (Ready), delivered (Completed), declined, cancelled; and the payment ones (received, not completed, problem, will be refunded, refund processed). Each message names the order number.
+
+**Preferences.** `GET` and `PUT api/customer/notifications/preferences` with `{ "offers": true|false }`. Only offers can be switched off; order and payment messages are always sent.
+
+**Offers (admin).** `GET api/admin/campaigns`, `POST api/admin/campaigns` (`titleEn`, `bodyEn` required up to 160 and 500 characters; `titleMr` and `bodyMr` both or neither; `startsAt` optional, a past or empty time means now), `POST api/admin/campaigns/{id}/cancel` (409 `CampaignAlreadySent` once sent). Admin only. A background job (every 30 seconds, safe on several servers) sends each due campaign once to every active customer with offers on; the count is kept on the campaign. Status is `Scheduled`, `Sent` or `Cancelled`. Push (FCM) will reuse the same types later.
+
+## Store-owned offers (P13)
+
+Status: built and tested (2026-10-12); migration `AddCampaignStores` applied to the dev database (backup `retail-mobile-app_pre-P13-campaign-stores.bak`).
+
+Offers belong to stores (`CampaignStores`; none means every store). Routes are the same, `api/admin/campaigns` (list, create, `{id}/cancel`), now open to administrators and store staff (policy `OfferManagement`):
+
+| Who | Create | List | Cancel |
+| --- | --- | --- | --- |
+| Administrator | for any chosen stores, or none = every store (`storeIds`) | every offer | any |
+| Store staff | always for their own store (empty `storeIds` means their store; another store is **403**) | offers that are for their store | only offers for their store alone (others look like **404**) |
+
+The request gains optional `storeIds`; the answer gains `stores` (id and name) and `allStores`. **Audience:** an offer for chosen stores goes to customers of those stores who have offers on, where a customer of a store has ordered from it or has a cart there; an offer for no store goes to every customer with offers on. Each notification carries the store name; `GET api/customer/notifications` returns it as `storeName` (null for an offer from the whole business), and the app shows "From {store}".
+
+## Offer publishing fee (P14)
+
+Status: built and tested (2026-10-12); migration `AddOfferFees` applied to the dev database (backup `retail-mobile-app_pre-P14-offer-fees.bak`).
+
+**Who pays what.** Store staff pay a fee to publish an offer: their store's own fee if an administrator set one, otherwise the default; 0 is free. Offers an administrator creates are always free. The fee is fixed on the offer when it is created (`feePaise`), so later changes do not touch it. While the fee is unpaid the offer's status is `AwaitingPayment` and it is **never sent**; once paid it is `Scheduled` and goes out at its start time. Creating an offer with a fee while online payment is off is **409** `PaymentsUnavailable` (a free offer still works).
+
+| Route | What |
+| --- | --- |
+| `GET api/admin/offer-fees` (admin) | `{ defaultPaise, stores: [{ storeId, name, overridePaise, effectivePaise }] }` |
+| `PUT api/admin/offer-fees/default` (admin) | `{ amountPaise }`, 0 to 1,00,00,000 (₹1,00,000) |
+| `PUT api/admin/offer-fees/stores/{storeId}` (admin) | `{ amountPaise }`, or `null` to remove the store's own fee |
+| `GET api/admin/offer-fees/mine` | What an offer would cost the person asking (staff: their store's fee; admin: 0) and whether online payment is on |
+| `POST api/admin/campaigns/{id}/payment` | Starts or resumes paying: `provider`, `keyId`, `providerOrderId`, `amountPaise`, `currency`. Asking again reuses the same provider order, so the fee is never charged twice |
+| `POST api/admin/campaigns/{id}/payment/confirm` | `{ providerOrderId, providerPaymentId, signature }` from the checkout. The server checks the signature and asks the provider itself; repeating it changes nothing |
+
+Reasons on a **409**: `PaymentsUnavailable`, `OfferNotAwaitingPayment`, `AlreadyPaid`, `PaymentSignatureInvalid`, `PaymentMismatch`, `PaymentAmountMismatch`, `PaymentNotCaptured`, `PaymentProviderUnavailable`. Another store's offer is **404**.
+
+**Cancel and refund.** Cancelling an offer before it is sent refunds a paid fee in full to the original payment method (a background step, retried when the provider is busy; a refusal marks it `RefundFailed`); an unpaid one is just closed. A payment that arrives after the offer was cancelled, or for the wrong amount, is refunded automatically. A fee whose confirmation never arrived is found by a background lookup. Payment status uses the same numbers as order payments (0 NotRequired, 1 Created, 2 Failed, 3 Paid, 4 Refunding, 5 Refunded, 6 RefundFailed).
+
+## Paid placement (P15)
+
+Status: built and tested (2026-10-12); migration `AddPaidPlacement` **not yet applied** to the dev database.
+
+A store bids for first place in a pincode for a week (week starts Monday 00:00 India time; bidding for a week closes when it starts) and pays up front. The highest **paid** bid leads; a higher paid bid replaces it and the beaten bid is refunded in full. An equal bid loses to the earlier payer. A payment that arrives late, for the wrong amount, or for a cancelled bid is refunded. Unpaid bids never lead.
+
+| Route | What |
+| --- | --- |
+| `GET api/placement/rules` | `enabled, minBidPaise, minStepPaise, maxWeeksAhead` (defaults on, ₹500, ₹100, 4) |
+| `PUT api/placement/rules` (admin) | Same fields |
+| `GET api/placement/market?pincode=` | Weeks ahead with the highest bid, whether it is yours, and the least to bid |
+| `GET api/placement/bids` / `POST api/placement/bids` | List; place `{ pincode, weekStart, amountPaise, storeId? }` (admin picks the store; max 20 unpaid bids per store) |
+| `POST api/placement/bids/{id}/cancel` | Cancel (a paid bid is refunded) |
+| `POST api/placement/bids/{id}/payment` and `/payment/confirm` | Same shape as offer fees |
+
+**Customers:** `GET api/catalog/stores?latitude&longitude&pincode` lists the pincode's leading store first with `sponsored: true`, only if that store already delivers there. The app shows a "Sponsored" tag.
+
+## Delivery partners (P12)
+
+Status: built and tested (2026-10-12); migration `AddDeliveryAssignment` applied to the dev database (backup `retail-mobile-app_pre-P12-delivery.bak`). Orders gain `DeliveryPartnerId`, a four-digit code, cash collected and pickup/delivery times.
+
+**Flow.** Staff give a **Ready** order to an active delivery partner of the same store (a partner is a user with role `DeliveryPartner` and a store). The partner picks it up (status **OutForDelivery**, customer notified), then completes it (**Delivered**, customer notified) with the code the customer sees in the app and the cash collected. Once a partner holds an order, staff can no longer set it Completed.
+
+| Route | Who | What |
+| --- | --- | --- |
+| `GET api/delivery/partners?storeId=` | staff (own store), admin (names the store) | Active partners: `id, name, phone, activeDeliveries` |
+| `POST api/operations/orders/{id}/assign` | staff, admin | `{ partnerId }`. **404** other store's order, **400** not an active partner of the store, **409** order not Ready. Same partner again changes nothing; changing partner while Ready keeps the code |
+| `GET api/delivery/mine` | partner | Ready and out-for-delivery orders, plus those delivered in the last 24 hours: address, receiver name/phone, items, `cashToCollect` |
+| `POST api/delivery/{id}/pickup` | partner | Ready to OutForDelivery. Repeating changes nothing |
+| `POST api/delivery/{id}/deliver` | partner | `{ otp, cashCollected }`. Cash on delivery: exactly the total; online: 0 (**400** otherwise). Wrong code **400** `reason: WrongCode`; 5 wrong codes lock the order 15 minutes (**429** `reason: Locked`) |
+
+**Customer.** `GET api/customer/orders` and `/{id}` add `deliveryPartnerName` (first name), `deliveryPartnerPhone` and `deliveryOtp` **only while the order is out for delivery**. Staff and the portal never get the code. Another partner's order looks like **404**.
+
+**Portal.** Orders list shows the partner (`deliveryPartnerId`, `deliveryPartner`); Ready orders get a partner picker with Give / Change.
+
+## Catalogue editing, pictures and stock (P16: tasks 1.5, 1.12, 3.5)
+
+Status: built and tested (2026-10-12). **No database migration**: it uses existing tables.
+
+**Who.** Administrators (`Admin`, `ApplicationAdmin`) edit the shared catalogue; **store staff set their own store's stock**; an administrator names the store. Everyone else is **403**.
+
+| Route | What |
+| --- | --- |
+| `GET api/admin/catalog/products?search=&page=&pageSize=` | Products (also switched-off ones) with sizes and Marathi text |
+| `POST api/admin/catalog/products` | `{ sku, name, description, categoryId, unitOfMeasure, price, mrp? }`; also makes the first (default) size. **409** SKU used |
+| `PUT api/admin/catalog/products/{id}` | `{ name, description, categoryId, unitOfMeasure, isActive }` (SKU never changes) |
+| `PUT / DELETE api/admin/catalog/products/{id}/translations/mr` | `{ name, description? }`; only `mr` is accepted |
+| `POST api/admin/catalog/products/{id}/variants` | `{ sku, label, price, mrp?, sortOrder, isActive }`; new sizes are never the default |
+| `PUT .../variants/{variantId}` | Same body. The default size cannot be switched off (**400**) |
+| `POST .../variants/{variantId}/default` | Makes an active size the default, in one step |
+| `POST api/admin/catalog/products/{id}/image` | Form field `file`: JPEG, PNG or WebP, up to 2 MB, judged by content not name (**400** otherwise). Returns the product with `imageUrl` = `/media/products/...` |
+| `DELETE api/admin/catalog/products/{id}/image` | Removes the picture and its file |
+| `GET api/stock?storeId=` / `PUT api/stock/{variantId}?storeId=` | Every active size with this store's stock; set `{ carried, available, reorderThreshold }`. Not carried removes the stock row |
+
+**Rules.** Price above 0 up to 1,00,000 with 2 decimals; MRP not below price. The product's own price and MRP always follow its default size. Past orders keep the price they were placed at. Pictures are stored by a name the server makes, served from `/media` with `nosniff`, and live in `Media:RootPath` (default `src/QuickCommerce.Api/media`, not committed). The apps turn a `/media/...` path into a full address on the same server. The customer app lists per store without a cache, so edits show at once; unscoped lists may take up to 5 minutes.
+
+## Phone OTP and Google sign-in (P8)
+
+Status: built and tested (2026-10-13); migration `AddOtpAndSocialSignIn` applied to the dev database (backup `retail-mobile-app_pre-P8-signin.bak`).
+
+| Route | What |
+| --- | --- |
+| `POST api/auth/otp/request` | `{ phone }` (10 digits, +91 optional) → `{ resendAfterSeconds, expiresInSeconds }`. **400** not an Indian mobile; **429** too soon / too many (`Retry-After`); **502** the text could not be sent |
+| `POST api/auth/otp/verify` | `{ phone, code, fullName? }` → the same token response as login. **401** for every wrong, expired or used code |
+| `POST api/auth/google` | `{ idToken }` → token response. **401** token not accepted or email not verified by Google; **503** Google is not configured; **403** the email belongs to a staff account |
+| `POST api/account/phone/otp/request` and `/verify` | Signed-in customer: prove a number for their own account. **409** the number is verified on another account |
+
+`GET/PUT api/customer/profile` now also returns `phoneVerified`; a phone-only account has an empty `email`.
+
+**Configuration.** `Otp:Sender` = `Log` (Development only: the code is written to the API log) or `Msg91` (`Otp:Msg91:AuthKey`, `Otp:Msg91:TemplateId`, from a secret store). `Google:ClientIds` = the web OAuth client id(s) the app's ID tokens are made for; empty turns Google sign-in off. Optional: `Otp:CodeKey`, `Otp:LifetimeMinutes`, `Otp:MaxAttempts`, `Otp:ResendSeconds`, `Otp:MaxRequestsPerHour`, `RateLimits:Auth:OtpRequestPerHour` / `OtpVerifyPerHour` / `GooglePerHour`.
+
+## Account deletion and browser access (release readiness)
+
+| Route | What |
+| --- | --- |
+| `POST api/customer/profile/delete` | `{ confirmation: "DELETE", password? }`. The password is required when the account has one (**400** if wrong). Erases the customer's personal data and closes the account; order and payment records stay without name, phone, address and delivery code. **409** while an order is open or a refund is in progress. Every session ends. No migration |
+
+`GET/PUT api/customer/profile` also returns `hasPassword` (false for accounts made with a phone number or Google).
+
+**Configuration.** `Cors:AllowedOrigins` lists the web pages (for example the admin portal at `https://portal.example.com`) that may call the API from a browser; plain origins only. In Development any page may; elsewhere an empty list means none, and the API warns at start-up. See `docs/RELEASE_AND_SECURITY.md` for the release steps and the security review.
+
+## Reports and the order list (P17)
+
+Status: built and tested (2026-10-14). No migration.
+
+| Route | What |
+| --- | --- |
+| `GET api/reports?from=2026-10-01&to=2026-10-14&storeId=` | Totals, a row for every day, orders by India hour, top 10 products, by-store table, low stock, and (administrators, all stores) platform income. Store staff always get their own store; `storeId` is for administrators. **400** for an end before the start or more than 92 days; **403** for anyone else |
+| `GET api/reports/orders.csv` | The same range as a CSV file: order number, India time, store, status, payment, money. No name, phone, address or id of a customer; cells that start with = + - @ are protected from spreadsheet formulas |
+
+**Definitions.** Days are India days. *Revenue* = total of orders that are Delivered or Completed. *In progress* = open orders; *lost* = cancelled and declined. Unpaid holds are in no count. *New customers* = people whose first order from the stores in scope was placed in the range. *Refunds* = orders whose payment was refunded or is being refunded. *Platform income* (paid and returned offer fees and placement bids) is created-date based.
+
+**Order list.** `GET api/orders` (the portal's Orders page) now comes back with what needs the staff first: new orders, then accepted, packing, ready, on the way, and finished ones last; newest first within each group. The portal reads it again every 15 seconds while the page is open, and marks new orders **NEW**.
+
+## Saved items and ordering again (P18)
+
+Status: built and tested (2026-10-15); migration `AddFavouriteProducts` applied to the dev database (backup `retail-mobile-app_pre-P18-favourites.bak`).
+
+| Route | What |
+| --- | --- |
+| `GET api/customer/favourites/ids` | Ids of every saved product, newest first (for the app's hearts) |
+| `GET api/customer/favourites?storeId=` | The saved products still on sale, newest first, at most 60; with a store each carries its stock |
+| `PUT api/customer/favourites/{productId}` | Saves a product; saving twice changes nothing. **404** unknown or off-sale product; **409** at the limit of 200 |
+| `DELETE api/customer/favourites/{productId}` | Removes it; removing what is not there changes nothing |
+
+Only a customer has a list (**403** for anyone else), and it is the signed-in customer's own, taken from the token. Deleting the account erases the list.
+
+**Order again** needs no new route: the app sends the order's lines to the existing `POST api/carts/{storeId}/merge` for **the order's own store**. The server adds what it can, never more than the store has, and reports the rest (`Unavailable`, `OutOfStock`, `Reduced`). A cart in another store is emptied first, after the customer agrees.
+
+## Order ratings (P19)
+
+Status: built and tested (2026-10-15); migration `AddOrderRatings` applied to the dev database (backup `retail-mobile-app_pre-P19-ratings.bak`).
+
+| Route | What |
+| --- | --- |
+| `GET api/customer/orders/{id}/rating` | `{ canRate, canRateDelivery, rating }` for the customer's own order. `canRate` is true once the order is Delivered or Completed and for 14 days after; `canRateDelivery` only when a delivery partner brought it. **404** for an order that is not theirs |
+| `PUT api/customer/orders/{id}/rating` | `{ storeStars 1-5, deliveryStars? 1-5, comment? up to 500 characters }`. Gives the rating, or changes it (one per order). **409** not delivered yet / past 14 days; **400** bad stars, a delivery rating without a partner, or a comment with < > or control characters |
+| `GET api/reports/ratings?from=&to=&storeId=` | Staff (own store) and administrators (any store, or all): count, average, the spread of 1 to 5 stars, the delivery average, each delivery partner's average, and the latest 30 ratings. The customer is never named |
+
+The store and the partner are taken from the order, never from the request. Deleting an account erases the comment and the link to the customer; the stars stay in the figures. The portal **Reports** page shows the ratings.
+
+## Offers with discounts, pictures and pop-ups; your stores; bought before (P20)
+
+Status: built and tested (2026-10-15); migration `AddOfferDiscountsAndImages` applied to the dev database (additive: new columns on Campaigns and OfferFees, one new table CampaignProducts, one check).
+
+An offer is a message, a percent off chosen products, a picture, or a mix. Staff (own store) and administrators (any stores) create them as before on `POST api/admin/campaigns`; new fields:
+
+| Field | Meaning |
+| --- | --- |
+| `notify` (default true) | Send the notification. False = a quiet discount (banner and prices only); then the message is optional but a discount is required |
+| `discountPercent` 1 to 90, `endsAt`, `productIds` (1 to 50) | Percent off every size of those products at the offer's stores, from the start until `endsAt` (after the start, at most 90 days). Products must exist and be active |
+| `imageUrl` | A path returned by `POST api/admin/campaigns/image` (form field `file`; JPEG, PNG or WebP by content, up to 2 MB; saved under /media/offers). Any other path is refused |
+| `showOnLoad` | Also shown as a pop-up when the app opens. Store staff pay the extra `loadPaise` fee on top of their normal fee; administrators pay nothing |
+
+Also: `GET api/admin/campaigns/products?search=` (product picker), `POST api/admin/campaigns/{id}/end-discount` (stops a running discount now; 409 when there is none), `PUT api/admin/offer-fees/load` (administrator sets the app-open fee; `loadPaise` is in `GET api/admin/offer-fees` and `.../mine`).
+
+Prices: the server decides. Where offers cover a product the highest percent wins (no stacking). The catalogue shows the lower `price`, the old figure as `mrp` (struck through), `discountPercent` and `offerPercent`; the cart and checkout charge the same price (`PriceChanged` when a discount starts or ends after an item was added, and the receipt keeps the normal price as the MRP). Unpaid, cancelled, not-yet-started and ended offers give no discount.
+
+Customer side:
+
+| Route | What |
+| --- | --- |
+| `GET api/catalog/offers?storeId=` | Banners for Home: running discounts and picture messages (7 days), with `showOnLoad` |
+| `GET api/catalog/offers/{id}` | One offer for the screen a notification or banner opens (title, message, picture, percent, `endsAt`, `running`, stores, `productIds`). 404 when not started, cancelled or unpaid |
+| `GET api/customer/recent-stores` | Up to four stores the signed-in customer bought from last (cancelled and unpaid orders do not count) |
+| `GET api/customer/stores/{storeId}/bought-before` | What they bought at that store before, newest first, with today's price, offers and stock |
+
+Notifications now carry `campaignId` and `imageUrl`, so tapping an offer notification opens the offer.
+
+## Order note and out-of-stock choice (P21)
+
+Status: built and tested (2026-10-15); migration `AddOrderNotes` **not yet applied** to the dev database (additive: two nullable columns on Orders).
+
+`POST api/checkout/{storeId}` accepts two more fields:
+
+| Field | Meaning |
+| --- | --- |
+| `note` | Optional text for the store, up to 200 characters, trimmed (blank means none). `<`, `>` and control characters are refused (400) |
+| `outOfStockChoice` | `Remove`, `CallMe` or `Replace`; anything else is refused (400); missing means `CallMe` |
+
+Both are kept on the order and come back as `note` and `outOfStockChoice` in the customer's order and in the portal's order list (`GET api/orders`). They are part of the idempotency check: the same key with a different note is a conflict. Deleting an account erases the note. The store only reads them; nothing adjusts the order automatically (the store phones the customer, removes or replaces by hand).
+
+## Store prices (P22 phase A)
+
+Status: built and tested (2026-10-15); migration `AddStorePriceOverride` **not yet applied** (one nullable column on StoreVariantInventory, check > 0).
+
+- `PUT api/stock/{variantId}` (staff: own store; admin: `?storeId=`) now takes `priceOverride` (null clears it; above 0, up to 1,00,000, 2 decimals; dropped when the store stops carrying the pack). Not sending it clears an existing one.
+- `GET api/stock` rows add `priceOverride`, `basePrice`, `mrp`.
+- Price chain: shared price, then the store's price, then an offer's percent off. Catalogue, cart, checkout and order lines all use it; the receipt keeps the original (MRP or shared price) when the customer paid less.
+- Customer app: original price struck through beside the price, and a pink corner ribbon "X% OFF" on discounted product cards.
+
+## Commission and earnings per shop (P22 phase B)
+
+Status: built and tested (2026-10-15); migration `AddCommission` **not yet applied** (CommissionRates table, two nullable columns on Orders).
+
+- `GET api/admin/commission`, `PUT api/admin/commission/default {percent}`, `PUT api/admin/commission/stores/{id} {percent|null}`: administrators only; 0 to 100, 2 decimals; null removes a store's own percent.
+- Checkout writes `CommissionPercent` (the percent in force) and `CommissionAmount` (percent of the product total after discounts; delivery and handling fees excluded) onto the order. Later changes never touch it. Orders placed before have none.
+- `GET api/reports/sales` adds `earnings`: per shop, delivered/completed orders only: `orders, sales, commission, fees, net` (net = sales - commission + fees, the store keeps the fees). Admin sees every shop; a manager only their own. Cancelled and refunded orders earn nothing.
+- Portal: **Commission** page (admin) and an **Earnings by shop** card in Reports.
+
+## Which order changes ring the bell (2026-10-16)
+
+Bell notifications are sent for: order placed, delivered, declined, cancelled, and every payment message. Accepted, packing, ready and out for delivery no longer notify; they only update the order's tracking timeline (status history). Push notifications showing tracking come later (needs Firebase). No migration.
+
+## Delivery tracking (P23)
+
+Status: built and tested (2026-10-17); migration `AddDeliveryLocations` **not yet applied** (one table: latest position per order).
+
+- `PUT api/delivery/{orderId}/location {latitude, longitude}` (partner of that order only): the partner app sends it about every 20 seconds while the order is out for delivery. 404 for someone else's order, 400 for an impossible position, 409 when the order is not out for delivery (the app stops; any stored position is erased). Only the latest position is kept (no route); positions older than a day are purged; delivery completion and account deletion erase it.
+- `GET api/customer/orders/{id}/tracking` (customer of that order): `{available, distanceKm, etaMinutes, updatedAt, partnerName}`. Available only while out for delivery and when a position is under 5 minutes old; never coordinates. ETA = straight-line distance at 20 km/h, at least 1 minute.
+- Partner app (`delivery_app`): shares its position (location permission asked on first use) and says so on screen. Customer app: a green line "Rina is 1.2 km away, about 6 min" on an out-for-delivery order, refreshed every 15 seconds.
+
+## The store changes an order it is packing (P24)
+
+Status: built and tested (2026-10-26); migration `AddOrderChanges` **not yet applied** (OrderAdjustments table, Payments.PartialRefundedPaise).
+
+- `POST api/operations/orders/{orderId}/change` (store staff of that store, or an administrator): `{ changes: [{productId, variantId?, quantity}], reason? }`. Each quantity is the new, lower amount (0 removes the line). Only while the order is Accepted or Preparing (409 otherwise); an increase, unknown item, duplicate or a reason with < > is 400; removing every item is 400 with reason `UseCancel` (decline or cancel instead).
+- Effects, in one step: items and totals updated; delivery and handling fees stay as charged; commission is taken again on the new product total; **stock is not returned** (the item was out of stock, so the store corrects its own count); the customer gets a bell notification; the change is recorded (who, when, what, reason).
+- Paid online: the removed amount is queued as a partial refund to the original payment and sent by the payment maintenance job (Pending, Started, Processed or Failed). A later full refund gives back only what is left. Cash on delivery: the partner collects the new total.
+- The customer order detail has `changes` (newest first): lines, refund amount and refund status. Portal: Orders, **Change items** on accepted or packing orders.
+
+## Replacement products (P25)
+
+Status: built and tested (2026-10-27); migration `AddReplacementProposals` **not yet applied** (ReplacementProposals table; one open proposal per order).
+
+- `POST api/operations/orders/{orderId}/replacements` (store staff of that store, or admin): `{ productId, variantId?, replacementProductId, replacementVariantId, quantity 1-99 }` for an Accepted or Preparing order. The replacement is priced at the store price now (less any running offer) and stock must cover it. Refused: the same size (400); not enough stock (409 `ReplacementOutOfStock`); a dearer replacement on an order paid online (409 `OnlinePaidDearer`, no top-up payment exists); a second open proposal (409 `ReplacementAlreadyOpen`). `GET` on the same path lists the order's proposals.
+- The customer gets a bell notification, and the order detail has `replacement` (the open one, 5 minutes). `POST api/customer/orders/{id}/replacements/{proposalId}/accept` swaps the line, takes the replacement's stock, recalculates the totals (fees stay, commission again), and refunds a saving on a paid order. `.../decline` removes the item and refunds it. An answer after the time removes the item (409 `ReplacementExpired`). Unanswered proposals close on the payment maintenance job (about every minute): the item is removed and refunded. If removing would empty the order the proposal just closes (the store cancels).
+- Portal: Orders, Change items, **Replace** on a line. Customer app: a yellow card with Accept and Decline.

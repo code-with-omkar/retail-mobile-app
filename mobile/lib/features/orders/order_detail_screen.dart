@@ -13,6 +13,7 @@ import '../../data/providers.dart';
 import '../cart/cart_controller.dart';
 import '../notifications/notifications_controller.dart';
 import 'orders_controller.dart';
+import 'rating_card.dart';
 import 'orders_screen.dart';
 
 class OrderSuccessScreen extends ConsumerWidget {
@@ -100,6 +101,11 @@ class _DetailState extends ConsumerState<_Detail> {
     if (!ok && mounted) _say(context.tr('Could not open the phone app.'));
   }
 
+  Future<void> _callPartner() async {
+    final ok = await ref.read(phoneLauncherProvider).dial(order.deliveryPartnerPhone!);
+    if (!ok && mounted) _say(context.tr('Could not open the phone app.'));
+  }
+
   Future<void> _cancel() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -139,29 +145,32 @@ class _DetailState extends ConsumerState<_Detail> {
     return left <= 0 ? context.tr('Arriving any moment now') : context.tr('Arriving in about {n} minutes', {'n': '$left'});
   }
 
+  bool _reordering = false;
+
+  /// "Order again": the same items from the same store. Whatever the store cannot supply now is listed on the cart screen.
   Future<void> _reorder() async {
-    final cart = ref.read(cartProvider.notifier);
-    final store = ref.read(productStoreProvider);
-    final catalog = ref.read(catalogRepositoryProvider);
-    final storeId = (await ref.read(selectedStoreProvider.future))?.id;
-    var skipped = 0;
-    for (final l in order.lines) {
-      var product = store.get(l.key) ?? store.get(l.productId);
-      try {
-        product ??= await catalog.product(l.productId, storeId: storeId);
-      } catch (_) {
-        product = null;
-      }
-      final pack = product?.packs.where((p) => p.id == l.variantId).firstOrNull;
-      final inStock = pack?.inStock ?? product?.inStock ?? false;
-      if (product == null || !inStock || (l.variantId != null && pack == null)) {
-        skipped++;
-        continue;
-      }
-      cart.add(cartKey(product, pack), l.quantity);
+    if (_reordering) return;
+    final held = ref.read(serverCartProvider);
+    if (held != null && held.storeId != order.storeId && held.lines.isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(dialog.tr('Start a new cart?')),
+          content: Text(dialog.tr('Your cart has items from another store. Ordering again from {store} empties it.', {'store': order.storeName ?? dialog.tr('this store')})),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(dialog.tr('Keep my cart'))),
+            TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(dialog.tr('Order again'))),
+          ],
+        ),
+      );
+      if (replace != true || !mounted) return;
     }
+
+    setState(() => _reordering = true);
+    final added = await ref.read(cartProvider.notifier).addFromOrder(order);
     if (!mounted) return;
-    if (skipped > 0) _say(context.tr('Some items are not available and were left out.'));
+    setState(() => _reordering = false);
+    if (!added && ref.read(cartNoticeProvider).isEmpty) _say(context.tr('None of these items can be ordered right now.'));
     context.push('/cart');
   }
 
@@ -175,7 +184,11 @@ class _DetailState extends ConsumerState<_Detail> {
     return Polling(
       interval: const Duration(seconds: 15),
       active: order.stage.isActive && TickerMode.valuesOf(context).enabled,
-      onTick: () => ref.read(ordersProvider.notifier).pollOne(order.id),
+      onTick: () async {
+        await ref.read(ordersProvider.notifier).pollOne(order.id);
+        // The partner's distance is asked again on the same beat, only while the order is out for delivery.
+        if (order.deliveryOtp != null) ref.invalidate(trackingProvider(order.id));
+      },
       child: AppScaffold(
         appBar: appTopBar(context, '${context.tr('Order')} #${order.number}', backFallback: '/orders'),
         body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
@@ -244,6 +257,29 @@ class _DetailState extends ConsumerState<_Detail> {
           if (failing && order.stage.isActive)
             Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(height: 16),
+          if (order.deliveryOtp != null) _TrackingLine(order.id),
+          if (order.deliveryOtp != null) ...[
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(width: 44, height: 44, decoration: const BoxDecoration(color: Pal.green, shape: BoxShape.circle), child: const Icon(Icons.delivery_dining_outlined, color: Pal.ink)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(context.tr('Delivery partner'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                      Text(order.deliveryPartnerName ?? context.tr('On the way'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
+                    ]),
+                  ),
+                  if (order.deliveryPartnerPhone != null) TextButton.icon(onPressed: _callPartner, icon: const Icon(Icons.call_outlined), label: Text(context.tr('Call'))),
+                ]),
+                const SizedBox(height: 12),
+                Text(context.tr('Your delivery code'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                Text(order.deliveryOtp!, key: const Key('delivery-code'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 32, letterSpacing: 8)),
+                Text(context.tr('Give this code to the delivery partner only when your order arrives.'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, height: 1.3)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
           if (order.storeName != null) ...[
             Surface(
               child: Row(children: [
@@ -297,7 +333,53 @@ class _DetailState extends ConsumerState<_Detail> {
               ),
             ]),
           ),
+          if (order.replacement != null) _ReplacementCard(order.id, order.replacement!),
+          for (final change in order.changes) ...[
+            const SizedBox(height: 12),
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(context.tr('The store changed your order'), key: const Key('order-change'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 6),
+                for (final line in change.lines)
+                  Text(
+                    line.to == 0
+                        ? context.tr('{item} removed (was {n})', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'n': '${line.from}'})
+                        : context.tr('{item}: {from} to {to}', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'from': '${line.from}', 'to': '${line.to}'}),
+                    style: TextStyle(color: p.onCard),
+                  ),
+                if (change.reason != null) Text(change.reason!, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                if (change.refund > 0) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.tr(switch (change.refundStatus) {
+                      'Processed' => 'Refund of {amount} done',
+                      'Failed' => 'We could not refund {amount} automatically. Please contact the store.',
+                      _ => 'Refund of {amount} is on its way to your original payment method',
+                    }, {'amount': rupees(change.refund)}),
+                    style: TextStyle(color: change.refundStatus == 'Failed' ? Pal.pink : p.onCard, fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ]),
+            ),
+          ],
+          if (order.note != null || order.outOfStockChoice != null) ...[
+            const SizedBox(height: 12),
+            Surface(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (order.note != null) ...[
+                  Text(context.tr('Your note'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(order.note!, style: TextStyle(color: p.onCard)),
+                  const SizedBox(height: 6),
+                ],
+                if (order.outOfStockChoice != null) ...[
+                  Text(context.tr('If an item is out of stock'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(context.tr(switch (order.outOfStockChoice) { 'Remove' => 'Remove it', 'Replace' => 'Replace it', _ => 'Call me' }), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w700)),
+                ],
+              ]),
+            ),
+          ],
           const SizedBox(height: 16),
+          if (order.stage == OrderStage.delivered) RatingCard(order.id, storeName: order.storeName),
           // Only while the store has not accepted it.
           if (order.stage == OrderStage.placed || order.stage == OrderStage.awaitingPayment) ...[
             SoftPillButton(_cancelling ? context.tr('Cancelling…') : context.tr('Cancel order'), height: 60, onPressed: () {
@@ -305,7 +387,7 @@ class _DetailState extends ConsumerState<_Detail> {
             }),
             const SizedBox(height: 12),
           ],
-          PillButton(context.tr('Reorder'), height: 60, onPressed: _reorder),
+          PillButton(context.tr(_reordering ? 'Please wait…' : 'Reorder'), height: 60, onPressed: _reordering ? null : _reorder),
         ]),
       ),
     );
@@ -355,5 +437,105 @@ class _Timeline extends StatelessWidget {
           );
         }),
     ]);
+  }
+}
+
+/// "Rina is 1.2 km away, about 6 min" while the partner's phone is reporting; nothing otherwise.
+class _TrackingLine extends ConsumerWidget {
+  const _TrackingLine(this.orderId);
+  final String orderId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tracking = ref.watch(trackingProvider(orderId)).value;
+    if (tracking == null || !tracking.available || tracking.distanceKm == null || tracking.etaMinutes == null) return const SizedBox.shrink();
+    final name = tracking.partnerName ?? context.tr('Your delivery partner');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Surface(
+        color: Pal.green,
+        child: Row(children: [
+          const Icon(Icons.near_me_outlined, color: Pal.ink),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.tr('{name} is {km} km away, about {n} min', {'name': name, 'km': tracking.distanceKm!.toStringAsFixed(1), 'n': '${tracking.etaMinutes}'}),
+              key: const Key('tracking-line'),
+              style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// The store is out of an item and offers another: accept or decline within the time shown. Not answering removes the item.
+class _ReplacementCard extends ConsumerStatefulWidget {
+  const _ReplacementCard(this.orderId, this.replacement);
+  final String orderId;
+  final Replacement replacement;
+
+  @override
+  ConsumerState<_ReplacementCard> createState() => _ReplacementCardState();
+}
+
+class _ReplacementCardState extends ConsumerState<_ReplacementCard> {
+  bool _busy = false;
+  String? _problem;
+
+  Future<void> _answer(bool accept) async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await ref.read(replacementRepositoryProvider).answer(widget.orderId, widget.replacement.id, accept: accept);
+    } on ConflictException catch (e) {
+      if (mounted) setState(() => _problem = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _problem = context.tr('Could not send your answer. Please try again.'));
+    } finally {
+      // The order is read again: it now shows the swap, or the removed item, or what changed meanwhile.
+      await ref.read(ordersProvider.notifier).pollOne(widget.orderId);
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final r = widget.replacement;
+    String item(String name, String? label) => label == null ? name : '$name $label';
+    final change = r.priceChange;
+    final minutes = r.expiresAt.difference(DateTime.now()).inMinutes;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Surface(
+        color: Pal.yellow,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(context.tr('A replacement for your order'), key: const Key('replacement-card'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 16)),
+          const SizedBox(height: 6),
+          Text(context.tr('The store is out of {item}.', {'item': item(r.oldName, r.oldLabel)}), style: const TextStyle(color: Pal.ink)),
+          Text(context.tr('Instead: {n} × {item} at {price} each', {'n': '${r.newQuantity}', 'item': item(r.newName, r.newLabel), 'price': rupees(r.newUnitPrice)}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800)),
+          Text(
+            change == 0
+                ? context.tr('Your total stays the same.')
+                : change > 0
+                    ? context.tr('Your total goes up by {amount}.', {'amount': rupees(change)})
+                    : context.tr('Your total goes down by {amount}.', {'amount': rupees(-change)}),
+            style: const TextStyle(color: Pal.ink),
+          ),
+          Text(context.tr('Answer within {n} min or the item is removed.', {'n': '${minutes < 1 ? 1 : minutes}'}), style: TextStyle(color: p.dark ? Pal.ink : Pal.ink, fontSize: 12)),
+          if (_problem != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_problem!, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800))),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: PillButton(context.tr('Accept'), height: 46, onPressed: _busy ? null : () => _answer(true))),
+            const SizedBox(width: 10),
+            Expanded(child: SoftPillButton(context.tr('Decline'), height: 46, onPressed: _busy ? () {} : () => _answer(false))),
+          ]),
+        ]),
+      ),
+    );
   }
 }

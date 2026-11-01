@@ -6,8 +6,13 @@ import 'local_shop.dart';
 
 /// The customer's notifications (messages about their orders). Screens depend on this interface, not on HTTP.
 abstract interface class NotificationRepository {
-  /// Newest first.
-  Future<List<AppNotification>> list();
+  /// Newest first, written by the server in [language] ('mr' for Marathi, otherwise English).
+  Future<List<AppNotification>> list({String? language});
+
+  /// Whether the customer wants offers and announcements. Order and payment notifications are always sent.
+  Future<bool> offersEnabled();
+
+  Future<void> setOffers(bool enabled);
 
   /// How many are unread. Cheap enough to ask every minute (the bell).
   Future<int> unreadCount();
@@ -24,10 +29,16 @@ class ApiNotificationRepository implements NotificationRepository {
   final ApiClient _api;
 
   @override
-  Future<List<AppNotification>> list() async {
-    final items = await _api.get('/api/customer/notifications', parse: notificationsFromJson);
+  Future<List<AppNotification>> list({String? language}) async {
+    final items = await _api.get('/api/customer/notifications', query: {'lang': ?language}, parse: notificationsFromJson);
     return items..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
+
+  @override
+  Future<bool> offersEnabled() => _api.get('/api/customer/notifications/preferences', parse: (d) => asObject(d)['offers'] != false);
+
+  @override
+  Future<void> setOffers(bool enabled) => _api.put('/api/customer/notifications/preferences', body: {'offers': enabled}, parse: (_) {});
 
   @override
   Future<int> unreadCount() => _api.get('/api/customer/notifications/unread-count', parse: (d) => (asObject(d)['count'] as num).toInt());
@@ -44,8 +55,16 @@ class LocalNotificationRepository implements NotificationRepository {
   LocalNotificationRepository(this._shop);
   final LocalShop _shop;
 
+  var _offers = true;
+
   @override
-  Future<List<AppNotification>> list() async => List.of(_shop.notifications);
+  Future<List<AppNotification>> list({String? language}) async => List.of(_shop.notifications);
+
+  @override
+  Future<bool> offersEnabled() async => _offers;
+
+  @override
+  Future<void> setOffers(bool enabled) async => _offers = enabled;
 
   @override
   Future<int> unreadCount() async => _shop.notifications.where((n) => !n.isRead).length;

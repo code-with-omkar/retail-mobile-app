@@ -122,6 +122,15 @@ public sealed class User
 
 	/// <summary>Contact number entered by the customer. Not verified; verification arrives with phone sign-in.</summary>
 	public string? PhoneNumber { get; set; }
+
+	/// <summary>When the holder proved they own <see cref="PhoneNumber"/> with a text-message code. Only a verified number can sign in; null = never verified.</summary>
+	public DateTime? PhoneVerifiedAt { get; set; }
+
+	/// <summary>When the email was proved (Google confirmed it). Null for accounts made with an email and password, whose email nobody checked.</summary>
+	public DateTime? EmailVerifiedAt { get; set; }
+
+	/// <summary>Google's stable id for the person ("sub"), once they have signed in with Google.</summary>
+	public string? GoogleSubject { get; set; }
 	public Guid OrganizationId { get; set; }
 	public Guid? StoreId { get; set; }
 	public Role Role { get; set; } = Role.Customer;
@@ -201,6 +210,9 @@ public sealed class Customer
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public Guid UserId { get; set; }
 	public bool IsActive { get; set; } = true;
+
+	/// <summary>Whether this customer wants offers and announcements. Order and payment notifications are always sent.</summary>
+	public bool OffersEnabled { get; set; } = true;
 	public User User { get; set; } = null!;
 	public List<Cart> Carts { get; set; } = [];
 	public List<Notification> Notifications { get; set; } = [];
@@ -274,6 +286,9 @@ public sealed class Store
 
 	/// <summary>How customers reach the store about an order. Optional; staff fill it in.</summary>
 	public string? PhoneNumber { get; set; }
+
+	/// <summary>Short unique code (up to 8 letters or digits) that starts this store's order numbers, for example KHG.</summary>
+	public string? Code { get; set; }
 	public bool IsActive { get; set; } = true;
 	public Organization Organization { get; set; } = null!;
 	public List<User> Users { get; set; } = [];
@@ -309,6 +324,9 @@ public sealed class StoreVariantInventory
 	public Guid VariantId { get; set; }
 	public int AvailableQuantity { get; set; }
 	public int ReorderThreshold { get; set; } = 5;
+
+	/// <summary>This store's own price for the pack size, set by its manager. Null means the shared price. Offers then take a percent off this price.</summary>
+	public decimal? PriceOverride { get; set; }
 	public byte[] RowVersion { get; set; } = [];
 }
 
@@ -399,6 +417,16 @@ public sealed class Order
 	public string? ReceiverPhone { get; set; }
 	public Guid? DeliveryAddressId { get; set; }
 
+	/// <summary>The platform's commission, fixed when the order was placed: the percent in force then and the amount on the product total. Null on orders placed before commission existed.</summary>
+	public decimal? CommissionPercent { get; set; }
+	public decimal? CommissionAmount { get; set; }
+
+	/// <summary>What the customer wrote for the store (up to 200 characters); erased when the account is deleted.</summary>
+	public string? OrderNote { get; set; }
+
+	/// <summary>What to do when an item is out of stock: Remove, CallMe or Replace. Null on orders placed before the choice existed.</summary>
+	public string? OutOfStockChoice { get; set; }
+
 	/// <summary>The arrival estimate given when the order was placed. Null for orders placed before it was kept.</summary>
 	public int? EstimatedDeliveryMinutes { get; set; }
 
@@ -407,6 +435,20 @@ public sealed class Order
 
 	/// <summary>For an order awaiting payment: until when its items are held.</summary>
 	public DateTime? PaymentExpiresAt { get; set; }
+
+	/// <summary>The delivery partner the store gave a Ready order to. Null until assigned (and for orders the customer collects).</summary>
+	public Guid? DeliveryPartnerId { get; set; }
+	public DateTime? AssignedAt { get; set; }
+
+	/// <summary>Four digits the customer tells the partner at the door. Only the customer and the partner who holds the order ever see it.</summary>
+	public string? DeliveryOtp { get; set; }
+	public int OtpFailures { get; set; }
+	public DateTime? OtpLockedUntil { get; set; }
+	public DateTime? PickedUpAt { get; set; }
+	public DateTime? DeliveredAt { get; set; }
+
+	/// <summary>What the partner reports collecting. Cash on delivery orders must equal the total; online orders are 0.</summary>
+	public decimal? CashCollected { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
 	public List<OrderItem> Items { get; set; } = [];
@@ -461,9 +503,64 @@ public sealed class Payment
 	public int Attempts { get; set; }
 	public string? FailureReason { get; set; }
 	public string? RefundId { get; set; }
+
+	/// <summary>Paise already given back for items the store removed from the order. A full refund later is for the rest only.</summary>
+	public long PartialRefundedPaise { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>A change the store made to an order while packing it (items removed or reduced), and what went back to the customer.</summary>
+public sealed class OrderAdjustment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public Guid ChangedBy { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? Reason { get; set; }
+
+	/// <summary>What changed, as JSON: product, size, quantity before and after, unit price.</summary>
+	public string ChangesJson { get; set; } = "[]";
+	public decimal OldSubtotal { get; set; }
+	public decimal NewSubtotal { get; set; }
+
+	/// <summary>Paise to give back to the original payment; 0 for cash on delivery and unpaid orders.</summary>
+	public long RefundPaise { get; set; }
+
+	/// <summary>None, Pending (waiting to be asked of the provider), Started (asked, not yet confirmed), Processed or Failed.</summary>
+	public string RefundStatus { get; set; } = "None";
+	public string? RefundId { get; set; }
+	public string? RefundFailure { get; set; }
+}
+
+/// <summary>A replacement the store offers for an item it cannot supply. The customer has a few minutes to accept or decline.</summary>
+public sealed class ReplacementProposal
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid OrderId { get; set; }
+	public Guid LineProductId { get; set; }
+	public Guid? LineVariantId { get; set; }
+	public string LineName { get; set; } = string.Empty;
+	public string? LineLabel { get; set; }
+	public int OldQuantity { get; set; }
+	public decimal OldUnitPrice { get; set; }
+	public Guid NewProductId { get; set; }
+	public Guid NewVariantId { get; set; }
+	public string NewName { get; set; } = string.Empty;
+	public string? NewLabel { get; set; }
+	public int NewQuantity { get; set; }
+
+	/// <summary>The price at the moment of the proposal (the store's own price, less any offer). What the customer sees and what is charged if accepted.</summary>
+	public decimal NewUnitPrice { get; set; }
+	public decimal? NewUnitMrp { get; set; }
+	public Guid ProposedBy { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime ExpiresAt { get; set; }
+
+	/// <summary>Pending, Accepted, Declined or Expired.</summary>
+	public string Status { get; set; } = "Pending";
+	public DateTime? DecidedAt { get; set; }
 }
 
 /// <summary>A notification from the provider that has been handled, so the same one arriving again does nothing.</summary>
@@ -502,7 +599,162 @@ public sealed class Notification
 	public required string Message { get; set; }
 	public bool IsRead { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+	/// <summary>Order, Payment, Offer or System (see <see cref="NotificationCategories"/>).</summary>
+	public string Category { get; set; } = NotificationCategories.Order;
+
+	/// <summary>Small data the words are filled from, for example {"orderNumber":"KHG-261009-0042"}.</summary>
+	public string? DataJson { get; set; }
+
+	/// <summary>Set for offers: the campaign that sent it (its words are used when the notification is shown).</summary>
+	public Guid? CampaignId { get; set; }
+	public Campaign? Campaign { get; set; }
 	public Customer Customer { get; set; } = null!;
+}
+
+public static class NotificationCategories
+{
+	public const string Order = "Order";
+	public const string Payment = "Payment";
+	public const string Offer = "Offer";
+	public const string System = "System";
+}
+
+/// <summary>The kinds of notification. The words for each are in the notification catalogue.</summary>
+public static class NotificationTypes
+{
+	public const string OrderPlaced = "OrderPlaced";
+	public const string OrderAccepted = "OrderAccepted";
+	public const string OrderPacking = "OrderPacking";
+	public const string OutForDelivery = "OutForDelivery";
+	public const string OrderDelivered = "OrderDelivered";
+	public const string OrderRejected = "OrderRejected";
+	public const string OrderCancelled = "OrderCancelled";
+	public const string OrderChanged = "OrderChanged";
+	public const string ReplacementProposed = "ReplacementProposed";
+	public const string PaymentReceived = "PaymentReceived";
+	public const string PaymentNotCompleted = "PaymentNotCompleted";
+	public const string PaymentProblem = "PaymentProblem";
+	public const string PaymentWillBeRefunded = "PaymentWillBeRefunded";
+	public const string RefundProcessed = "RefundProcessed";
+	public const string Offer = "Offer";
+}
+
+/// <summary>An offer or announcement written by an admin. When its start time comes it is sent once to every customer who has offers switched on.</summary>
+public sealed class Campaign
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public required string TitleEn { get; set; }
+	public required string BodyEn { get; set; }
+	public string? TitleMr { get; set; }
+	public string? BodyMr { get; set; }
+	public DateTime StartsAt { get; set; } = DateTime.UtcNow;
+
+	/// <summary>False once cancelled before it was sent.</summary>
+	public bool IsActive { get; set; } = true;
+
+	/// <summary>When it was sent; null while it is waiting for its start time.</summary>
+	public DateTime? PublishedAt { get; set; }
+	public int RecipientCount { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public string? CreatedBy { get; set; }
+
+	/// <summary>The stores this offer is from. Empty means every store (an offer from the whole business).</summary>
+	public List<CampaignStore> Stores { get; set; } = [];
+
+	/// <summary>What the store pays to publish this offer, in paise, as it was when the offer was created. 0 means free (and offers an administrator creates are free).</summary>
+	public int FeePaise { get; set; }
+
+	/// <summary>NotRequired while free; otherwise the offer is sent only once this is Paid. Refunding or Refunded after a paid offer is cancelled before it was sent.</summary>
+	public PaymentState PaymentStatus { get; set; } = PaymentState.NotRequired;
+
+	/// <summary>Whether customers get a notification. False for a discount that runs quietly (banner and prices only).</summary>
+	public bool Notify { get; set; } = true;
+
+	/// <summary>Percent off the chosen <see cref="Products"/> while the offer runs, 1 to 90; 0 means this offer is only a message.</summary>
+	public int DiscountPercent { get; set; }
+
+	/// <summary>When the discount stops. Required with a discount; null for a message-only offer.</summary>
+	public DateTime? EndsAt { get; set; }
+
+	/// <summary>The banner picture, a path this API saved under /media/offers.</summary>
+	public string? ImageUrl { get; set; }
+
+	/// <summary>The products the discount is for.</summary>
+	public List<CampaignProduct> Products { get; set; } = [];
+
+	/// <summary>Also shown as a pop-up when a customer opens the app. Costs the extra "app open" fee the administrator sets.</summary>
+	public bool ShowOnLoad { get; set; }
+}
+
+/// <summary>The latest known position of the partner delivering an order. One row per order, replaced on every update and erased when the delivery ends. No route is kept.</summary>
+public sealed class DeliveryLocation
+{
+	public Guid OrderId { get; set; }
+	public Guid PartnerId { get; set; }
+	public double Latitude { get; set; }
+	public double Longitude { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>One product an offer's discount is for (all its sizes).</summary>
+public sealed class CampaignProduct
+{
+	public Guid CampaignId { get; set; }
+	public Guid ProductId { get; set; }
+}
+
+/// <summary>The commission percent the platform takes from a store's product sales. One row with no store is the default; a row with a store overrides it for that store.</summary>
+public sealed class CommissionRate
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid? StoreId { get; set; }
+	public decimal Percent { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
+}
+
+/// <summary>
+/// The fee a store pays to publish an offer. One row with no store is the default for every store; a row with a store overrides it for that
+/// store (0 makes that store's offers free). The most specific row wins.
+/// </summary>
+public sealed class OfferFee
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid? StoreId { get; set; }
+	public int AmountPaise { get; set; }
+
+	/// <summary>Extra fee, in paise, for an offer that is also shown when the app opens. Kept on the default row only (it is one price for every store).</summary>
+	public int LoadAmountPaise { get; set; }
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
+}
+
+/// <summary>The online payment of an offer's fee (one per offer), made through the payment provider like an order's payment.</summary>
+public sealed class CampaignPayment
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid CampaignId { get; set; }
+	public string Provider { get; set; } = "Razorpay";
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+	public long AmountPaise { get; set; }
+	public string Currency { get; set; } = "INR";
+	public PaymentState Status { get; set; } = PaymentState.Created;
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
+}
+
+/// <summary>One store an offer is from.</summary>
+public sealed class CampaignStore
+{
+	public Guid CampaignId { get; set; }
+	public Guid StoreId { get; set; }
+	public Store Store { get; set; } = null!;
 }
 
 public sealed class OrderItem
@@ -527,4 +779,160 @@ public sealed class OrderStatusHistory
 {
 	public OrderStatus Status { get; set; }
 	public DateTime ChangedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>The last order number given out by a store on a day. One row per store and day; the next number is this plus one.</summary>
+public sealed class OrderNumberCounter
+{
+	public Guid StoreId { get; set; }
+	public DateOnly Day { get; set; }
+	public int LastNumber { get; set; }
+}
+
+/// <summary>Order numbers look like KHG-261009-0042: the store's code, the day (yyMMdd, India time) and that store's count for the day.</summary>
+public static class OrderNumbers
+{
+	private static readonly TimeSpan India = TimeSpan.FromHours(5.5);
+
+	/// <summary>The business day of a moment: the calendar day in India, so a number's date matches what the customer sees on their clock.</summary>
+	public static DateOnly DayOf(DateTime utcNow) => DateOnly.FromDateTime(DateTime.SpecifyKind(utcNow, DateTimeKind.Utc).Add(India));
+
+	/// <summary>The store's code, or (for a store without one) a short stand-in taken from its id, so a number can always be made.</summary>
+	public static string CodeOf(Store store) => string.IsNullOrWhiteSpace(store.Code) ? store.Id.ToString("N")[..4].ToUpperInvariant() : store.Code.Trim().ToUpperInvariant();
+
+	public static string Format(string storeCode, DateOnly day, int number) => $"{storeCode}-{day:yyMMdd}-{number:0000}";
+}
+
+/// <summary>Where a placement bid stands. Only one bid per pincode and week can be Leading.</summary>
+public enum PlacementBidStatus
+{
+	/// <summary>Placed but not paid yet.</summary>
+	AwaitingPayment,
+
+	/// <summary>Paid and the highest paid bid for its pincode and week: that store is shown first there for that week.</summary>
+	Leading,
+
+	/// <summary>Paid but beaten by a higher paid bid (or arrived after one): refunded in full.</summary>
+	Outbid,
+
+	/// <summary>Withdrawn before it was paid, or cancelled by an administrator (a paid one is refunded).</summary>
+	Cancelled
+}
+
+/// <summary>
+/// A store's bid to be shown first in a pincode for one week, paid online up front. The highest paid bid for a pincode and week leads;
+/// a higher paid bid replaces it and the beaten bid is refunded in full.
+/// </summary>
+public sealed class PlacementBid
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+	public Guid StoreId { get; set; }
+
+	/// <summary>The six-digit Indian pincode the bid is for.</summary>
+	public required string Pincode { get; set; }
+
+	/// <summary>The Monday (India) the week starts; the slot runs until the next Monday and bidding closes when it starts.</summary>
+	public DateOnly WeekStart { get; set; }
+	public long AmountPaise { get; set; }
+	public PlacementBidStatus Status { get; set; } = PlacementBidStatus.AwaitingPayment;
+	public PaymentState PaymentStatus { get; set; } = PaymentState.Created;
+	public string Provider { get; set; } = "Razorpay";
+	public string? ProviderOrderId { get; set; }
+	public string? ProviderPaymentId { get; set; }
+	public string Currency { get; set; } = "INR";
+	public int Attempts { get; set; }
+	public string? FailureReason { get; set; }
+	public string? RefundId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public byte[] RowVersion { get; set; } = [];
+	public Store Store { get; set; } = null!;
+}
+
+/// <summary>The rules of paid placement, set by an administrator. One row; without it the defaults apply.</summary>
+public sealed class PlacementRules
+{
+	public Guid Id { get; set; } = Guid.Parse("00000000-0000-0000-0000-0000000000a1");
+
+	/// <summary>Whether paid placement is on at all. Off: no new bids, and the customer's list is in its normal order.</summary>
+	public bool Enabled { get; set; } = true;
+	public long MinBidPaise { get; set; } = 50_000;
+
+	/// <summary>How much more than the current highest paid bid a new bid must be.</summary>
+	public long MinStepPaise { get; set; } = 10_000;
+
+	/// <summary>How many weeks ahead a store can bid (the next week is 1).</summary>
+	public int MaxWeeksAhead { get; set; } = 4;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+	public string? UpdatedBy { get; set; }
+}
+
+/// <summary>Weeks for placement: they start on Monday 00:00 India time.</summary>
+public static class PlacementWeeks
+{
+	private static readonly TimeSpan India = TimeSpan.FromHours(5.5);
+
+	/// <summary>The Monday of the India calendar week this moment is in.</summary>
+	public static DateOnly WeekStartOf(DateTime utcNow)
+	{
+		var day = OrderNumbers.DayOf(utcNow);
+		var back = ((int)day.DayOfWeek + 6) % 7;
+		return day.AddDays(-back);
+	}
+
+	/// <summary>The moment (UTC) a week starts: its Monday at 00:00 India time. Bidding for the week closes then.</summary>
+	public static DateTime StartUtc(DateOnly weekStart) => DateTime.SpecifyKind(weekStart.ToDateTime(TimeOnly.MinValue) - India, DateTimeKind.Utc);
+
+	public static bool IsMonday(DateOnly day) => day.DayOfWeek == DayOfWeek.Monday;
+
+	/// <summary>A six-digit Indian pincode (the first digit is 1 to 9).</summary>
+	public static bool IsPincode(string? value) => value is { Length: 6 } && value[0] is >= '1' and <= '9' && value.All(char.IsAsciiDigit);
+}
+
+/// <summary>
+/// A text-message code sent to a phone number, to sign in or to verify the number for an account. Only a keyed hash of the code is stored.
+/// </summary>
+public sealed class OtpChallenge
+{
+	public Guid Id { get; set; } = Guid.NewGuid();
+
+	/// <summary>The number in international form, for example +919876543210.</summary>
+	public required string Phone { get; set; }
+
+	/// <summary>"SignIn" or "VerifyPhone".</summary>
+	public required string Purpose { get; set; }
+
+	/// <summary>For VerifyPhone: the signed-in account the number is being verified for.</summary>
+	public Guid? UserId { get; set; }
+	public required string CodeHash { get; set; }
+	public DateTime CreatedAt { get; set; }
+	public DateTime ExpiresAt { get; set; }
+	public int FailedAttempts { get; set; }
+	public DateTime? UsedAt { get; set; }
+	public string? RequestedFromIp { get; set; }
+}
+
+/// <summary>A product a customer saved to come back to. Part of the customer's personal data: erased when the account is deleted.</summary>
+public sealed class FavouriteProduct
+{
+	public Guid CustomerId { get; set; }
+	public Guid ProductId { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// What a customer thought of a delivered order: stars for the shop and, when a delivery partner brought it, for the delivery, with an optional comment.
+/// One per order. When the customer deletes their account the comment and the link to them are erased; the stars stay in the shop's figures.
+/// </summary>
+public sealed class OrderRating
+{
+	public Guid OrderId { get; set; }
+	public Guid StoreId { get; set; }
+	public Guid? CustomerId { get; set; }
+	public Guid? DeliveryPartnerId { get; set; }
+	public int StoreStars { get; set; }
+	public int? DeliveryStars { get; set; }
+	public string? Comment { get; set; }
+	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -15,6 +15,7 @@ namespace QuickCommerce.Tests;
 /// database itself enforces, and the cart queries. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING to a
 /// connection string for a DISPOSABLE database. Everything it adds is uniquely named and removed again. Never point it at a database you care about.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class CheckoutEfIntegrationTests
 {
     private static readonly PricingSettings Fees = new() { DeliveryFee = 25, HandlingFee = 5, FreeDeliveryThreshold = 199 };
@@ -126,6 +127,23 @@ public sealed class CheckoutEfIntegrationTests
 
         public async ValueTask DisposeAsync()
         {
+            // Many SQL tests run at once on one database, so the cleanup itself can be picked as a deadlock victim: it is safe to repeat.
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await CleanupOnceAsync();
+                    return;
+                }
+                catch (Exception) when (attempt < 4)
+                {
+                    await Task.Delay(150 * attempt);
+                }
+            }
+        }
+
+        private async Task CleanupOnceAsync()
+        {
             await using var cleanup = Db();
             var userIds = await cleanup.Users.Where(user => Emails.Contains(user.ExternalSubject)).Select(user => user.Id).ToListAsync();
             var cartIds = await cleanup.Carts.Where(cart => cart.StoreId == Store.Id).Select(cart => cart.Id).ToListAsync();
@@ -133,6 +151,8 @@ public sealed class CheckoutEfIntegrationTests
             await cleanup.Carts.Where(cart => cart.StoreId == Store.Id).ExecuteDeleteAsync();
             var orderIds = await cleanup.Orders.Where(order => order.StoreId == Store.Id).Select(order => order.Id).ToListAsync();
             await cleanup.CheckoutRequests.Where(record => orderIds.Contains(record.OrderId)).ExecuteDeleteAsync();
+            await cleanup.OrderNumberCounters.Where(counter => counter.StoreId == Store.Id).ExecuteDeleteAsync();
+            await cleanup.CampaignStores.Where(link => link.StoreId == Store.Id).ExecuteDeleteAsync();
             await cleanup.Notifications.Where(notification => notification.OrderId != null && orderIds.Contains(notification.OrderId.Value)).ExecuteDeleteAsync();
             await cleanup.Orders.Where(order => order.StoreId == Store.Id).ExecuteDeleteAsync();
             await cleanup.StoreVariantInventory.Where(row => row.StoreId == Store.Id).ExecuteDeleteAsync();

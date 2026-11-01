@@ -11,6 +11,7 @@ namespace QuickCommerce.Tests;
 /// Phase P7 against a real SQL Server: the amounts, the unique indexes, and the cases where two things reach the same order at once.
 /// Opt-in like the other SQL tests (QUICKCOMMERCE_TEST_CONNECTION_STRING, a DISPOSABLE database). Everything added is removed again.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class PaymentEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;
@@ -237,7 +238,7 @@ public sealed class PaymentEfIntegrationTests
     }
 
     [Fact]
-    public async Task A_paid_order_the_shop_rejects_and_a_paid_order_cancelled_each_queue_one_refund_and_only_the_cancel_returns_stock()
+    public async Task A_paid_order_the_shop_rejects_and_a_paid_order_cancelled_each_queue_one_refund_and_both_return_their_stock()
     {
         if (ConnectionString is null)
         {
@@ -266,7 +267,7 @@ public sealed class PaymentEfIntegrationTests
         await using var verify = world.Db();
         var states = await verify.Payments.AsNoTracking().Where(item => item.OrderId == cancelled.OrderId || item.OrderId == rejected.OrderId).Select(item => item.Status).ToListAsync();
         Assert.All(states, state => Assert.Equal(PaymentState.Refunding, state));
-        Assert.Equal(8, await world.Stock());
+        Assert.Equal(10, await world.Stock());
         var queue = await WithStore(world, store => store.GetRefundsToStartAsync(50));
         Assert.Equal(2, queue.Count(item => item.OrderId == cancelled.OrderId || item.OrderId == rejected.OrderId));
     }

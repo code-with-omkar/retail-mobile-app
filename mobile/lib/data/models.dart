@@ -134,9 +134,12 @@ String cartKey(Product p, [PackOption? pack]) => (pack ?? p.defaultPack)?.id ?? 
 
 /// A store that delivers to the delivery location, with distance and delivery estimate from the API.
 class NearestStore {
-  const NearestStore({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, this.address = '', this.serviceRadiusKm = 0});
+  const NearestStore({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, this.address = '', this.serviceRadiusKm = 0, this.sponsored = false});
   final String id, name, address;
   final double distanceKm;
+
+  /// Paid first place in the customer's pincode this week: shown first, with a Sponsored label.
+  final bool sponsored;
 
   /// How far this store delivers; 0 when unknown.
   final double serviceRadiusKm;
@@ -187,6 +190,37 @@ class OrderLine {
   String get key => variantId ?? productId;
 }
 
+/// One line the store reduced or removed while packing the order.
+class ChangedLine {
+  const ChangedLine({required this.name, this.label, required this.from, required this.to});
+  final String name;
+  final String? label;
+  final int from, to;
+}
+
+/// What the store changed in an order and what goes back to the customer. [refundStatus]: None, Pending, Started, Processed or Failed.
+class OrderChange {
+  const OrderChange({required this.at, required this.lines, required this.refund, required this.refundStatus, this.reason});
+  final DateTime at;
+  final List<ChangedLine> lines;
+  final double refund;
+  final String refundStatus;
+  final String? reason;
+}
+
+/// A replacement the store offers for an item it cannot supply. The customer has until [expiresAt] to accept or decline.
+class Replacement {
+  const Replacement({required this.id, required this.oldName, this.oldLabel, required this.oldQuantity, required this.oldUnitPrice, required this.newName, this.newLabel, required this.newQuantity, required this.newUnitPrice, required this.priceChange, required this.expiresAt});
+  final String id, oldName, newName;
+  final String? oldLabel, newLabel;
+  final int oldQuantity, newQuantity;
+  final double oldUnitPrice, newUnitPrice;
+
+  /// What the order's items cost more (positive) or less (negative) if accepted.
+  final double priceChange;
+  final DateTime expiresAt;
+}
+
 /// A placed order (`api/customer/orders`).
 class Order {
   const Order({
@@ -209,7 +243,23 @@ class Order {
     this.estimatedMinutes,
     this.paymentState = PaymentState.notRequired,
     this.paymentExpiresAt,
+    this.deliveryPartnerName,
+    this.deliveryPartnerPhone,
+    this.deliveryOtp,
+    this.note,
+    this.outOfStockChoice,
+    this.changes = const [],
+    this.replacement,
   });
+
+  /// An open replacement waiting for the customer's answer, if any.
+  final Replacement? replacement;
+
+  /// What the store removed or reduced while packing, newest first (empty when nothing changed).
+  final List<OrderChange> changes;
+
+  /// What the customer wrote for the store, and what to do about an item that is out of stock (Remove, CallMe or Replace).
+  final String? note, outOfStockChoice;
 
   /// The server's id (used in routes). [number] is what the customer sees and quotes.
   final String id, number, storeId, address, payment;
@@ -229,6 +279,9 @@ class Order {
   final PaymentState paymentState;
   final DateTime? paymentExpiresAt;
 
+  /// While the order is out for delivery: who has it, and the four digits to tell them at the door. Null at every other time.
+  final String? deliveryPartnerName, deliveryPartnerPhone, deliveryOtp;
+
   bool get isOnline => payment == 'Online';
 
   /// A copy with another payment state (and status), for example once an online order is paid.
@@ -236,6 +289,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
@@ -243,6 +297,7 @@ class Order {
         id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
         placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
         storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
+        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement,
       );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);
@@ -421,11 +476,20 @@ class DeliveryPlace {
 
 /// A message from the shop about an order (`api/customer/notifications`). [title] and [message] are the server's English text.
 class AppNotification {
-  const AppNotification({required this.id, this.orderId, required this.type, required this.title, required this.message, required this.isRead, required this.createdAt});
+  const AppNotification({required this.id, this.orderId, required this.type, required this.title, required this.message, required this.isRead, required this.createdAt, this.category = 'Order', this.storeName, this.imageUrl, this.campaignId});
   final String id, type, title, message;
+
+  /// For an offer: its banner picture (a full link) and the offer to open when the notification is tapped.
+  final String? imageUrl, campaignId;
+
+  /// Order, Payment, Offer or System: what kind of message it is (the icon, and whether it can be switched off).
+  final String category;
+
+  /// For an offer: the store it is from (null for an offer from the whole business).
+  final String? storeName;
   final String? orderId;
   final bool isRead;
   final DateTime createdAt;
 
-  AppNotification asRead() => AppNotification(id: id, orderId: orderId, type: type, title: title, message: message, isRead: true, createdAt: createdAt);
+  AppNotification asRead() => AppNotification(id: id, orderId: orderId, type: type, title: title, message: message, isRead: true, createdAt: createdAt, category: category, storeName: storeName, imageUrl: imageUrl, campaignId: campaignId);
 }

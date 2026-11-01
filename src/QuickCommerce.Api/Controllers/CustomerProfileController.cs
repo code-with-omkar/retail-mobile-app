@@ -10,8 +10,23 @@ namespace QuickCommerce.Api.Controllers;
 [ApiController]
 [Route("api/customer/profile")]
 [Authorize(Policy = SecurityPolicies.Orders)]
-public sealed class CustomerProfileController(IAccountService accounts) : ControllerBase
+public sealed class CustomerProfileController(IAccountService accounts, IAccountDeletionService deletion) : ControllerBase
 {
+    /// <summary>Deletes the signed-in customer's account for good (see IAccountDeletionStore). A POST, because a body on DELETE is dropped by some proxies.</summary>
+    [HttpPost("delete")]
+    public async Task<IActionResult> Delete(DeleteAccountRequest request, CancellationToken cancellationToken)
+    {
+        var result = await deletion.DeleteAsync(request, cancellationToken);
+        return result.Status switch
+        {
+            AccountStatus.Succeeded => Ok(new { success = true }),
+            AccountStatus.InvalidRequest => BadRequest(new { success = false, message = result.Message, errors = result.Errors ?? [] }),
+            AccountStatus.NotFound => NotFound(new { success = false, message = result.Message, errors = Array.Empty<string>() }),
+            AccountStatus.Conflict => Conflict(new { success = false, message = result.Message, errors = Array.Empty<string>() }),
+            _ => Unauthorized(new { success = false, message = result.Message, errors = Array.Empty<string>() })
+        };
+    }
+
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken) => Respond(await accounts.GetProfileAsync(cancellationToken));
 

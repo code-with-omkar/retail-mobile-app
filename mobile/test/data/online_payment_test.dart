@@ -144,8 +144,8 @@ void main() {
       await repo.place(storeId: 's1', idempotencyKey: 'k2', addressId: 'a1');
 
       expect(online.stage, OrderStage.awaitingPayment);
-      expect(adapter.requests[0].data, {'addressId': 'a1', 'paymentMethod': 'Online'});
-      expect(adapter.requests[1].data, {'addressId': 'a1'});
+      expect(adapter.requests[0].data, {'addressId': 'a1', 'paymentMethod': 'Online', 'outOfStockChoice': 'CallMe'});
+      expect(adapter.requests[1].data, {'addressId': 'a1', 'outOfStockChoice': 'CallMe'});
     });
 
     test('the options, the start and the confirm use the right routes and read the answers', () async {
@@ -211,6 +211,47 @@ void main() {
       expect(shop.orders.attempts.single.online, isFalse);
       expect(find.text('Order placed!'), findsOneWidget);
       expect(shop.payments.calls.where((c) => c.startsWith('start')), isEmpty);
+    });
+
+    testWidgets('with nothing chosen the store is told to call, and there is no note', (tester) async {
+      final shop = await _open(tester);
+
+      await _tapPrimary(tester);
+
+      expect(shop.orders.notes.single, (note: '', choice: 'CallMe'));
+    });
+
+    testWidgets('the out-of-stock choice and the note are sent with the order', (tester) async {
+      final shop = await _open(tester);
+
+      await tester.ensureVisible(find.text('Replace it'));
+      await tester.tap(find.text('Replace it'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), 'Ring the bell twice');
+      await tester.pumpAndSettle();
+      await _tapPrimary(tester);
+
+      expect(shop.orders.notes.single, (note: 'Ring the bell twice', choice: 'Replace'));
+    });
+
+    test('the repository sends a trimmed note and the choice, and reads them back', () async {
+      final adapter = FakeAdapter()..replyJson({'success': true, 'data': {..._order(status: 0, method: 'CashOnDelivery', paymentStatus: 0), 'note': 'Gate code 42', 'outOfStockChoice': 'Remove'}});
+      final repo = ApiOrderRepository(_client(adapter));
+
+      final order = await repo.place(storeId: 's1', idempotencyKey: 'k1', addressId: 'a1', note: '  Gate code 42 ', outOfStockChoice: 'Remove');
+
+      expect(adapter.requests.single.data, containsPair('note', 'Gate code 42'));
+      expect(adapter.requests.single.data, containsPair('outOfStockChoice', 'Remove'));
+      expect((order.note, order.outOfStockChoice), ('Gate code 42', 'Remove'));
+    });
+
+    test('an empty note is not sent', () async {
+      final adapter = FakeAdapter()..replyJson({'success': true, 'data': _order(status: 0, method: 'CashOnDelivery', paymentStatus: 0)});
+
+      await ApiOrderRepository(_client(adapter)).place(storeId: 's1', idempotencyKey: 'k1', addressId: 'a1', note: '   ');
+
+      expect((adapter.requests.single.data as Map).containsKey('note'), isFalse);
     });
   });
 

@@ -10,6 +10,7 @@ public sealed class CustomerConfiguration : IEntityTypeConfiguration<Customer>
     {
         builder.HasKey(customer => customer.Id);
         builder.HasIndex(customer => customer.UserId).IsUnique();
+        builder.Property(customer => customer.OffersEnabled).HasDefaultValue(true);
         builder.HasOne(customer => customer.User)
             .WithOne(user => user.Customer)
             .HasForeignKey<Customer>(customer => customer.UserId)

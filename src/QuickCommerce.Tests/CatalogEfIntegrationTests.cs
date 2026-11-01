@@ -17,6 +17,7 @@ namespace QuickCommerce.Tests;
 /// DISPOSABLE database. The test applies migrations to it and adds uniquely named rows, which it removes again.
 /// Never point it at a database you care about.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class CatalogEfIntegrationTests
 {
     [Fact]

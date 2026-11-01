@@ -19,6 +19,7 @@ import 'package:quickcart_customer/data/repositories/order_repository.dart';
 import 'package:quickcart_customer/data/repositories/product_store.dart';
 import 'package:quickcart_customer/data/seed.dart' as seed;
 import 'package:quickcart_customer/features/address/address_controller.dart';
+import 'package:quickcart_customer/features/address/map_picker.dart';
 import 'package:quickcart_customer/features/address/delivery_actions.dart';
 import 'package:quickcart_customer/features/auth/auth_controller.dart';
 import 'package:quickcart_customer/features/cart/cart_controller.dart';
@@ -43,7 +44,7 @@ class _GeoCatalog implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) => _seed.categories();
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async => FakeAddressRepository.servesPoint(latitude, longitude) ? _seed.stores(latitude: latitude, longitude: longitude) : const [];
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => FakeAddressRepository.servesPoint(latitude, longitude) ? _seed.stores(latitude: latitude, longitude: longitude) : const [];
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) async => (await stores(latitude: latitude, longitude: longitude)).firstOrNull;
@@ -71,6 +72,8 @@ Future<_App> _pump(
   FakeAddressRepository? repo,
   FakeLocationService? location,
   double height = 1500,
+  bool maps = false,
+  FakeGeocodingService? geocoding,
 }) async {
   SharedPreferences.setMockInitialValues(prefs);
   final sp = await SharedPreferences.getInstance();
@@ -79,7 +82,7 @@ Future<_App> _pump(
   addTearDown(tester.view.reset);
   final addresses = repo ?? FakeAddressRepository();
   final locator = location ?? FakeLocationService();
-  final geocoder = FakeGeocodingService();
+  final geocoder = geocoding ?? FakeGeocodingService();
   final products = ProductStore()..putAll(seed.products);
   final shop = LocalShop();
   await tester.pumpWidget(ProviderScope(retry: noAutomaticRetry, overrides: [
@@ -89,6 +92,8 @@ Future<_App> _pump(
     addressRepositoryProvider.overrideWithValue(addresses),
     locationServiceProvider.overrideWithValue(locator),
     geocodingServiceProvider.overrideWithValue(geocoder),
+    mapsAvailableProvider.overrideWith((ref) async => maps),
+    mapViewBuilderProvider.overrideWithValue((context, start, onCenterChanged) => TextButton(onPressed: () => onCenterChanged(19.045, 73.07), child: const Text('move the map'))),
     productStoreProvider.overrideWithValue(products),
     cartRepositoryProvider.overrideWithValue(LocalCartRepository(shop)),
     orderRepositoryProvider.overrideWithValue(LocalOrderRepository(shop)),
@@ -663,6 +668,46 @@ void main() {
       await _tap(tester, find.byTooltip('Profile'));
 
       expect(find.text('Add an address'), findsOneWidget);
+    });
+  });
+
+  group('choosing the spot on a map', () {
+    testWidgets('without a map key there is no map button and the other ways still work', (tester) async {
+      await _pump(tester, auth: const AuthState(AuthStatus.signedIn, CustomerProfile(id: 'u1', fullName: 'Asha Patil', email: 'asha@example.test')));
+      _go(tester, '/addresses/new');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Choose on map'), findsNothing);
+      expect(find.text('Find this address'), findsOneWidget);
+      expect(find.text('Use my current location'), findsOneWidget);
+    });
+
+    testWidgets('with a map key the button opens the map and the confirmed spot becomes the location', (tester) async {
+      final geocoder = FakeGeocodingService()..reverseResult = 'Plot 5, Kharghar';
+      await _pump(tester, maps: true, geocoding: geocoder, auth: const AuthState(AuthStatus.signedIn, CustomerProfile(id: 'u1', fullName: 'Asha Patil', email: 'asha@example.test')));
+      _go(tester, '/addresses/new');
+      await tester.pumpAndSettle();
+
+      await _tap(tester, find.text('Choose on map'));
+      await _tap(tester, find.text('move the map'));
+      await _tap(tester, find.text('Confirm location'));
+
+      expect(find.text('19.0450, 73.0700'), findsOneWidget);
+      expect(find.text('Plot 5, Kharghar'), findsOneWidget, reason: 'the empty address line is filled from the spot');
+    });
+
+    testWidgets('an address the customer already typed is never replaced by the map text', (tester) async {
+      final geocoder = FakeGeocodingService()..reverseResult = 'Somewhere else';
+      await _pump(tester, maps: true, geocoding: geocoder, auth: const AuthState(AuthStatus.signedIn, CustomerProfile(id: 'u1', fullName: 'Asha Patil', email: 'asha@example.test')));
+      _go(tester, '/addresses/new');
+      await tester.pumpAndSettle();
+      await _typeInto(tester, 0, 'Flat 4, Sector 20');
+
+      await _tap(tester, find.text('Choose on map'));
+      await _tap(tester, find.text('Confirm location'));
+
+      expect(find.text('Flat 4, Sector 20'), findsOneWidget);
+      expect(find.text('Somewhere else'), findsNothing);
     });
   });
 }

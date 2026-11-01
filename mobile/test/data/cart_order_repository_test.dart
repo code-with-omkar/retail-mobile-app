@@ -220,7 +220,7 @@ void main() {
 
       final request = adapter.requests.single;
       expect((request.method, request.path), ('POST', '/api/checkout/s1'));
-      expect(request.data, {'addressId': 'a1'});
+      expect(request.data, {'addressId': 'a1', 'outOfStockChoice': 'CallMe'});
       expect(request.headers['Idempotency-Key'], 'key-0000000000000001');
       expect((order.number, order.total, order.subtotal, order.deliveryFee, order.handlingFee, order.payment, order.receiverName), ('ORD-20261009-abc', 86.0, 56.0, 25.0, 5.0, 'CashOnDelivery', 'Asha Patil'));
     });
@@ -234,7 +234,7 @@ void main() {
         place: const DeliveryPlace(label: 'Current location', line: '12 Marine Drive, Mumbai', latitude: 19.076, longitude: 72.8777),
       );
 
-      expect(adapter.requests.single.data, {'deliveryAddress': '12 Marine Drive, Mumbai', 'latitude': 19.076, 'longitude': 72.8777});
+      expect(adapter.requests.single.data, {'deliveryAddress': '12 Marine Drive, Mumbai', 'latitude': 19.076, 'longitude': 72.8777, 'outOfStockChoice': 'CallMe'});
     });
 
     test('a repeat answer (200 with the same order) reads like the first', () async {

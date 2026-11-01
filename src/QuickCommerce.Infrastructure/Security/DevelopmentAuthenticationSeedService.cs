@@ -27,7 +27,8 @@ public sealed class DevelopmentAuthenticationSeedService(
         {
             ["admin"] = configuration["Authentication:DevelopmentAdminPassword"],
             ["storemanager"] = configuration["Authentication:DevelopmentStoreManagerPassword"],
-            ["storeemployee"] = configuration["Authentication:DevelopmentStoreEmployeePassword"]
+            ["storeemployee"] = configuration["Authentication:DevelopmentStoreEmployeePassword"],
+            ["deliverypartner"] = configuration["Authentication:DevelopmentDeliveryPartnerPassword"]
         };
         if (passwords.Values.All(string.IsNullOrWhiteSpace))
         {

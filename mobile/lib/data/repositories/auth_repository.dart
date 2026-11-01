@@ -32,6 +32,26 @@ class AuthRepository {
     return _begin(session);
   }
 
+  /// Texts a code to the number (10 digits). The answer is the same whether or not the number has an account.
+  Future<OtpSent> requestOtp(String phone) => _api.post('/api/auth/otp/request', body: {'phone': phone}, parse: (d) => OtpSent.fromJson(asObject(d)));
+
+  /// Signs in with the code: to the account that owns the verified number, or to a new one.
+  Future<CustomerProfile> verifyOtp({required String phone, required String code}) async {
+    final session = await _api.post('/api/auth/otp/verify', body: {'phone': phone, 'code': code}, parse: (d) => AuthSessionDto.fromJson(asObject(d)));
+    return _beginAndFill(session);
+  }
+
+  /// Signs in with Google's ID token, which the server checks itself.
+  Future<CustomerProfile> googleSignIn(String idToken) async {
+    final session = await _api.post('/api/auth/google', body: {'idToken': idToken}, parse: (d) => AuthSessionDto.fromJson(asObject(d)));
+    return _beginAndFill(session);
+  }
+
+  /// For a signed-in customer: texts a code to a number they want to verify for their own account.
+  Future<OtpSent> requestPhoneVerification(String phone) => _api.post('/api/account/phone/otp/request', body: {'phone': phone}, parse: (d) => OtpSent.fromJson(asObject(d)));
+
+  Future<void> verifyPhone({required String phone, required String code}) => _api.post('/api/account/phone/otp/verify', body: {'phone': phone, 'code': code}, parse: (_) {});
+
   Future<CustomerProfile> register({required String fullName, required String email, required String password, String? phoneNumber}) async {
     final session = await _api.post(
       '/api/auth/register',
@@ -53,6 +73,13 @@ class AuthRepository {
       body: {'currentPassword': currentPassword, 'newPassword': newPassword, 'refreshToken': await _store.readRefreshToken()},
       parse: (_) {},
     );
+  }
+
+  /// Deletes the account for good (the server erases the personal data and revokes every session), then forgets the session here.
+  Future<void> deleteAccount({String? password}) async {
+    await _api.post('/api/customer/profile/delete', body: {'confirmation': 'DELETE', if (password != null && password.isNotEmpty) 'password': password}, parse: (_) {});
+    _accessToken = null;
+    await _store.clear();
   }
 
   Future<CustomerProfile> profile() => _api.get('/api/customer/profile', parse: (d) => CustomerProfile.fromJson(asObject(d)));
@@ -107,6 +134,16 @@ class AuthRepository {
     } finally {
       _accessToken = null;
       await _store.clear();
+    }
+  }
+
+  /// Starts the session, then reads the full profile (the session itself carries no phone number). If that read fails the session still stands.
+  Future<CustomerProfile> _beginAndFill(AuthSessionDto session) async {
+    final basic = await _begin(session);
+    try {
+      return await profile();
+    } on ApiException {
+      return basic;
     }
   }
 

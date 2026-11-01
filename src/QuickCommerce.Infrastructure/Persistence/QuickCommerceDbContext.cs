@@ -6,6 +6,9 @@ namespace QuickCommerce.Infrastructure.Persistence;
 public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbContext> options) : DbContext(options)
 {
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<OtpChallenge> OtpChallenges => Set<OtpChallenge>();
+    public DbSet<FavouriteProduct> Favourites => Set<FavouriteProduct>();
+    public DbSet<OrderRating> OrderRatings => Set<OrderRating>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<AuthorizationRole> AuthorizationRoles => Set<AuthorizationRole>();
     public DbSet<AuthorizationPermission> AuthorizationPermissions => Set<AuthorizationPermission>();
@@ -31,6 +34,18 @@ public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbConte
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<CheckoutRequestRecord> CheckoutRequests => Set<CheckoutRequestRecord>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<OrderNumberCounter> OrderNumberCounters => Set<OrderNumberCounter>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<CampaignStore> CampaignStores => Set<CampaignStore>();
+    public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
+    public DbSet<OfferFee> OfferFees => Set<OfferFee>();
+    public DbSet<CommissionRate> CommissionRates => Set<CommissionRate>();
+    public DbSet<DeliveryLocation> DeliveryLocations => Set<DeliveryLocation>();
+    public DbSet<OrderAdjustment> OrderAdjustments => Set<OrderAdjustment>();
+    public DbSet<ReplacementProposal> ReplacementProposals => Set<ReplacementProposal>();
+    public DbSet<CampaignPayment> CampaignPayments => Set<CampaignPayment>();
+    public DbSet<PlacementBid> PlacementBids => Set<PlacementBid>();
+    public DbSet<PlacementRules> PlacementRules => Set<PlacementRules>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();

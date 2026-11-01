@@ -49,7 +49,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? _key;
   bool _busy = false;
   bool _online = false;
+  String _choice = 'CallMe';
+  final _note = TextEditingController();
   _Failure? _failure;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -73,7 +81,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (storeId == null) throw const ConflictException('No store', statusCode: 409, reason: 'OutsideServiceArea');
       _key ??= newIdempotencyKey();
       final online = _online && (ref.read(paymentOptionsProvider).value?.online ?? false);
-      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online);
+      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online, note: _note.text, outOfStockChoice: _choice);
       _key = null;
       ref.read(lastPlacedOrderProvider.notifier).set(order);
       ref.read(ordersProvider.notifier).placed(order);
@@ -201,6 +209,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ]),
               ),
               const SizedBox(height: 24),
+              Text(context.tr('If an item is out of stock'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              for (final (value, title, subtitle, icon) in [
+                ('CallMe', 'Call me', 'The store phones you to decide.', Icons.phone_outlined),
+                ('Remove', 'Remove it', 'Leave it out and deliver the rest.', Icons.remove_circle_outline),
+                ('Replace', 'Replace it', 'The store picks a similar item.', Icons.swap_horiz),
+              ]) ...[
+                _MethodTile(icon: icon, title: context.tr(title), subtitle: context.tr(subtitle), selected: _choice == value, onTap: () => setState(() => _choice = value)),
+                const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 16),
+              Text(context.tr('Note for the store'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _note,
+                maxLength: 200,
+                maxLines: 3,
+                minLines: 2,
+                decoration: InputDecoration(labelText: context.tr('Optional, for example: ring the bell twice')),
+              ),
+              const SizedBox(height: 16),
               Text(context.tr('Payment method'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               _MethodTile(

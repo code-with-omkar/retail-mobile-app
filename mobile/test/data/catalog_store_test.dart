@@ -300,7 +300,7 @@ class _FakeRepo implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async => [?store];
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => [?store];
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) async => store;

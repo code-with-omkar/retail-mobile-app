@@ -191,6 +191,7 @@ class _StoreCard extends StatelessWidget {
             Wrap(spacing: 6, runSpacing: 6, children: [
               _Pill(context.tr('{km} km', {'km': store.distanceKm.toStringAsFixed(1)})),
               _Pill(context.tr('{n} min', {'n': '${store.estimatedMinutes}'})),
+              if (store.sponsored) _Pill(context.tr('Sponsored'), color: Pal.yellow, textColor: Pal.ink, bold: true),
               if (nearest) _Pill(context.tr('Nearest'), color: Pal.green, bold: true),
               if (current) _Pill(context.tr('Selected'), color: Pal.ink, textColor: Pal.yellow, bold: true),
             ]),

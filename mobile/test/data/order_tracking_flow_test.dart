@@ -252,6 +252,30 @@ void main() {
       expect(find.text('Could not open the phone app.'), findsOneWidget);
     });
 
+    testWidgets('while out for delivery the customer sees the partner, a Call button and the delivery code', (tester) async {
+      final app = await _open(tester, orders: [sampleOrder(number: 'ORD-1', stage: OrderStage.onTheWay, deliveryPartnerName: 'Rina', deliveryPartnerPhone: '9000000001', deliveryOtp: '4821')]);
+      await _goOrders(tester);
+      await _openOrder(tester, 'ORD-1');
+
+      expect(find.text('Delivery partner'), findsOneWidget);
+      expect(find.text('Rina'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('delivery-code'))).data, '4821');
+      expect(find.text('Give this code to the delivery partner only when your order arrives.'), findsOneWidget);
+
+      await tester.tap(find.text('Call'));
+      await tester.pumpAndSettle();
+      expect(app.phone.dialled, ['9000000001']);
+    });
+
+    testWidgets('with no delivery code (not out yet, or already delivered) nothing about a partner is shown', (tester) async {
+      await _open(tester, orders: [_active('ORD-1', stage: OrderStage.packed)]);
+      await _goOrders(tester);
+      await _openOrder(tester, 'ORD-1');
+
+      expect(find.text('Delivery partner'), findsNothing);
+      expect(find.byKey(const Key('delivery-code')), findsNothing);
+    });
+
     testWidgets('a store without a phone shows its name and no Call button', (tester) async {
       await _open(tester, orders: [_active('ORD-1', phone: null)]);
       await _goOrders(tester);

@@ -7,7 +7,11 @@ public sealed record NotificationResponse(
     string Title,
     string Message,
     bool IsRead,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Category = "Order",
+    string? StoreName = null,
+    string? ImageUrl = null,
+    Guid? CampaignId = null);
 
 public sealed record MarkNotificationReadRequest(bool IsRead = true);
 

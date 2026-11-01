@@ -9,7 +9,9 @@ public sealed record CheckoutRequest(
     double? Latitude = null,
     double? Longitude = null,
     Guid? AddressId = null,
-    string? PaymentMethod = null);
+    string? PaymentMethod = null,
+    string? Note = null,
+    string? OutOfStockChoice = null);
 
 /// <summary>The delivery details after the server has resolved them: what is stored on the order.</summary>
 public sealed record CheckoutDelivery(
@@ -30,7 +32,11 @@ public sealed record CheckoutCommit(
     string? RequestHash = null,
     int? EstimatedDeliveryMinutes = null,
     string PaymentMethod = Domain.PaymentMethods.CashOnDelivery,
-    DateTime? PaymentExpiresAt = null);
+    DateTime? PaymentExpiresAt = null,
+    DateTime? Now = null,
+    string? Note = null,
+    string? OutOfStockChoice = null,
+    decimal? CommissionPercent = null);
 
 public enum CheckoutCommitStatus
 {

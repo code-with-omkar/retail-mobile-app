@@ -6,6 +6,7 @@ import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_problems.dart';
+import '../favourites/favourites_controller.dart';
 
 /// Black pill navigation (Home, Categories, Orders, Profile) with the yellow cart pill beside it.
 class AppShell extends ConsumerWidget {
@@ -15,6 +16,8 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final totals = ref.watch(cartTotalsProvider);
+    // Read once so the saved list is fetched at start, not when the first heart is drawn. Nothing here rebuilds when it changes.
+    ref.read(favouritesProvider);
     final p = context.pal;
     final tabs = [
       (Icons.home_outlined, Icons.home_rounded, context.tr('Home')),

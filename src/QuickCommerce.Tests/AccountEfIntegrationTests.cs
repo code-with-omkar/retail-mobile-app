@@ -17,6 +17,7 @@ namespace QuickCommerce.Tests;
 /// Proves what the in-memory tests cannot: the unique-index race on registration, atomic single use of a reset code,
 /// attempt counting, session revocation and hashing, all through the real EF queries. Rows it creates are removed again.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class AccountEfIntegrationTests
 {
     private const string Key = "integration-test-reset-code-key-0123456789";

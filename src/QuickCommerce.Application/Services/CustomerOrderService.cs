@@ -6,7 +6,11 @@ namespace QuickCommerce.Application.Services;
 
 public sealed class CustomerOrderService(
     ICommerceStore data,
-    ICurrentUserContextResolver currentUserContextResolver) : ICustomerOrderService
+    ICurrentUserContextResolver currentUserContextResolver,
+    IDeliveryLookup? delivery = null,
+    IOrderChangeStore? changes = null,
+    IReplacementStore? replacements = null,
+    TimeProvider? timeProvider = null) : ICustomerOrderService
 {
     public async Task<IReadOnlyList<OrderResponse>?> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
@@ -27,7 +31,7 @@ public sealed class CustomerOrderService(
                 stores[order.StoreId] = store;
             }
 
-            result.Add(WithStore(Map(order), store));
+            result.Add(await WithDeliveryAsync(WithStore(Map(order), store), order, cancellationToken));
         }
 
         return result;
@@ -42,7 +46,45 @@ public sealed class CustomerOrderService(
         }
 
         var order = await data.GetCustomerOrderAsync(orderId, context.UserId, context.OrganizationId, cancellationToken);
-        return order is null ? null : WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken));
+        if (order is null)
+        {
+            return null;
+        }
+
+        var detail = await WithDeliveryAsync(WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken)), order, cancellationToken);
+        // What the store changed while packing it, newest first, so the customer can see what they will receive and what was refunded.
+        if (changes is not null)
+        {
+            detail = detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
+        }
+
+        if (replacements is not null)
+        {
+            // An open proposal the customer can still answer; an overdue one is not shown (it is closed by the maintenance job).
+            var now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+            var open = (await replacements.ListAsync(order.Id, cancellationToken)).FirstOrDefault(item => item.Status == "Pending" && item.ExpiresAt > now);
+            detail = detail with { Replacement = open is null ? null : ReplacementRules.ToInfo(open) };
+        }
+
+        return detail;
+    }
+
+    /// <summary>While the order is out for delivery the customer sees who has it and the code to give them at the door. Nobody else is shown the code.</summary>
+    private async Task<OrderResponse> WithDeliveryAsync(OrderResponse response, Order order, CancellationToken cancellationToken)
+    {
+        if (delivery is null || order.Status != OrderStatus.OutForDelivery || !order.DeliveryPartnerId.HasValue)
+        {
+            return response;
+        }
+
+        var partner = await delivery.GetPartnerAsync(order.DeliveryPartnerId.Value, cancellationToken);
+        var first = partner?.FirstName;
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            first = partner?.DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        }
+
+        return response with { DeliveryPartnerName = first, DeliveryPartnerPhone = partner?.PhoneNumber, DeliveryOtp = order.DeliveryOtp };
     }
 
     public async Task<CancelOrderResult> CancelAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -93,5 +135,7 @@ public sealed class CustomerOrderService(
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 }

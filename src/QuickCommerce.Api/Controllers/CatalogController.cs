@@ -58,9 +58,9 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
 
     /// <summary>Stores that deliver to a location, nearest first. An empty list means none does. Anonymous.</summary>
     [HttpGet("catalog/stores")]
-    public async Task<IActionResult> CatalogStores([FromQuery] double latitude, [FromQuery] double longitude, CancellationToken cancellationToken)
+    public async Task<IActionResult> CatalogStores([FromQuery] double latitude, [FromQuery] double longitude, [FromQuery] string? pincode = null, CancellationToken cancellationToken = default)
     {
-        var result = await catalogService.GetServiceableStoresAsync(new NearestStoreQuery(latitude, longitude), cancellationToken);
+        var result = await catalogService.GetServiceableStoresAsync(new NearestStoreQuery(latitude, longitude, pincode), cancellationToken);
         return result.Valid
             ? Ok(new { success = true, data = result.Stores })
             : BadRequest(new { success = false, message = result.Message, errors = new[] { result.Message } });

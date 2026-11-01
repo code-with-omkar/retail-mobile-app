@@ -1,0 +1,104 @@
+name: CI
+
+# Every push and pull request: the backend (with a real SQL Server), the admin portal, the customer app and the delivery app.
+on:
+  push:
+    branches: [main, mobile-app]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          # A throwaway container that lives for this job only; nothing real is behind it.
+          MSSQL_SA_PASSWORD: "Ci-only-Passw0rd!"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci-only-Passw0rd!' -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build QuickCommerce.slnx -c Release
+      - name: Test (including the SQL Server tests)
+        env:
+          QUICKCOMMERCE_TEST_CONNECTION_STRING: "Server=localhost,1433;Database=qc_ci;User Id=sa;Password=Ci-only-Passw0rd!;TrustServerCertificate=true;MultipleActiveResultSets=true"
+        run: dotnet test src/QuickCommerce.Tests -c Release --no-build --logger "trx;LogFileName=backend.trx" --results-directory results
+      - name: Show failed tests as annotations
+        if: failure()
+        run: node .github/scripts/failed-tests.js results/backend.trx
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: results
+
+  portal:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-portal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-portal/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm test
+      - run: npx ng build --configuration production
+
+  customer-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Release build (debug-signed; the store build is the Release workflow)
+        run: flutter build apk --release --dart-define=API_BASE_URL=http://localhost:5067
+
+  delivery-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: delivery_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

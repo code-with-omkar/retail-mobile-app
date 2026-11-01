@@ -1,0 +1,57 @@
+using QuickCommerce.Application.Interfaces;
+
+namespace QuickCommerce.Api.Hosting;
+
+/// <summary>
+/// Every half minute, sends the offers whose start time has come. Safe on several servers at once (the store claims each campaign
+/// with one conditional update), and a failure is logged and tried again on the next round.
+/// </summary>
+public sealed class CampaignBackgroundService(IServiceScopeFactory scopes, QuickCommerce.Application.Services.PaymentSettings payments, ILogger<CampaignBackgroundService> log) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        do
+        {
+            try
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                var sent = await scope.ServiceProvider.GetRequiredService<ICampaignStore>().PublishDueCampaignsAsync(DateTime.UtcNow, stoppingToken);
+                if (sent > 0)
+                {
+                    log.LogInformation("Sent {Count} offer campaign(s)", sent);
+                }
+
+                // The fee upkeep: refunds of cancelled offers and fees whose confirmation never arrived. Only while online payment is on.
+                if (payments.Enabled)
+                {
+                    var upkeep = scope.ServiceProvider.GetRequiredService<ICampaignPaymentMaintenance>();
+                    await upkeep.StartRefundsAsync(stoppingToken);
+                    await upkeep.ReconcileAsync(stoppingToken);
+
+                    // The same for paid placement: refunds of beaten or cancelled bids, and bids whose confirmation never arrived.
+                    var placement = scope.ServiceProvider.GetRequiredService<IPlacementMaintenance>();
+                    await placement.StartRefundsAsync(stoppingToken);
+                    await placement.ReconcileAsync(stoppingToken);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                log.LogError(ex, "Sending offers failed; will try again");
+            }
+        }
+        while (await WaitAsync(timer, stoppingToken));
+    }
+
+    private static async Task<bool> WaitAsync(PeriodicTimer timer, CancellationToken stoppingToken)
+    {
+        try
+        {
+            return await timer.WaitForNextTickAsync(stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
+}

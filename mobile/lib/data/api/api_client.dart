@@ -19,6 +19,9 @@ typedef TokenProvider = Future<String?> Function();
 /// (it must be single-flight, see `AuthRepository.refreshSession`). If it returns true the request is repeated once with
 /// the new token; otherwise the 401 is thrown. `/api/auth/*` routes are never retried: a 401 there means wrong credentials.
 class ApiClient {
+  /// The server address, for pictures the API serves itself (paths such as /media/products/x.jpg).
+  String get baseUrl => _dio.options.baseUrl;
+
   ApiClient({required AppConfig config, Dio? dio, this.tokenProvider, this.languageCode, this.onUnauthorized})
       : _dio = dio ?? Dio() {
     _dio.options

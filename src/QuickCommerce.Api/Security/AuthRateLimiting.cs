@@ -12,6 +12,9 @@ public static class RateLimitPolicies
     public const string ForgotPassword = "auth-forgot-password";
     public const string ResetPassword = "auth-reset-password";
     public const string ChangePassword = "auth-change-password";
+    public const string OtpRequest = "auth-otp-request";
+    public const string OtpVerify = "auth-otp-verify";
+    public const string Google = "auth-google";
 }
 
 /// <summary>Per-client-IP limits on the anonymous auth routes. Counters live in each server's memory, so with N instances the
@@ -25,6 +28,9 @@ public sealed class AuthRateLimitSettings
     public int ForgotPasswordPerHour { get; set; } = 5;
     public int ResetPasswordPerHour { get; set; } = 10;
     public int ChangePasswordPerHour { get; set; } = 10;
+    public int OtpRequestPerHour { get; set; } = 10;
+    public int OtpVerifyPerHour { get; set; } = 30;
+    public int GooglePerHour { get; set; } = 20;
 }
 
 public static class AuthRateLimiting
@@ -50,6 +56,9 @@ public static class AuthRateLimiting
             Add(options, RateLimitPolicies.ForgotPassword, settings.ForgotPasswordPerHour, TimeSpan.FromHours(1));
             Add(options, RateLimitPolicies.ResetPassword, settings.ResetPasswordPerHour, TimeSpan.FromHours(1));
             Add(options, RateLimitPolicies.ChangePassword, settings.ChangePasswordPerHour, TimeSpan.FromHours(1));
+            Add(options, RateLimitPolicies.OtpRequest, settings.OtpRequestPerHour, TimeSpan.FromHours(1));
+            Add(options, RateLimitPolicies.OtpVerify, settings.OtpVerifyPerHour, TimeSpan.FromHours(1));
+            Add(options, RateLimitPolicies.Google, settings.GooglePerHour, TimeSpan.FromHours(1));
         });
         return services;
     }

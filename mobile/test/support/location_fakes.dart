@@ -38,6 +38,16 @@ class FakeGeocodingService implements GeocodingService {
   @override
   Future<String?> reverse({required double latitude, required double longitude}) async => reverseResult;
 
+  /// What the pincode lookup answers (null: not known).
+  String? pincodeResult;
+  final pincodeLookups = <({double latitude, double longitude})>[];
+
+  @override
+  Future<String?> pincode({required double latitude, required double longitude}) async {
+    pincodeLookups.add((latitude: latitude, longitude: longitude));
+    return pincodeResult;
+  }
+
   @override
   Future<({double latitude, double longitude})?> forward(String address) async {
     forwardQueries.add(address);

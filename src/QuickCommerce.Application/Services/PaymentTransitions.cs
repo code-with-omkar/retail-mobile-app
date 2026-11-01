@@ -3,9 +3,6 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.Services;
 
-/// <summary>The words of a notification, before it is given to a customer.</summary>
-public sealed record NoteText(string Title, string Message);
-
 public sealed record CapturedResult(CapturedOutcome Outcome, NoteText? Note = null);
 
 /// <summary>
@@ -38,7 +35,7 @@ public static class PaymentTransitions
             payment.Status = PaymentState.Refunding;
             payment.FailureReason = "AmountMismatch";
             order.PaymentStatus = PaymentState.Refunding;
-            return new CapturedResult(CapturedOutcome.AmountMismatch, new NoteText("Payment problem", "The amount paid did not match your order, so it will be refunded."));
+            return new CapturedResult(CapturedOutcome.AmountMismatch, NotificationCatalog.Note(NotificationTypes.PaymentProblem, order.OrderNumber));
         }
 
         if (order.Status != OrderStatus.AwaitingPayment)
@@ -46,7 +43,7 @@ public static class PaymentTransitions
             payment.Status = PaymentState.Refunding;
             payment.FailureReason = "Late";
             order.PaymentStatus = PaymentState.Refunding;
-            return new CapturedResult(CapturedOutcome.LateRefund, new NoteText("Payment will be refunded", "Your payment arrived after your order was cancelled, so it will be refunded in full."));
+            return new CapturedResult(CapturedOutcome.LateRefund, NotificationCatalog.Note(NotificationTypes.PaymentWillBeRefunded, order.OrderNumber));
         }
 
         payment.Status = PaymentState.Paid;
@@ -55,7 +52,7 @@ public static class PaymentTransitions
         order.PaymentExpiresAt = null;
         order.Status = OrderStatus.Pending;
         order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Pending });
-        return new CapturedResult(CapturedOutcome.Paid, new NoteText("Payment received", "We received your payment. Your order has been placed."));
+        return new CapturedResult(CapturedOutcome.Paid, NotificationCatalog.Note(NotificationTypes.PaymentReceived, order.OrderNumber));
     }
 
     /// <summary>An attempt failed. The customer may try again while the hold lasts; a payment that is already settled is never undone.</summary>
@@ -90,7 +87,7 @@ public static class PaymentTransitions
             payment.UpdatedAt = now;
         }
 
-        return new NoteText("Payment not completed", "Your order was cancelled because the payment was not completed in time.");
+        return NotificationCatalog.Note(NotificationTypes.PaymentNotCompleted, order.OrderNumber);
     }
 
     /// <summary>
@@ -124,7 +121,7 @@ public static class PaymentTransitions
         {
             payment.Status = PaymentState.Refunded;
             order.PaymentStatus = PaymentState.Refunded;
-            return new NoteText("Refund processed", "Your refund has been processed. It reaches your account in a few days.");
+            return NotificationCatalog.Note(NotificationTypes.RefundProcessed, order.OrderNumber);
         }
 
         payment.Status = PaymentState.RefundFailed;

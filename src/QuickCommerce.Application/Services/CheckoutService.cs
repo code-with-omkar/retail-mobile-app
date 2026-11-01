@@ -16,7 +16,8 @@ public sealed partial class CheckoutService(
     IAddressStore? addresses = null,
     IDeliveryEstimator? deliveryEstimator = null,
     PaymentSettings? paymentSettings = null,
-    TimeProvider? timeProvider = null) : ICheckoutService
+    TimeProvider? timeProvider = null,
+    ICommissionStore? commissions = null) : ICheckoutService
 {
     private const int MaxDeliveryAddressLength = 500;
     private readonly PricingSettings pricing = pricingSettings ?? new PricingSettings();
@@ -38,6 +39,12 @@ public sealed partial class CheckoutService(
         if (method is not (PaymentMethods.CashOnDelivery or PaymentMethods.Online))
         {
             return CheckoutOperationResult.Invalid("The payment method must be CashOnDelivery or Online.");
+        }
+
+        var (note, choice, problem) = OrderPreferences.Check(request.Note, request.OutOfStockChoice);
+        if (problem is not null)
+        {
+            return CheckoutOperationResult.Invalid(problem);
         }
 
         if (method == PaymentMethods.Online && !payments.Enabled)
@@ -77,7 +84,9 @@ public sealed partial class CheckoutService(
 
         // The estimate the customer is given now stays on the order, whatever the store's estimate becomes later.
         int? estimate = deliveryEstimator is null ? null : deliveryEstimator.EstimateMinutes(StoreSelectionService.DistanceKm(delivery.Latitude, delivery.Longitude, store.Latitude, store.Longitude));
-        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null);
+        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method, note, choice), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null, clock.GetUtcNow().UtcDateTime, note, choice,
+            // The percent in force now is written onto the order, so a later change never rewrites it.
+            commissions is null ? null : await CommissionService.EffectiveAsync(commissions, storeId, cancellationToken));
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, commit, cancellationToken);
         return result.Status switch
         {
@@ -120,9 +129,9 @@ public sealed partial class CheckoutService(
     }
 
     /// <summary>The same store and place always give the same hash, so a retry matches and a different order does not.</summary>
-    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method)
+    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method, string? note, string choice)
     {
         var where = delivery.AddressId is { } id ? id.ToString("N") : $"{delivery.Address}|{delivery.Latitude:F5}|{delivery.Longitude:F5}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}")));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}|{note}|{choice}")));
     }
 }

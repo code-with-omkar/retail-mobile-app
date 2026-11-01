@@ -44,7 +44,7 @@ class _Catalog implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async {
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async {
     storeCalls++;
     return answer;
   }

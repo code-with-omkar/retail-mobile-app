@@ -251,7 +251,7 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
         var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).FirstOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(new Notification { CustomerId = customerId.Value, OrderId = order.Id, Type = "PaymentUpdate", Title = note.Title, Message = note.Message });
+            db.Notifications.Add(NotificationCatalog.From(customerId.Value, order.Id, note));
         }
     }
 }

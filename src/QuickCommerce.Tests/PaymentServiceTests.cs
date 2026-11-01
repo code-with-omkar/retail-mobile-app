@@ -731,6 +731,38 @@ public sealed class PaymentServiceTests
     }
 
     [Fact]
+    public async Task When_the_shop_rejects_an_order_its_stock_goes_back_exactly_once()
+    {
+        var rig = PaymentRig.Create();
+        var before = rig.Stock;
+        var order = await rig.PlaceOnlineAsync(method: PaymentMethods.CashOnDelivery, quantity: 3);
+        Assert.Equal(before - 3, rig.Stock);
+        var organization = rig.Data.Organizations.Single().Id;
+
+        var first = await rig.Data.TryTransitionOrderAsync(order.Id, organization, null, OrderStatus.Rejected);
+        var second = await rig.Data.TryTransitionOrderAsync(order.Id, organization, null, OrderStatus.Rejected);
+
+        Assert.Equal(OrderLifecycleStatus.Succeeded, first.Status);
+        Assert.Equal(OrderLifecycleStatus.InvalidTransition, second.Status);
+        Assert.Equal(before, rig.Stock);
+    }
+
+    [Fact]
+    public async Task Accepting_or_completing_an_order_never_changes_its_stock()
+    {
+        var rig = PaymentRig.Create();
+        var order = await rig.PlaceOnlineAsync(method: PaymentMethods.CashOnDelivery, quantity: 2);
+        var held = rig.Stock;
+        var organization = rig.Data.Organizations.Single().Id;
+
+        foreach (var step in new[] { OrderStatus.Accepted, OrderStatus.Preparing, OrderStatus.Ready, OrderStatus.Completed })
+        {
+            Assert.Equal(OrderLifecycleStatus.Succeeded, (await rig.Data.TryTransitionOrderAsync(order.Id, organization, null, step)).Status);
+            Assert.Equal(held, rig.Stock);
+        }
+    }
+
+    [Fact]
     public async Task A_cash_order_cancelled_involves_no_payment_at_all()
     {
         var rig = PaymentRig.Create();

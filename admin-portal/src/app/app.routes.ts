@@ -46,6 +46,51 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'reports',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/reports/reports.component').then(
+            m => m.ReportsComponent
+          ),
+      },
+      {
+        path: 'stock',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/stock/stock.component').then(
+            m => m.StockComponent
+          ),
+      },
+      {
+        path: 'placement',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/placement/placement.component').then(
+            m => m.PlacementComponent
+          ),
+      },
+      {
+        path: 'campaigns',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/campaigns/campaigns.component').then(
+            m => m.CampaignsComponent
+          ),
+      },
+      {
+        path: 'commission',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/commission/commission.component').then(
+            m => m.CommissionComponent
+          ),
+      },
+      {
         path: 'admin/users',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin] },

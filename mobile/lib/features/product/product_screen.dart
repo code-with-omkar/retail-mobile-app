@@ -8,7 +8,10 @@ import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../stores/store_widgets.dart';
+import '../auth/auth_controller.dart';
+import '../auth/auth_widgets.dart';
 import '../cart/cart_controller.dart';
+import '../favourites/favourites_controller.dart';
 
 /// Loads the product, then shows [_ProductView]. Loading and failure keep the back button available.
 class ProductScreen extends ConsumerWidget {
@@ -46,7 +49,6 @@ class _ProductViewState extends ConsumerState<_ProductView> {
   late final Product _p = widget.product;
   late PackOption? _pack = _initialPack();
   int _qty = 1;
-  bool _fav = false;
 
   /// The default pack, or the first pack in stock when the default is sold out.
   PackOption? _initialPack() {
@@ -59,6 +61,23 @@ class _ProductViewState extends ConsumerState<_ProductView> {
   // Stock, price and savings follow the chosen pack; a product without packs uses its own.
   bool get _inStock => _pack?.inStock ?? _p.inStock;
   bool get _lowStock => _pack?.lowStock ?? _p.lowStock;
+
+  bool get _saved => ref.watch(favouritesProvider).has(_p.id);
+
+  /// A guest is taken to sign in first; for a customer the heart changes at once and goes back if the server refuses.
+  Future<void> _toggleSaved() async {
+    if (!ref.read(authProvider).isSignedIn) {
+      context.push(withNext('/welcome', '/product/${_p.id}'));
+      return;
+    }
+
+    final ok = await ref.read(favouritesProvider.notifier).toggle(_p.id);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(context.tr('Could not update your saved items. Please try again.'))));
+    }
+  }
 
   void _add() {
     ref.read(cartProvider.notifier).add(cartKey(_p, _pack), _qty);
@@ -89,7 +108,7 @@ class _ProductViewState extends ConsumerState<_ProductView> {
                       padding: const EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 0),
                       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
                         CircleIconButton(icon: Icons.chevron_left, tooltip: context.tr('Back'), onPressed: () => context.canPop() ? context.pop() : context.go('/')),
-                        CircleIconButton(icon: _fav ? Icons.favorite : Icons.favorite_border, color: Pal.pink, tooltip: context.tr('Favourite'), onPressed: () => setState(() => _fav = !_fav)),
+                        CircleIconButton(icon: _saved ? Icons.favorite : Icons.favorite_border, color: Pal.pink, tooltip: context.tr(_saved ? 'Remove from saved items' : 'Save for later'), onPressed: _toggleSaved),
                       ]),
                     ),
                   ),

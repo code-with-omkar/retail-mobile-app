@@ -20,7 +20,17 @@ public static class ApiApplicationBuilderExtensions
             app.Logger.LogWarning("Proxy:KnownProxies is not configured. Behind a load balancer every client appears to have the balancer's IP, so per-IP rate limits would apply to all users together.");
         }
 
+        app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseMiddleware<RequestCorrelationMiddleware>();
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseHsts();
+            if (app.Services.GetRequiredService<CorsOriginsInfo>().Count == 0)
+            {
+                app.Logger.LogWarning("Cors:AllowedOrigins is empty, so no browser page (such as the admin portal) can call this API. List the portal's address there.");
+            }
+        }
+
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
         {
@@ -53,6 +63,21 @@ public static class ApiApplicationBuilderExtensions
             app.UseHttpsRedirection();
         }
 
+        // Product pictures. Names are random and never reused, so browsers may keep them; nothing here is ever run or sniffed as another type.
+        var media = app.Services.GetRequiredService<QuickCommerce.Infrastructure.Media.LocalImageStore>();
+        Directory.CreateDirectory(media.RootPath);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(media.RootPath),
+            RequestPath = QuickCommerce.Infrastructure.Media.LocalImageStore.RequestPath,
+            ServeUnknownFileTypes = false,
+            OnPrepareResponse = context =>
+            {
+                context.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+                context.Context.Response.Headers["Cache-Control"] = "public, max-age=86400";
+                context.Context.Response.Headers["Content-Security-Policy"] = "default-src 'none'";
+            }
+        });
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapControllers();
