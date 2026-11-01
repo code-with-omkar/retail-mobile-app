@@ -13,7 +13,8 @@ val keyProperties = Properties().apply {
 }
 val hasReleaseKey = keyProperties.getProperty("storeFile") != null
 
-// The Google Maps key lives in android/local.properties as MAPS_API_KEY=... (never committed; CI writes it from a secret).
+// The Google Maps key lives in android/local.properties as MAPS_API_KEY=... (never committed; CI writes it from a secret), or in your user-level
+// Gradle file (~/.gradle/gradle.properties), which is outside the project.
 // Without it the build still works and the app simply hides the map.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
@@ -43,7 +44,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY") ?: ""
+        manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY") ?: (project.findProperty("MAPS_API_KEY") as String?) ?: ""
     }
 
     signingConfigs {

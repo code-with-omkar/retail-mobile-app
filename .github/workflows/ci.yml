@@ -59,6 +59,7 @@ jobs:
           cache-dependency-path: admin-portal/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm test
       - run: npx ng build --configuration production
 
   customer-app:

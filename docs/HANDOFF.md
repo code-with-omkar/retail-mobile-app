@@ -20,11 +20,14 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
-## P26 Google Maps address picker (built and tested, not committed)
-Full-screen map with a fixed centre pin in the address editor (**Choose on map**), hidden when the build has no key. The key is read at build time from `mobile/android/local.properties` (`MAPS_API_KEY=`, git-ignored; GitHub secret in the release workflow); the app only asks Android whether a key exists, never reads it. No server change, no migration. Not yet on a device: needs the user to add the key, then `flutter run` (first build with the maps plugin is slow). Cases: section T. Customer app 543 tests. Not done: store service-area circles, live delivery map, store/portal maps (the user chose only the address picker for now).
+## P27 portal tests (built, passing, not committed)
+Admin portal now has a test runner: Vitest + jsdom through Angular's unit-test builder (`npm test` in admin-portal; dev packages vitest, jsdom). 68 tests: storage, config, auth service, guards, token-refresh interceptor, API service, and the Commission, Stock and Orders screens. `src/test-setup.js` gives tests an in-memory localStorage (Node 25 breaks the built-in one). CI portal job runs `npm test` before the build. Screens are tested by calling their methods with a stand-in ApiService. Not covered yet: the other screens (stores, products, campaigns, reports, users, roles, approvals, notifications, dashboard, login).
+
+## P26 Google Maps address picker (committed 6e19949; map PAUSED)
+Full-screen map with a fixed centre pin in the address editor (**Choose on map**), hidden when the build has no key. The key is read at build time from `mobile/android/local.properties` (`MAPS_API_KEY=`, git-ignored; GitHub secret in the release workflow); the app only asks Android whether a key exists, never reads it. No server change, no migration. On the phone the button shows but the map is blank: Google returns INVALID_ARGUMENT / authorization failure for package com.quickcart.quickcart_customer. Cause is the Google Cloud side (Maps SDK for Android not enabled in the key project, billing not linked, or key/restrictions wrong), not the app. PAUSED by the user; resume by fixing the key, then cases T1-T8. Cases: section T. Customer app 543 tests. Not done: store service-area circles, live delivery map, store/portal maps (the user chose only the address picker for now).
 
 ## Ideas not started
-Push notifications (needs Firebase project), Google Maps picker (needs a key), crash reporting (needs an account), portal tests, replacement products when an item is out of stock.
+Push notifications (needs Firebase project), crash reporting (needs an account), tests for the remaining portal screens, live delivery map, store/portal maps.
 
 ## Waiting on the user
 - Try the manual lists in `docs/test-cases.md` (sections A to K) and `docs/testing-notes.md`; send failed IDs.
