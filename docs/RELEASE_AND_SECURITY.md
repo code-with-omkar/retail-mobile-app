@@ -64,3 +64,9 @@ Reviewed: secrets, configuration, logging, browser access, authentication, uploa
 - Crash reporting (9.5) is not added: it needs a Firebase or Sentry account and care that no phone numbers or tokens are sent.
 - A leaked SQL password from earlier development should still be rotated (testing notes C).
 - Run a dependency vulnerability check on a schedule (`dotnet list package --vulnerable`, `npm audit`, `flutter pub outdated`); GitHub Dependabot can do this once the repository is on GitHub.
+
+**Several servers (9.7 check)**
+- Safe: sign-in tokens carry their own proof (no server session); the offer and payment background jobs claim each row with one conditional update, so two servers do not send or refund twice; payment webhooks are idempotent.
+- Set `Media:RootPath` to a folder every server can reach. Uploaded pictures are files; without it each server keeps its own (the API now logs a warning at start-up).
+- Per-IP rate limits are per server (see above). Set `Proxy:KnownProxies` behind a load balancer.
+- Apply database changes from a reviewed script, not at start-up: `dotnet ef migrations script --idempotent --project src/QuickCommerce.Infrastructure --startup-project src/QuickCommerce.Api -o release.sql`, read it, then run it on the production database before the new version starts.

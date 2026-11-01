@@ -239,8 +239,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Tooltip(
           message: context.tr('Voice search'),
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Voice search is coming soon')))),
-            child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.mic_none_rounded, size: 20, color: Pal.ink)),
+            child: SizedBox(width: QC.minTap, height: QC.minTap, child: Center(child: Container(width: 36, height: 36, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.mic_none_rounded, size: 20, color: Pal.ink)))),
           ),
         ),
       ]),

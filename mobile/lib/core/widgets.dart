@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -209,7 +210,7 @@ class ProductVisual extends StatelessWidget {
         final url = product.imageUrl;
         return ColoredBox(
           color: product.color,
-          child: Center(child: url == null ? fallback : Image.network(url, fit: BoxFit.cover, width: double.infinity, height: double.infinity, loadingBuilder: (_, child, progress) => progress == null ? child : fallback, errorBuilder: (_, _, _) => fallback)),
+          child: Center(child: url == null ? fallback : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, width: double.infinity, height: double.infinity, memCacheWidth: (side * MediaQuery.devicePixelRatioOf(context)).round(), placeholder: (_, _) => fallback, errorWidget: (_, _, _) => fallback)),
         );
       });
 }
@@ -354,7 +355,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Flexible(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Pal.onGround))),
-        if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(minimumSize: const Size(48, 36), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: Text(action!)),
+        if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(minimumSize: const Size(QC.minTap, QC.minTap), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: Text(action!)),
       ]);
 }
 

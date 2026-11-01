@@ -25,6 +25,11 @@ public static class ApiApplicationBuilderExtensions
         if (!app.Environment.IsDevelopment())
         {
             app.UseHsts();
+            if (string.IsNullOrWhiteSpace(app.Configuration["Media:RootPath"]))
+            {
+                app.Logger.LogWarning("Media:RootPath is not set, so uploaded pictures are kept inside the application folder. With more than one server, or a redeploy that replaces the folder, pictures would go missing. Point it at a shared folder.");
+            }
+
             if (app.Services.GetRequiredService<CorsOriginsInfo>().Count == 0)
             {
                 app.Logger.LogWarning("Cors:AllowedOrigins is empty, so no browser page (such as the admin portal) can call this API. List the portal's address there.");

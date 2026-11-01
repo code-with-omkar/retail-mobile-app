@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,7 +25,7 @@ class OfferImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(radius),
       child: url == null
           ? fallback
-          : Image.network(url!, height: height, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, _, _) => fallback),
+          : CachedNetworkImage(imageUrl: url!, height: height, width: double.infinity, fit: BoxFit.cover, placeholder: (_, _) => fallback, errorWidget: (_, _, _) => fallback),
     );
   }
 }
