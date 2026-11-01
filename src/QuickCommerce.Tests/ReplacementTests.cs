@@ -9,6 +9,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P25: the store offers a replacement for an item it cannot supply; the customer accepts or declines within 5 minutes.</summary>
+[Collection("SqlServer")]
 public sealed class ReplacementTests
 {
     private static readonly Guid Staff = Guid.NewGuid();

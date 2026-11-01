@@ -16,6 +16,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P22 phase A: a store manager sets the store's own price for a pack size. The shared price shows struck through when the store's is lower.</summary>
+[Collection("SqlServer")]
 public sealed class StorePriceTests
 {
     private sealed class Who : ICurrentUserContextResolver

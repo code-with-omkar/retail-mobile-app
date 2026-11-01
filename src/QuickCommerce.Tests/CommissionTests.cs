@@ -15,6 +15,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P22 phase B: the platform's commission per store, fixed on each order, and the per-shop earnings in the report.</summary>
+[Collection("SqlServer")]
 public sealed class CommissionTests
 {
     private sealed class FixedScope(bool admin, Guid organizationId) : IAuthorizationScopeService

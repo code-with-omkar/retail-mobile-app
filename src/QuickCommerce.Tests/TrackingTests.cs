@@ -11,6 +11,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P23: delivery tracking. The partner shares a position; the customer sees distance and ETA, never coordinates.</summary>
+[Collection("SqlServer")]
 public sealed class TrackingTests
 {
     private sealed class Who : ICurrentUserContextResolver

@@ -10,6 +10,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P24: the store removes or reduces items of an order it is packing; the customer is refunded the difference.</summary>
+[Collection("SqlServer")]
 public sealed class OrderChangeTests
 {
     private static readonly Guid Staff = Guid.NewGuid();

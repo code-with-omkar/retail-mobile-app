@@ -14,6 +14,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P21: a note for the store and what to do when an item is out of stock.</summary>
+[Collection("SqlServer")]
 public sealed class OrderNoteTests
 {
     private static (CartService Cart, CheckoutService Checkout, InMemoryCommerceStore Data, Store Store, Product Tomato) Create()

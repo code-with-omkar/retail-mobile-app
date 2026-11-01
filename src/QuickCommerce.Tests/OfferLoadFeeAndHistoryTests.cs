@@ -10,6 +10,7 @@ using Xunit;
 namespace QuickCommerce.Tests;
 
 /// <summary>P20: the extra fee for an offer that is also shown when the app opens, and the stores and items a customer bought before.</summary>
+[Collection("SqlServer")]
 public sealed class OfferLoadFeeAndHistoryTests
 {
     private sealed class FixedScope(bool admin, Guid organizationId) : IAuthorizationScopeService
