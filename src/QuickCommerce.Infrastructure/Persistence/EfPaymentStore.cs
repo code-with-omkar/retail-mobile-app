@@ -145,6 +145,7 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var note = PaymentTransitions.ExpireHold(order, payment, now);
         await CouponUsage.ReleaseAsync(db, order.Id, now, cancellationToken);
+        await SlotUsage.ReleaseAsync(db, order, cancellationToken);
         foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
         {
             var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);

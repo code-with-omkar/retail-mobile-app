@@ -40,6 +40,8 @@ public sealed class QuickCommerceDbContext(DbContextOptions<QuickCommerceDbConte
     public DbSet<CampaignProduct> CampaignProducts => Set<CampaignProduct>();
     public DbSet<OfferFee> OfferFees => Set<OfferFee>();
     public DbSet<CommissionRate> CommissionRates => Set<CommissionRate>();
+    public DbSet<DeliverySlotSetting> DeliverySlotSettings => Set<DeliverySlotSetting>();
+    public DbSet<SlotBooking> SlotBookings => Set<SlotBooking>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
     public DbSet<DeliveryLocation> DeliveryLocations => Set<DeliveryLocation>();

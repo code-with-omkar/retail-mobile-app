@@ -177,6 +177,9 @@ export interface AdminOrder {
   deliveryPartner?: string | null;
   note?: string | null;
   outOfStockChoice?: string | null;
+  /** The window the customer chose for scheduled delivery (UTC); both missing for "as soon as possible". */
+  deliverySlotStart?: string | null;
+  deliverySlotEnd?: string | null;
 }
 
 export interface Notification {

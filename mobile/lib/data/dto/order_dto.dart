@@ -79,6 +79,8 @@ Order orderFromJson(Map<String, dynamic> j) {
     outOfStockChoice: j['outOfStockChoice'] as String?,
     couponCode: j['couponCode'] as String?,
     couponDiscount: (j['couponDiscount'] as num?)?.toDouble() ?? 0,
+    deliverySlotStart: j['deliverySlotStart'] == null ? null : DateTime.parse(j['deliverySlotStart'] as String).toUtc(),
+    deliverySlotEnd: j['deliverySlotEnd'] == null ? null : DateTime.parse(j['deliverySlotEnd'] as String).toUtc(),
     replacement: j['replacement'] is Map
         ? Replacement(
             id: (j['replacement'] as Map)['id'] as String,

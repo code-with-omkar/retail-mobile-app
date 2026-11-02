@@ -120,7 +120,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
 
 <script type="application/json" id="plan-data">
 {
-"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-01","version":1,
+"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-02","version":1,
  "note":"Task status below is the baseline in this file. Changes you make in the browser are saved locally; use Export to share them, and ask Claude to fold an exported file back into this baseline."},
 "layers":{"M":"Mobile (Flutter)","A":"API (.NET)","D":"Database (EF/SQL)","W":"Admin portal (Angular)","I":"Infra / DevOps","Q":"QA / testing","X":"Decision / process"},
 "phases":[
@@ -383,9 +383,19 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"28.4","t":"Portal Coupons screen","l":["W","Q"],"s":"M","d":"Create, edit, switch on and off, see use and cost.","ac":[],"a":[],"dep":["28.3"],"st":"done"},
  {"id":"28.5","t":"Customer app: code box, totals, order bill","l":["M","Q"],"s":"M","d":"Marathi labels; server messages English.","ac":[],"a":[],"dep":["28.3"],"st":"done"},
  {"id":"28.6","t":"Apply migration to the dev database and walk section U","l":["I"],"s":"S","d":"Done: backup, migration applied, APIs restarted. Still to do: you walk section U (phone rebuild needed).","ac":[],"a":[],"dep":["28.5"],"st":"doing","bk":"Phone rebuild and manual walk of section U"}
+ ]},
+{"id":"P29","name":"Scheduled delivery","goal":"Customers choose a delivery window; stores set the rules; capacity is enforced on the server.","deps":["P28"],"exit":["A window can never be overbooked","Places are given back when an order does not go ahead","Store and partner see the window"],
+ "tasks":[
+ {"id":"29.1","t":"Rules, tables and migration (AddDeliverySlots)","l":["D","A","Q"],"s":"M","d":"Windows, cut-off, capacity; shared pure rules.","ac":[],"a":[],"dep":["28.6"],"st":"done"},
+ {"id":"29.2","t":"Checkout booking, release, order and admin list fields","l":["A","Q"],"s":"L","d":"Atomic place; throwaway-DB tests.","ac":[],"a":[],"dep":["29.1"],"st":"done"},
+ {"id":"29.3","t":"Admin settings API and customer window list","l":["A","Q"],"s":"M","d":"Default plus per-store override.","ac":[],"a":[],"dep":["29.2"],"st":"done"},
+ {"id":"29.4","t":"Portal Delivery times screen and window on orders","l":["W","Q"],"s":"M","d":"188 portal tests.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.5","t":"Customer app: choose a time at checkout, window on orders","l":["M","Q"],"s":"L","d":"Marathi labels.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.6","t":"Partner app: show the window","l":["D","Q"],"s":"S","d":"Card and detail.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.7","t":"Apply migration to the dev database and walk section V","l":["I"],"s":"S","d":"Done: backup, migration applied, APIs restarted. Still to do: phone rebuild and your walk of section V.","ac":[],"a":[],"dep":["29.5"],"st":"doing","bk":"Phone rebuild and manual walk of section V"}
  ]}
 ],
-"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Delivery slots and scheduled delivery (configurable rules)","Multi-organization store switching","Product analytics"],
+"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Multi-organization store switching","Product analytics"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

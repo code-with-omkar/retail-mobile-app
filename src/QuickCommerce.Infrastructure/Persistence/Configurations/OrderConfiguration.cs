@@ -14,6 +14,9 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.SubtotalAmount).HasPrecision(18, 2).IsRequired();
         builder.Property(order => order.DeliveryFee).HasPrecision(18, 2).IsRequired();
         builder.Property(order => order.HandlingFee).HasPrecision(18, 2).IsRequired();
+        builder.Property(order => order.DeliverySlotStart).HasColumnType("datetime2");
+        builder.Property(order => order.DeliverySlotEnd).HasColumnType("datetime2");
+        builder.HasIndex(order => new { order.StoreId, order.DeliverySlotStart }).HasFilter("[DeliverySlotStart] IS NOT NULL").HasDatabaseName("IX_Orders_StoreSlot");
         builder.Property(order => order.CouponCode).HasMaxLength(20);
         builder.Property(order => order.CouponDiscount).HasPrecision(18, 2).IsRequired().HasDefaultValue(0m);
         builder.Property(order => order.PaymentMethod).HasMaxLength(32).IsRequired().HasDefaultValue(PaymentMethods.CashOnDelivery);
@@ -41,6 +44,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.CreatedAt).HasColumnType("datetime2").IsRequired();
         builder.Property(order => order.RowVersion).IsRowVersion().IsConcurrencyToken();
         builder.HasIndex(order => order.OrderNumber).IsUnique();
+        builder.ToTable(table => table.HasCheckConstraint("CK_Orders_Slot", "([DeliverySlotStart] IS NULL AND [DeliverySlotEnd] IS NULL) OR ([DeliverySlotStart] IS NOT NULL AND [DeliverySlotEnd] > [DeliverySlotStart])"));
         builder.ToTable(table => table.HasCheckConstraint("CK_Orders_Fees", "[DeliveryFee] >= 0 AND [HandlingFee] >= 0 AND [SubtotalAmount] >= 0"));
         builder.HasIndex(order => new { order.StoreId, order.CreatedAt });
         builder.HasOne<Store>().WithMany().HasForeignKey(order => order.StoreId).OnDelete(DeleteBehavior.Restrict);

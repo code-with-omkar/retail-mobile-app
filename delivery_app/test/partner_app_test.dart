@@ -7,7 +7,7 @@ import 'package:quickcart_delivery/api.dart';
 import 'package:quickcart_delivery/app.dart';
 import 'package:quickcart_delivery/location.dart';
 
-Delivery delivery({String number = 'KH-261012-0001', String status = 'Ready', double cash = 250, String id = 'o1'}) => Delivery.fromJson({
+Delivery delivery({String number = 'KH-261012-0001', String status = 'Ready', double cash = 250, String id = 'o1', String? slotStart, String? slotEnd}) => Delivery.fromJson({
       'orderId': id,
       'orderNumber': number,
       'status': status,
@@ -25,6 +25,8 @@ Delivery delivery({String number = 'KH-261012-0001', String status = 'Ready', do
         {'productNameSnapshot': 'Farm Milk', 'variantLabel': '1 l', 'quantity': 2, 'unitPrice': 34, 'totalPrice': 68}
       ],
       'deliveredAt': status == 'Delivered' ? DateTime.now().toUtc().toIso8601String() : null,
+      'deliverySlotStart': slotStart,
+      'deliverySlotEnd': slotEnd,
     });
 
 class FakeApi implements DeliveryApi {
@@ -168,6 +170,30 @@ void main() {
       expect(find.text('Paid online'), findsOneWidget);
       expect(find.text('Pick up'), findsOneWidget);
       expect(find.text('On the way'), findsOneWidget);
+    });
+
+    testWidgets('a scheduled order shows its window on the card and in the detail; an order for now shows none', (tester) async {
+      // The window is tomorrow at 9 am India time, whatever day the test runs.
+      final indiaNow = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+      final start = DateTime.utc(indiaNow.year, indiaNow.month, indiaNow.day).add(const Duration(days: 1, hours: 9)).subtract(const Duration(hours: 5, minutes: 30));
+      final api = FakeApi(signedIn: true, items: [delivery(slotStart: start.toIso8601String(), slotEnd: start.add(const Duration(hours: 1)).toIso8601String()), delivery(number: 'KH-2', id: 'o2')]);
+      await open(tester, api);
+
+      expect(find.byKey(const Key('window-line')), findsOneWidget);
+      expect(find.text('Deliver Tomorrow, 9 am - 10 am'), findsOneWidget);
+
+      await tester.tap(find.text('#KH-261012-0001'));
+      await tester.pumpAndSettle();
+      expect(find.text('Deliver Tomorrow, 9 am - 10 am'), findsOneWidget);
+    });
+
+    test('the window is worded in India time and absent for an order for now', () {
+      final now = DateTime.utc(2026, 11, 2, 4, 30); // 10:00 in India
+      final today = delivery(slotStart: '2026-11-02T08:30:00Z', slotEnd: '2026-11-02T09:30:00Z');
+      final later = delivery(slotStart: '2026-11-04T06:30:00Z', slotEnd: '2026-11-04T08:00:00Z');
+      expect(today.windowText(now), 'Today, 2 pm - 3 pm');
+      expect(later.windowText(now), 'Wed 4 Nov, 12 pm - 1:30 pm');
+      expect(delivery().windowText(now), isNull);
     });
 
     testWidgets('an empty list says there is nothing to deliver', (tester) async {

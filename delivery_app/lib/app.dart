@@ -255,6 +255,7 @@ class _Card extends StatelessWidget {
               const SizedBox(height: 8),
               Text(d.receiverName ?? 'Customer', style: const TextStyle(fontWeight: FontWeight.w700)),
               Text(d.address, maxLines: 2, overflow: TextOverflow.ellipsis),
+              if (d.windowText() case final window?) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Deliver $window', key: const Key('window-line'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4B22C9)))),
               const SizedBox(height: 8),
               Text(d.cashToCollect > 0 ? 'Collect ${rupees(d.cashToCollect)} cash' : 'Paid online', style: const TextStyle(fontWeight: FontWeight.w800)),
             ]),
@@ -322,6 +323,7 @@ class _DetailScreenState extends State<DetailScreen> {
           _Block('Deliver to', [
             Text(d.receiverName ?? 'Customer', style: const TextStyle(fontWeight: FontWeight.w800)),
             Text(d.address),
+            if (d.windowText() case final window?) Text('Deliver $window', key: const Key('window-line'), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4B22C9))),
             Wrap(spacing: 8, children: [
               if (d.receiverPhone != null) TextButton.icon(onPressed: () => _call(d.receiverPhone), icon: const Icon(Icons.call_outlined), label: const Text('Call customer')),
               TextButton.icon(onPressed: _navigate, icon: const Icon(Icons.navigation_outlined), label: const Text('Navigate')),

@@ -185,6 +185,23 @@ describe('OrdersComponent', () => {
     });
   });
 
+  it('a scheduled order shows its window in India time, and an order for now shows none', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-02T04:30:00Z')); // 10:00 in India
+    const f = await open(apiWith({ get: { '/orders': [
+      order({ id: 'o1', orderNumber: 'ORD-1', deliverySlotStart: '2026-11-02T08:30:00Z', deliverySlotEnd: '2026-11-02T09:30:00Z' }),
+      order({ id: 'o2', orderNumber: 'ORD-2', deliverySlotStart: '2026-11-03T03:30:00Z', deliverySlotEnd: '2026-11-03T04:30:00Z' }),
+      order({ id: 'o3', orderNumber: 'ORD-3' }),
+    ] } }));
+    const [a, b, c] = f.componentInstance.orders();
+
+    expect(f.componentInstance.windowLabel(a)).toBe('Today, 2 pm - 3 pm');
+    expect(f.componentInstance.windowLabel(b)).toBe('Tomorrow, 9 am - 10 am');
+    expect(f.componentInstance.windowLabel(c)).toBe('');
+    expect(text(f)).toContain('Deliver Today, 2 pm - 3 pm');
+    expect((f.nativeElement as HTMLElement).querySelectorAll('.slot')).toHaveLength(2);
+  });
+
   it('the list is read again every 15 seconds while the page is in front, and stops when it is closed', async () => {
     vi.useFakeTimers();
     const api = apiWith({ get: { '/orders': [] } });

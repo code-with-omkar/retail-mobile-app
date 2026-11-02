@@ -90,10 +90,11 @@ public sealed partial class CheckoutService(
 
         // The estimate the customer is given now stays on the order, whatever the store's estimate becomes later.
         int? estimate = deliveryEstimator is null ? null : deliveryEstimator.EstimateMinutes(StoreSelectionService.DistanceKm(delivery.Latitude, delivery.Longitude, store.Latitude, store.Longitude));
-        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method, note, choice, couponCode), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null, clock.GetUtcNow().UtcDateTime, note, choice,
+        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method, note, choice, couponCode, request.DeliverySlotStart), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null, clock.GetUtcNow().UtcDateTime, note, choice,
             // The percent in force now is written onto the order, so a later change never rewrites it.
             commissions is null ? null : await CommissionService.EffectiveAsync(commissions, storeId, cancellationToken),
-            couponCode.Length == 0 ? null : couponCode);
+            couponCode.Length == 0 ? null : couponCode,
+            request.DeliverySlotStart);
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, commit, cancellationToken);
         return result.Status switch
         {
@@ -103,6 +104,7 @@ public sealed partial class CheckoutService(
             CheckoutCommitStatus.ProductUnavailable => CheckoutOperationResult.Conflict("A cart product is no longer available", CheckoutReasons.ProductUnavailable, result.Issues),
             CheckoutCommitStatus.PriceChanged => CheckoutOperationResult.Conflict("A cart product price has changed", CheckoutReasons.PriceChanged, result.Issues),
             CheckoutCommitStatus.InventoryConflict => CheckoutOperationResult.Conflict("Inventory changed while checkout was in progress", CheckoutReasons.InventoryConflict, result.Issues),
+            CheckoutCommitStatus.SlotRejected => CheckoutOperationResult.Conflict(result.Message ?? "That delivery time cannot be used.", CheckoutReasons.SlotUnavailable),
             CheckoutCommitStatus.CouponRejected => CheckoutOperationResult.Conflict(result.Message ?? "That code cannot be used.", CheckoutReasons.CouponInvalid),
             CheckoutCommitStatus.KeyReused => CheckoutOperationResult.Conflict("This Idempotency-Key was already used for a different order. Use a new key for a new order.", CheckoutReasons.IdempotencyKeyReused),
             _ => CheckoutOperationResult.Conflict("Checkout could not be completed")
@@ -137,9 +139,9 @@ public sealed partial class CheckoutService(
     }
 
     /// <summary>The same store and place always give the same hash, so a retry matches and a different order does not.</summary>
-    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method, string? note, string choice, string coupon)
+    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method, string? note, string choice, string coupon, DateTime? slot)
     {
         var where = delivery.AddressId is { } id ? id.ToString("N") : $"{delivery.Address}|{delivery.Latitude:F5}|{delivery.Longitude:F5}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}|{note}|{choice}|{coupon}")));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}|{note}|{choice}|{coupon}|{slot:O}")));
     }
 }

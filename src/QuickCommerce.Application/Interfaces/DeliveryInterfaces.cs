@@ -30,7 +30,9 @@ public sealed record PartnerDeliveryResponse(
     IReadOnlyList<OrderItemResponse> Items,
     DateTime CreatedAt,
     DateTime? PickedUpAt,
-    DateTime? DeliveredAt);
+    DateTime? DeliveredAt,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null);
 
 public enum DeliveryChangeStatus
 {

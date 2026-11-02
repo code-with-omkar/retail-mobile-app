@@ -186,6 +186,9 @@ class FakeOrderRepository implements OrderRepository {
   /// The note and out-of-stock choice sent with each attempt, in the same order as [attempts].
   final notes = <({String? note, String choice})>[];
 
+  /// The delivery window start sent with each attempt (null for as soon as possible), in the same order as [attempts].
+  final slots = <DateTime?>[];
+
   /// The coupon code sent with each attempt (null when none), in the same order as [attempts].
   final coupons = <String?>[];
 
@@ -193,8 +196,9 @@ class FakeOrderRepository implements OrderRepository {
   final _byKey = <String, Order>{};
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode}) async {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode, DateTime? deliverySlotStart}) async {
     coupons.add(couponCode);
+    slots.add(deliverySlotStart);
     attempts.add((storeId: storeId, key: idempotencyKey, addressId: addressId, place: place, online: online));
     notes.add((note: note, choice: outOfStockChoice));
     if (delay > Duration.zero) await Future<void>.delayed(delay);

@@ -981,6 +981,58 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.DeliverySlotSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AsapAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CloseMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CutoffMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DaysAhead")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("OpenMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("DeliverySlotSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliverySlotSettings_Ranges", "[OpenMinutes] >= 0 AND [CloseMinutes] <= 1440 AND [CloseMinutes] > [OpenMinutes] AND [WindowMinutes] > 0 AND [Capacity] >= 1 AND [CutoffMinutes] >= 0 AND [DaysAhead] BETWEEN 1 AND 7");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
                 {
                     b.Property<Guid>("CustomerId")
@@ -1151,6 +1203,12 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("DeliveryPartnerId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DeliverySlotEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliverySlotStart")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("EstimatedDeliveryMinutes")
                         .HasColumnType("int");
 
@@ -1251,9 +1309,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StoreId", "CreatedAt");
 
+                    b.HasIndex("StoreId", "DeliverySlotStart")
+                        .HasDatabaseName("IX_Orders_StoreSlot")
+                        .HasFilter("[DeliverySlotStart] IS NOT NULL");
+
                     b.ToTable("Orders", t =>
                         {
                             t.HasCheckConstraint("CK_Orders_Fees", "[DeliveryFee] >= 0 AND [HandlingFee] >= 0 AND [SubtotalAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_Orders_Slot", "([DeliverySlotStart] IS NULL AND [DeliverySlotEnd] IS NULL) OR ([DeliverySlotStart] IS NOT NULL AND [DeliverySlotEnd] > [DeliverySlotStart])");
                         });
                 });
 
@@ -2270,6 +2334,25 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.SlotBooking", b =>
+                {
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SlotStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Booked")
+                        .HasColumnType("int");
+
+                    b.HasKey("StoreId", "SlotStart");
+
+                    b.ToTable("SlotBookings", t =>
+                        {
+                            t.HasCheckConstraint("CK_SlotBookings_Booked", "[Booked] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Store", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3201,6 +3284,14 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.DeliverySlotSetting", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Customer", null)
@@ -3410,6 +3501,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.SlotBooking", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Store", b =>

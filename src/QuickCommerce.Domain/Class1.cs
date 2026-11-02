@@ -409,6 +409,10 @@ public sealed class Order
 	public string? CouponCode { get; set; }
 	public decimal CouponDiscount { get; set; }
 
+	/// <summary>The window the customer chose for scheduled delivery, UTC. Both null for "as soon as possible".</summary>
+	public DateTime? DeliverySlotStart { get; set; }
+	public DateTime? DeliverySlotEnd { get; set; }
+
 	/// <summary>How the customer pays. Only <see cref="PaymentMethods.CashOnDelivery"/> exists until online payment (P7).</summary>
 	public string PaymentMethod { get; set; } = PaymentMethods.CashOnDelivery;
 	public OrderStatus Status { get; set; } = OrderStatus.Pending;

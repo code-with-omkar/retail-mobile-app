@@ -311,6 +311,28 @@ Needs the coupon migration applied to the dev database first (ask me). Sign in t
 | U14 | Portal Reports for the period. | A **Coupons** card with the total given; Earnings by shop do not change because of coupons. | ☐ | |
 | U15 | Marathi language: cart coupon box. | Labels are in Marathi (server messages stay English). | ☐ | |
 
+## V. Delivery times (scheduled delivery)
+
+Needs the delivery-slots migration applied to the dev database first (ask me). Sign in to the portal as an administrator.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| V1 | Portal: **Delivery times** in the menu. | Administrators see it; the default is off ("As soon as possible only"). | ☐ | |
+| V2 | Edit the default: switch on, 9:00 to 21:00, 60-minute windows, 3 orders each, cut-off 60, 2 days; Save. | Saved; the list shows the new summary. | ☐ | |
+| V3 | Enter a 50-minute window or closing before opening; Save. | Refused with a clear message. | ☐ | |
+| V4 | App: cart, Checkout. | A **Delivery time** section: As soon as possible, Today / Tomorrow chips, and hourly windows (none earlier than the cut-off). | ☐ | |
+| V5 | Choose tomorrow 9-10 am; the green card changes; place the order (cash). | Order placed; the success screen and order detail say "Delivery: Tomorrow, 9 am - 10 am" instead of a countdown. | ☐ | |
+| V6 | Portal Orders. | The order shows "Deliver Tomorrow, 9 am - 10 am"; orders for now sort before scheduled ones, soonest window first. | ☐ | |
+| V7 | Book the same window until 3 orders exist (use test customers), then try a 4th. | That window shows Full and cannot be chosen; the others still work. | ☐ | |
+| V8 | Two phones tap Place order for the last place at the same time. | Exactly one gets it; the other is told the time is no longer available and can pick another. | ☐ | |
+| V9 | Cancel a scheduled order before the store accepts. | The place is given back (the window shows free again). | ☐ | |
+| V10 | Store rejects a scheduled order. | The place is given back. | ☐ | |
+| V11 | Online order, never paid, wait for the hold to expire. | The place is given back. | ☐ | |
+| V12 | Turn "also offer as soon as possible" off; open Checkout. | No ASAP choice; Place order is disabled until a window is chosen. | ☐ | |
+| V13 | Give one store its own settings (**Set own**); **Use default** later. | That store follows its own hours and limit; Use default returns it to the default. | ☐ | |
+| V14 | Partner app: order handed to a delivery partner. | The card and the detail show "Deliver Tomorrow, 9 am - 10 am". | ☐ | |
+| V15 | Marathi language: checkout. | Section title, chips and messages are in Marathi. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

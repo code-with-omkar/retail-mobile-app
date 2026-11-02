@@ -47,7 +47,9 @@ public sealed record OrderResponse(
     IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null,
     Interfaces.ReplacementInfo? Replacement = null,
     string? CouponCode = null,
-    decimal CouponDiscount = 0);
+    decimal CouponDiscount = 0,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -62,7 +64,9 @@ public sealed record AdminOrderResponse(
     Guid? DeliveryPartnerId = null,
     string? DeliveryPartner = null,
     string? Note = null,
-    string? OutOfStockChoice = null);
+    string? OutOfStockChoice = null,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

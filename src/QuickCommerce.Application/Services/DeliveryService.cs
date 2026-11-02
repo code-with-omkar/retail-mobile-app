@@ -276,5 +276,7 @@ public sealed class DeliveryService(
         order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
         order.CreatedAt,
         order.PickedUpAt,
-        order.DeliveredAt);
+        order.DeliveredAt,
+        order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
+        order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null);
 }

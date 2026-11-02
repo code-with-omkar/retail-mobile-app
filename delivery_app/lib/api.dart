@@ -31,6 +31,8 @@ class Delivery {
     required this.cashToCollect,
     required this.items,
     required this.deliveredAt,
+    this.slotStart,
+    this.slotEnd,
   });
 
   final String orderId, number, storeName, address, payment;
@@ -41,6 +43,27 @@ class Delivery {
   final double latitude, longitude, total, cashToCollect;
   final List<String> items;
   final DateTime? deliveredAt;
+
+  /// The window the customer chose for scheduled delivery (UTC); both null for an order wanted as soon as possible.
+  final DateTime? slotStart, slotEnd;
+
+  /// "Today, 2 pm - 3 pm" in India time, or null for an order wanted as soon as possible.
+  String? windowText([DateTime? now]) {
+    final start = slotStart, end = slotEnd;
+    if (start == null || end == null) return null;
+    const india = Duration(hours: 5, minutes: 30);
+    final s = start.toUtc().add(india), e = end.toUtc().add(india), n = (now ?? DateTime.now()).toUtc().add(india);
+    final days = DateTime.utc(s.year, s.month, s.day).difference(DateTime.utc(n.year, n.month, n.day)).inDays;
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    String clock(DateTime t) {
+      final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+      return '$h${t.minute == 0 ? '' : ':${t.minute.toString().padLeft(2, '0')}'} ${t.hour < 12 ? 'am' : 'pm'}';
+    }
+
+    final day = days == 0 ? 'Today' : (days == 1 ? 'Tomorrow' : '${weekdays[s.weekday - 1]} ${s.day} ${months[s.month - 1]}');
+    return '$day, ${clock(s)} - ${clock(e)}';
+  }
 
   bool get isReady => status == 'Ready';
   bool get isOut => status == 'OutForDelivery';
@@ -66,6 +89,8 @@ class Delivery {
       cashToCollect: (j['cashToCollect'] as num?)?.toDouble() ?? 0,
       items: [for (final i in (j['items'] as List? ?? const [])) '${(i as Map)['productNameSnapshot']}${(i['variantLabel'] as String?)?.isNotEmpty == true ? ' ${i['variantLabel']}' : ''} × ${i['quantity']}'],
       deliveredAt: j['deliveredAt'] == null ? null : DateTime.parse(j['deliveredAt'] as String).toLocal(),
+      slotStart: j['deliverySlotStart'] == null ? null : DateTime.parse(j['deliverySlotStart'] as String).toUtc(),
+      slotEnd: j['deliverySlotEnd'] == null ? null : DateTime.parse(j['deliverySlotEnd'] as String).toUtc(),
     );
   }
 }

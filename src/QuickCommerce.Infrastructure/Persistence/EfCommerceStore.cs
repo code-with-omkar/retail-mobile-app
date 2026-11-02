@@ -175,8 +175,11 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
         return await query
             .OrderBy(row => row.order.Status == OrderStatus.Pending ? 0 : row.order.Status == OrderStatus.Accepted ? 1 : row.order.Status == OrderStatus.Preparing ? 2 : row.order.Status == OrderStatus.Ready ? 3 : row.order.Status == OrderStatus.OutForDelivery || row.order.Status == OrderStatus.Confirmed ? 4 : 5)
+            // Within a status, orders for now first (newest first), then scheduled ones by their window, soonest first.
+            .ThenBy(row => row.order.DeliverySlotStart == null ? 0 : 1)
+            .ThenBy(row => row.order.DeliverySlotStart)
             .ThenByDescending(row => row.order.CreatedAt)
-            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice)).ToListAsync(cancellationToken);
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd)).ToListAsync(cancellationToken);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
@@ -446,6 +449,25 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 }
             }
 
+            // The chosen delivery window is checked again here, inside the order's transaction, with the same rules that listed it.
+            DateTime? slotStart = null;
+            DateTime? slotEnd = null;
+            var slotSettings = await SlotUsage.EffectiveAsync(db, storeId, cancellationToken);
+            var slotNow = commit.Now ?? DateTime.UtcNow;
+            var booked = commit.SlotStart is null ? new Dictionary<DateTime, int>() : await SlotUsage.BookedAsync(db, storeId, slotNow, slotNow.AddDays(slotSettings.DaysAhead + 1), cancellationToken);
+            var (slotCheck, slotWindow, slotMessage) = SlotRules.Pick(slotSettings, slotNow, commit.SlotStart, start => booked.GetValueOrDefault(start));
+            if (slotCheck != SlotRules.Check.Ok)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.SlotRejected, Message: slotMessage);
+            }
+
+            if (slotWindow is not null)
+            {
+                slotStart = slotWindow.StartUtc;
+                slotEnd = slotWindow.EndUtc;
+            }
+
             var order = new Order
             {
                 OrderNumber = await NextOrderNumberAsync(storeId, transaction, cancellationToken),
@@ -467,6 +489,8 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 CommissionAmount = commit.CommissionPercent is { } percent ? CommissionMath.Amount(price.Subtotal, percent) : null,
                 CouponCode = coupon?.Code,
                 CouponDiscount = couponDiscount,
+                DeliverySlotStart = slotStart,
+                DeliverySlotEnd = slotEnd,
                 TotalAmount = price.Total - couponDiscount,
                 PaymentMethod = commit.PaymentMethod,
                 Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
@@ -478,6 +502,13 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
 
             db.Orders.Add(order);
+            if (slotStart is not null && !await SlotUsage.TakeAsync(db, storeId, slotStart.Value, slotSettings.Capacity, cancellationToken))
+            {
+                // Another customer took the last place between the check above and now.
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.SlotRejected, Message: "That delivery time is full. Choose another.");
+            }
+
             if (coupon is not null)
             {
                 // One conditional update takes the use, so two orders racing for the last use cannot both get it.
@@ -619,6 +650,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             // A paid order the shop declines is refunded in full, and the stock it took goes back to the store (as when the customer cancels).
             await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
             await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
             {
                 var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
@@ -732,7 +764,9 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         Note: order.OrderNote,
         OutOfStockChoice: order.OutOfStockChoice,
         CouponCode: order.CouponCode,
-        CouponDiscount: order.CouponDiscount);
+        CouponDiscount: order.CouponDiscount,
+        DeliverySlotStart: order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
+        DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);
@@ -790,6 +824,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
             await EndPaymentAsync(order, wasAwaitingPayment, cancellationToken);
             await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
 
             // The stock the order took goes back to the store, line by line. Orders from before packs existed have no variant and took none from here.
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))

@@ -15,6 +15,8 @@ import '../address/address_controller.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_problems.dart';
 import '../cart/coupon_controller.dart';
+import '../../data/repositories/delivery_slots_repository.dart';
+import 'delivery_time.dart';
 import '../orders/orders_controller.dart';
 import '../payment/payment_controller.dart';
 
@@ -37,6 +39,9 @@ enum _Failure {
 
   /// The server turned the coupon down (used up, expired, or it no longer fits the cart).
   couponRefused,
+
+  /// The chosen delivery time filled up or passed its cut-off: pick another.
+  slotRefused,
 
   /// No answer: the order may or may not exist.
   unconfirmed,
@@ -85,11 +90,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       if (storeId == null) throw const ConflictException('No store', statusCode: 409, reason: 'OutsideServiceArea');
       _key ??= newIdempotencyKey();
       final online = _online && (ref.read(paymentOptionsProvider).value?.online ?? false);
-      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online, note: _note.text, outOfStockChoice: _choice, couponCode: ref.read(couponProvider).orderCode);
+      final order = await ref.read(orderRepositoryProvider).place(storeId: storeId, idempotencyKey: _key!, addressId: place.addressId, place: place.isSaved ? null : place, online: online, note: _note.text, outOfStockChoice: _choice, couponCode: ref.read(couponProvider).orderCode, deliverySlotStart: ref.read(chosenSlotProvider));
       _key = null;
       ref.read(lastPlacedOrderProvider.notifier).set(order);
       ref.read(ordersProvider.notifier).placed(order);
       cart.orderPlaced();
+      ref.read(chosenSlotProvider.notifier).choose(null);
       // An online order is not placed until it is paid: on to the payment, with the provider's screen opening at once.
       if (mounted) context.go(order.stage == OrderStage.awaitingPayment ? '/pay/${order.id}?auto=1' : '/order-success/${order.id}');
     } on ConflictException catch (e) {
@@ -123,6 +129,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (mounted) setState(() => _failure = _Failure.cartEmpty);
       case ServiceabilityReasons.outsideServiceArea:
         if (mounted) setState(() => _failure = _Failure.outsideArea);
+      case CheckoutReasons.slotUnavailable:
+        // The window filled up (or its cut-off passed) after it was chosen: read the offers again and let the customer pick another.
+        ref.read(chosenSlotProvider.notifier).choose(null);
+        ref.invalidate(deliverySlotsProvider);
+        if (mounted) setState(() => _failure = _Failure.slotRefused);
       case CheckoutReasons.couponInvalid:
         // The server turned the code down (used up, expired, or it no longer fits the cart): show why, drop the code, let them order without it.
         ref.read(couponProvider.notifier).clear();
@@ -148,6 +159,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _Failure.outsideArea => ('We do not deliver to this address yet. Choose another address to place your order.', 'Choose another address', () => context.push('/addresses')),
       _Failure.unconfirmed => ('We could not confirm your order. Check Your orders before trying again; if it is not there, tap Place order again.', 'View your orders', () => context.go('/orders')),
       _Failure.paymentsOff => ('Online payment is not available right now. You can pay cash on delivery instead.', null, null),
+      _Failure.slotRefused => ('That delivery time is no longer available. Pick another time and place your order again.', null, null),
       _Failure.couponRefused => ('That coupon could not be used, so it was removed. Place your order again to continue without it.', null, null),
       _Failure.other => ('We could not place your order. Please try again.', null, null),
     };
@@ -171,7 +183,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Widget build(BuildContext context) {
     final t = ref.watch(cartTotalsProvider);
     final place = ref.watch(deliveryPlaceProvider);
-    final blocked = place == null || ref.watch(deliveryServiceableProvider) == false || t.hasProblems || _busy;
+    final slots = ref.watch(deliverySlotsProvider).value ?? DeliverySlots.off;
+    final chosenSlot = ref.watch(chosenSlotProvider);
+    final blocked = place == null || ref.watch(deliveryServiceableProvider) == false || t.hasProblems || _busy || deliveryTimeMissing(slots, chosenSlot);
     final eta = ref.watch(selectedStoreProvider).value?.estimatedMinutes;
     final offersOnline = ref.watch(paymentOptionsProvider).value?.online ?? false;
     final online = _online && offersOnline;
@@ -214,9 +228,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 child: Row(children: [
                   const Icon(Icons.bolt, color: Pal.ink),
                   const SizedBox(width: 12),
-                  Expanded(child: Text(eta == null ? context.tr('Arriving soon') : context.tr('Arriving in about {n} minutes', {'n': '$eta'}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900))),
+                  Expanded(child: Text(chosenSlot != null ? context.tr('Delivery: {when}', {'when': slotWords(context, chosenSlot, chosenSlot.add(Duration(minutes: slots.windows.where((w) => w.start == chosenSlot).map((w) => w.end.difference(w.start).inMinutes).firstOrNull ?? 60)))}) : eta == null ? context.tr('Arriving soon') : context.tr('Arriving in about {n} minutes', {'n': '$eta'}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900))),
                 ]),
               ),
+              const DeliveryTimeSection(),
               const SizedBox(height: 24),
               Text(context.tr('If an item is out of stock'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),

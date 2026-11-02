@@ -12,6 +12,7 @@ import '../../data/phone_launcher.dart';
 import '../../data/providers.dart';
 import '../cart/cart_controller.dart';
 import '../notifications/notifications_controller.dart';
+import '../checkout/delivery_time.dart';
 import 'orders_controller.dart';
 import 'rating_card.dart';
 import 'orders_screen.dart';
@@ -38,6 +39,9 @@ class OrderSuccessScreen extends ConsumerWidget {
             Consumer(builder: (context, ref, _) {
               // The estimate the customer was given for this order, not whatever the store's estimate is now.
               final eta = mine?.estimatedMinutes ?? ref.watch(selectedStoreProvider).value?.estimatedMinutes;
+              if (mine != null && mine.isScheduled) {
+                return Text(context.tr('Order #{id} is being prepared.\nDelivery: {when}', {'id': number, 'when': slotWords(context, mine.deliverySlotStart!, mine.deliverySlotEnd!)}), textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround, height: 1.4));
+              }
               return Text(
                 eta == null ? context.tr('Order #{id} is being prepared.', {'id': number}) : context.tr('Order #{id} is being prepared.\nExpected in about {n} minutes.', {'id': number, 'n': '$eta'}),
                 textAlign: TextAlign.center,
@@ -140,6 +144,7 @@ class _DetailState extends ConsumerState<_Detail> {
   /// "Arriving in about N minutes" counted from when the order was placed; "any moment now" once that time has passed.
   String? _arrival(BuildContext context, DateTime now) {
     final minutes = order.estimatedMinutes;
+    if (order.isScheduled && order.stage.isActive) return context.tr('Delivery: {when}', {'when': slotWords(context, order.deliverySlotStart!, order.deliverySlotEnd!)});
     if (!order.stage.isActive || minutes == null) return null;
     final left = order.placedAt.add(Duration(minutes: minutes)).difference(now).inMinutes;
     return left <= 0 ? context.tr('Arriving any moment now') : context.tr('Arriving in about {n} minutes', {'n': '$left'});

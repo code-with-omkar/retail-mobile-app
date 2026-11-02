@@ -82,6 +82,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'delivery-times',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/delivery-slots/delivery-slots.component').then(
+            m => m.DeliverySlotsComponent
+          ),
+      },
+      {
         path: 'coupons',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin, Role.Admin] },
