@@ -21,6 +21,10 @@ public sealed class CampaignsController(ICampaignAdminService campaigns, ICampai
         return result.Status == CampaignOperationStatus.Succeeded ? Created($"/api/admin/campaigns/{result.Value!.Id}", new { success = true, data = result.Value }) : Respond(result);
     }
 
+    /// <summary>Administrator only: changes the card design and picture of an offer that is not cancelled.</summary>
+    [HttpPut("{id:guid}/card")]
+    public async Task<IActionResult> UpdateCard(Guid id, CampaignCardRequest request, CancellationToken cancellationToken) => Respond(await campaigns.UpdateCardAsync(id, request, cancellationToken));
+
     /// <summary>Ends a running discount now. The message already sent stays sent.</summary>
     [HttpPost("{id:guid}/end-discount")]
     public async Task<IActionResult> EndDiscount(Guid id, CancellationToken cancellationToken) => Respond(await campaigns.EndDiscountAsync(id, cancellationToken));

@@ -333,6 +333,63 @@ Needs the delivery-slots migration applied to the dev database first (ask me). S
 | V14 | Partner app: order handed to a delivery partner. | The card and the detail show "Deliver Tomorrow, 9 am - 10 am". | ☐ | |
 | V15 | Marathi language: checkout. | Section title, chips and messages are in Marathi. | ☐ | |
 
+## W. Today screen (store staff and administrators)
+
+No database change: only the API needs restarting. Sign in to the portal as store staff (their store) and as an administrator.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| W1 | Portal: **Today** in the menu. | Store staff and administrators see it; as store staff it opens on your store at once. | ☐ | |
+| W2 | As an administrator, open Today. | "Choose a store to see its day." until you pick one; then the counts appear. | ☐ | |
+| W3 | Place an order in the app (cash) and leave it. | New goes up by 1. After 5 minutes a yellow alert says it has been waiting; after 10 it turns red/urgent. | ☐ | |
+| W4 | Accept it, pack it, mark it ready and do not hand it over. | After 20 minutes a ready-but-not-collected alert (urgent at 40) says whether a partner has it. | ☐ | |
+| W5 | Set an item's stock to 0, another at or below its reorder level (Stock screen). | One alert "items are out of stock" and one "running low" with the item names and how many are left. | ☐ | |
+| W6 | Turn on delivery times with capacity 2; book a window with 2 orders (or 80% of the capacity). | An alert names the window as nearly full or full. | ☐ | |
+| W7 | Place a scheduled order. | It shows under **Coming up** with its window, soonest first; it leaves the list once delivered. | ☐ | |
+| W8 | Deliver an order. | Delivered today and Sales today go up by its total. | ☐ | |
+| W9 | Leave the screen open. | It refreshes by itself about every 30 seconds without a loading flash. | ☐ | |
+| W10 | A customer account opens /today. | Not allowed; the API refuses it. | ☐ | |
+
+## X. Customer behaviour (anonymous analytics)
+
+Needs the analytics migration applied to the dev database first (ask me), the APIs restarted and the phone app rebuilt.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| X1 | App: open it, search "tomato", open a product, add it, open the cart, open checkout, place a cash order. | Nothing looks different and nothing is slower. | ☐ | |
+| X2 | Portal: **Behaviour** (store staff and administrators). Choose Last 7 days. | The funnel shows those steps for today (at least 1 opener, 1 product view, 1 add, 1 checkout, 1 order) and "tomato" under Top searches. | ☐ | |
+| X3 | App: apply a wrong code and a valid code in the cart. | Behaviour: Coupon refused and Coupon applied counts go up; "Why coupons were refused" shows the kind (for example Code not valid), never the code typed. | ☐ | |
+| X4 | App: at checkout choose a delivery window, then As soon as possible. | Behaviour, Every step: Chose a delivery time goes up by 2. | ☐ | |
+| X5 | Search for your own phone number and for an email address. | Neither appears in Top searches. | ☐ | |
+| X6 | Turn off mobile data, do a few things, turn it on. | The app never complains; later steps are counted. | ☐ | |
+| X7 | As an administrator pick one store, then All stores. As store staff look at the same screen. | Numbers change with the store; staff see only their own store. | ☐ | |
+| X8 | Customer account tries /behaviour in the portal. | Not allowed; the API refuses. | ☐ | |
+| X9 | Next day, check Behaviour for a period that includes yesterday. | Yesterday's counts are still there (rolled into daily totals). | ☐ | |
+
+## Y. Offer card designs and festival card upload
+
+Needs the AddOfferCardDesign migration applied to the dev database first (ask me), the APIs restarted and the phone app rebuilt. Sign in to the portal as an administrator (the design choice is not shown to store staff).
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| Y1 | Portal: **Offers**, New offer. | Under Stores there is a **Card design** choice: Plain and eight festivals (Diwali, Ganeshotsav, Navratri, Holi, Sankranti, Gudi Padwa, Eid, Christmas). | ☐ | |
+| Y2 | Pick Diwali and type a title. | A live card preview appears: plum card, gold motif, countdown chip, English and Marathi name, your title as the line, a Shop button. | ☐ | |
+| Y3 | Try each of the eight designs. | Each has its own colours and motif; text is easy to read. | ☐ | |
+| Y4 | Upload a card picture (about 700 x 352, 2:1). | The preview shows your picture with only the chip and the button over it; the built-in artwork is gone. | ☐ | |
+| Y5 | Create the offer (with a discount and an end date). | Offer list shows "Card design: Diwali". The chip says how many days are left. | ☐ | |
+| Y6 | App: open Home at that store. | "Offers for you" shows the festival card (taller than a plain banner), plain offers still show as banners beside it. | ☐ | |
+| Y7 | Tap the festival card. | The offer opens with the same card at the top, the message and products below. | ☐ | |
+| Y8 | App: switch to Marathi. | Chip, button and the offer line are Marathi; both festival names stay; nothing is cut off. | ☐ | |
+| Y9 | App: largest text size in phone settings. | The card never overflows; long text is shortened. | ☐ | |
+| Y10 | Sign in as store staff and create an offer. | No Card design choice is shown; the offer is a plain banner. | ☐ | |
+| Y11 | Create an offer with Plain selected. | It shows as the usual banner. | ☐ | |
+| Y13 | Portal (administrator): on a running offer press **Change card**, pick Holi, Save. | "Card changed."; the list shows Card design: Holi; the app shows the Holi card. | ☐ | |
+| Y14 | Change card again: choose Plain banner and untick keep picture. | The offer goes back to the plain banner without the picture. | ☐ | |
+| Y15 | Sign in as store staff. | No Change card button. | ☐ | |
+| Y16 | App: open Home while a festival-design offer runs. | A Marathi greeting chip (e.g. शुभ दीपावली) sits under the date banner; products of that offer carry a small tag (e.g. DIWALI DEAL) on their picture. | ☐ | |
+| Y17 | After the offer ends. | Greeting chip and tags are gone. | ☐ | |
+| Y12 | After the end date passes. | The festival card goes away with its offer. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

@@ -15,6 +15,9 @@ public static class RateLimitPolicies
     public const string OtpRequest = "auth-otp-request";
     public const string OtpVerify = "auth-otp-verify";
     public const string Google = "auth-google";
+
+    /// <summary>The app's anonymous analytics steps.</summary>
+    public const string Analytics = "analytics-events";
 }
 
 /// <summary>Per-client-IP limits on the anonymous auth routes. Counters live in each server's memory, so with N instances the
@@ -31,6 +34,9 @@ public sealed class AuthRateLimitSettings
     public int OtpRequestPerHour { get; set; } = 10;
     public int OtpVerifyPerHour { get; set; } = 30;
     public int GooglePerHour { get; set; } = 20;
+
+    /// <summary>Batches of analytics steps one address may send each minute (the app sends a few a minute at most).</summary>
+    public int AnalyticsPerMinute { get; set; } = 60;
 }
 
 public static class AuthRateLimiting
@@ -59,6 +65,7 @@ public static class AuthRateLimiting
             Add(options, RateLimitPolicies.OtpRequest, settings.OtpRequestPerHour, TimeSpan.FromHours(1));
             Add(options, RateLimitPolicies.OtpVerify, settings.OtpVerifyPerHour, TimeSpan.FromHours(1));
             Add(options, RateLimitPolicies.Google, settings.GooglePerHour, TimeSpan.FromHours(1));
+            Add(options, RateLimitPolicies.Analytics, settings.AnalyticsPerMinute, TimeSpan.FromMinutes(1));
         });
         return services;
     }

@@ -17,6 +17,7 @@ import 'package:quickcart_customer/data/repositories/offers_repository.dart';
 import 'package:quickcart_customer/data/repositories/product_store.dart';
 import 'package:quickcart_customer/data/seed.dart' as seed;
 import 'package:quickcart_customer/features/auth/auth_controller.dart';
+import 'package:quickcart_customer/features/offers/festival_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/commerce_fakes.dart';
@@ -162,6 +163,33 @@ void main() {
       expect(offers.asked, ['o1']);
       expect(find.text('Fresh tomatoes for less.'), findsOneWidget);
       expect(find.text('Products in this offer'), findsOneWidget);
+    });
+
+    testWidgets('an offer with a festival design is its festival card in the row, a plain one is the usual banner, and the card opens the offer', (tester) async {
+      const festive = Offer(id: 'o2', title: 'Sweets sale', titleMr: 'मिठाई सेल', cardDesign: 'diwali', discountPercent: 15, body: 'Mithai for less.');
+      final offers = _Offers(active_: const [festive, _discount], single: festive);
+      await _open(tester, offers);
+
+      expect(find.byType(FestivalCard), findsOneWidget); // only the festive one
+      expect(find.text('Sweets sale'), findsOneWidget);
+      expect(find.text('Shop Diwali'), findsOneWidget);
+      expect(find.text('Tomato week'), findsOneWidget); // the plain banner is still there beside it
+
+      await tester.tap(find.byType(FestivalCard));
+      await tester.pumpAndSettle();
+
+      expect(offers.asked, ['o2']);
+      expect(find.byType(FestivalCard), findsOneWidget); // the opened offer shows its card at the top
+      expect(find.text('Mithai for less.'), findsOneWidget);
+    });
+
+    testWidgets('an offer picture with a festival design is the card with the picture behind it, not the built-in artwork', (tester) async {
+      const festive = Offer(id: 'o3', title: 'Holi colours', cardDesign: 'holi', imageUrl: 'http://test.invalid/media/offers/h.jpg');
+      await _open(tester, _Offers(active_: const [festive]));
+
+      expect(find.byType(FestivalCard), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is FestivalMotifPainter), findsNothing);
+      expect(find.text('Shop Holi'), findsOneWidget);
     });
 
     testWidgets('with no offers there is no banner row', (tester) async {

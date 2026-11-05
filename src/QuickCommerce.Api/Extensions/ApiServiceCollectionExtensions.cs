@@ -76,6 +76,7 @@ public static class ApiServiceCollectionExtensions
         ValidateProductionConfiguration(configuration, environment);
         services.AddHealthChecks();
         services.AddHostedService<QuickCommerce.Api.Hosting.CampaignBackgroundService>();
+        services.AddHostedService<QuickCommerce.Api.Hosting.AnalyticsMaintenanceService>();
         services.AddHostedService<ShutdownLoggingHostedService>();
         services.AddOpenApi();
         services.AddHttpContextAccessor();

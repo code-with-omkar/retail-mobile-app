@@ -603,4 +603,128 @@ public sealed class OfferDiscountTests
 
         Assert.Equal(offer.Id, Assert.Single(rig.Data.Notifications, item => item.Category == NotificationCategories.Offer).CampaignId);
     }
+    // ---------------- festival card designs ----------------
+
+    [Fact]
+    public async Task An_administrator_gives_an_offer_a_festival_card_design_and_it_reaches_the_banner_the_opened_offer_and_the_portal_list()
+    {
+        var rig = Create();
+        var made = (await rig.Admin.CreateAsync(rig.Discount(20, stores: [rig.Harbor.Id]) with { CardDesign = "  Diwali " })).Value!;
+
+        Assert.Equal("diwali", made.CardDesign); // stored in its plain form
+        Assert.Equal("diwali", (await rig.Data.GetActiveOffersAsync(rig.Harbor.Id, rig.Now)).Single(offer => offer.Id == made.Id).CardDesign);
+        Assert.Equal("diwali", (await rig.Data.GetOfferAsync(made.Id, rig.Now))!.CardDesign);
+        Assert.Equal("diwali", (await rig.Admin.ListAsync()).Value!.Single(offer => offer.Id == made.Id).CardDesign);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("plain")]
+    [InlineData("PLAIN")]
+    public async Task No_design_or_the_word_plain_is_the_plain_banner(string? design)
+    {
+        var rig = Create();
+        var made = (await rig.Admin.CreateAsync(new CampaignRequest("Plain", "No design.", CardDesign: design))).Value!;
+        Assert.Null(made.CardDesign);
+        Assert.Null((await rig.Data.GetOfferAsync(made.Id, rig.Now))!.CardDesign);
+    }
+
+    [Theory]
+    [InlineData("diwali")]
+    [InlineData("ganesh")]
+    [InlineData("navratri")]
+    [InlineData("holi")]
+    [InlineData("sankranti")]
+    [InlineData("padwa")]
+    [InlineData("eid")]
+    [InlineData("christmas")]
+    public async Task Every_one_of_the_eight_designs_is_accepted(string design)
+    {
+        var rig = Create();
+        Assert.Equal(design, (await rig.Admin.CreateAsync(new CampaignRequest("Festival", "Offer.", CardDesign: design))).Value!.CardDesign);
+    }
+
+    [Theory]
+    [InlineData("onam")]
+    [InlineData("diwali; drop table")]
+    [InlineData("<b>x</b>")]
+    public async Task An_unknown_design_is_refused_and_nothing_is_saved(string design)
+    {
+        var rig = Create();
+        var result = await rig.Admin.CreateAsync(new CampaignRequest("Festival", "Offer.", CardDesign: design));
+        Assert.Equal(CampaignOperationStatus.InvalidRequest, result.Status);
+        Assert.Empty((await rig.Admin.ListAsync()).Value!);
+    }
+
+    [Fact]
+    public async Task An_administrator_changes_the_card_design_and_picture_of_an_existing_offer_and_can_clear_them()
+    {
+        var rig = Create();
+        var made = (await rig.Admin.CreateAsync(rig.Discount(20, stores: [rig.Harbor.Id]))).Value!;
+        var picture = (await rig.Admin.UploadImageAsync(new MemoryStream(Png()), Png().Length)).Value!;
+
+        var set = await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest(" Holi ", picture));
+        Assert.Equal(CampaignOperationStatus.Succeeded, set.Status);
+        Assert.Equal("holi", set.Value!.CardDesign);
+        Assert.Equal(picture, set.Value.ImageUrl);
+        Assert.Equal("holi", (await rig.Data.GetOfferAsync(made.Id, rig.Now))!.CardDesign);
+
+        var cleared = await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("plain", null));
+        Assert.Null(cleared.Value!.CardDesign);
+        Assert.Null(cleared.Value.ImageUrl);
+    }
+
+    [Fact]
+    public async Task Changing_a_card_is_refused_for_staff_unknown_designs_foreign_pictures_missing_and_cancelled_offers()
+    {
+        var rig = Create();
+        var made = (await rig.Admin.CreateAsync(rig.Discount(20, stores: [rig.Harbor.Id]))).Value!;
+
+        Assert.Equal(CampaignOperationStatus.Unauthorized, (await rig.StaffOfHarbor.UpdateCardAsync(made.Id, new CampaignCardRequest("diwali", null))).Status);
+        Assert.Equal(CampaignOperationStatus.InvalidRequest, (await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("onam", null))).Status);
+        Assert.Equal(CampaignOperationStatus.InvalidRequest, (await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("diwali", "https://evil.example/a.png"))).Status);
+        Assert.Equal(CampaignOperationStatus.NotFound, (await rig.Admin.UpdateCardAsync(Guid.NewGuid(), new CampaignCardRequest("diwali", null))).Status);
+        Assert.Null((await rig.Admin.ListAsync()).Value!.Single(offer => offer.Id == made.Id).CardDesign);
+
+        await rig.Admin.CancelAsync(made.Id);
+        Assert.Equal(CampaignOperationStatus.Conflict, (await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("diwali", null))).Status);
+    }
+
+    [Fact]
+    public async Task Store_staff_cannot_choose_a_design_but_their_ordinary_offers_still_work()
+    {
+        var rig = Create();
+
+        var refused = await rig.StaffOfHarbor.CreateAsync(new CampaignRequest("Festival", "Offer.", CardDesign: "diwali"));
+        var plain = await rig.StaffOfHarbor.CreateAsync(new CampaignRequest("Plain", "Offer."));
+        var explicitPlain = await rig.StaffOfHarbor.CreateAsync(new CampaignRequest("Plain 2", "Offer.", CardDesign: "plain"));
+
+        Assert.Equal(CampaignOperationStatus.Unauthorized, refused.Status);
+        Assert.Equal(CampaignOperationStatus.Succeeded, plain.Status);
+        Assert.Equal(CampaignOperationStatus.Succeeded, explicitPlain.Status); // "plain" is no design at all
+    }
+
+    [Fact]
+    public async Task A_design_and_an_uploaded_card_picture_are_both_kept_so_the_picture_can_replace_the_built_in_card()
+    {
+        var rig = Create();
+        var picture = (await rig.Admin.UploadImageAsync(new MemoryStream(Png()), Png().Length)).Value!;
+
+        var made = (await rig.Admin.CreateAsync(new CampaignRequest("Diwali", "Sweets.", ImageUrl: picture, CardDesign: "diwali"))).Value!;
+
+        Assert.Equal((picture, "diwali"), (made.ImageUrl, made.CardDesign));
+        var active = (await rig.Data.GetActiveOffersAsync(rig.Harbor.Id, rig.Now)).Single(offer => offer.Id == made.Id);
+        Assert.Equal((picture, "diwali"), (active.ImageUrl, active.CardDesign));
+    }
+
+    [Fact]
+    public void The_design_keys_are_the_eight_the_apps_and_the_portal_draw()
+    {
+        Assert.Equal(["diwali", "ganesh", "navratri", "holi", "sankranti", "padwa", "eid", "christmas"], OfferCardDesigns.All);
+        Assert.True(OfferCardDesigns.IsKnown(null));
+        Assert.False(OfferCardDesigns.IsKnown("DIWALI")); // only the stored, lower-case form
+        Assert.Equal("eid", OfferCardDesigns.Normalize(" Eid "));
+    }
 }

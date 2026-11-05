@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
@@ -112,6 +113,7 @@ class CartNotifier extends Notifier<Map<String, int>> {
     if (_noStoreHere()) return;
     _noteStore();
     state = {...state, key: (state[key] ?? 0) + by};
+    ref.read(analyticsProvider).track(Track.addToCart, store: _shoppingStoreId);
     _sync();
   }
 

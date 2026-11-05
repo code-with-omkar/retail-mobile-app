@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -25,6 +26,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     super.initState();
     // A cart changed on another phone, or prices that moved, show up when the cart opens.
     Future.microtask(() => mounted ? ref.read(cartProvider.notifier).reload() : null);
+    ref.read(analyticsProvider).track(Track.cartOpen);
   }
 
   @override

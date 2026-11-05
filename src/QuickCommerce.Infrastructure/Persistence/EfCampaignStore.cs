@@ -19,6 +19,14 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore,
     public async Task<IReadOnlyDictionary<Guid, string>> GetProductNamesAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default) =>
         await db.Products.AsNoTracking().Where(item => ids.Contains(item.Id)).ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
 
+    public async Task<Campaign?> TrySetCardAsync(Guid id, string? cardDesign, string? imageUrl, CancellationToken cancellationToken = default)
+    {
+        await db.Campaigns.Where(campaign => campaign.Id == id && campaign.IsActive)
+            .ExecuteUpdateAsync(set => set.SetProperty(campaign => campaign.CardDesign, cardDesign).SetProperty(campaign => campaign.ImageUrl, imageUrl), cancellationToken);
+        db.ChangeTracker.Clear();
+        return await GetCampaignAsync(id, cancellationToken);
+    }
+
     public async Task<Campaign?> TryEndDiscountAsync(Guid id, DateTime now, CancellationToken cancellationToken = default)
     {
         // Only a discount that is on can be ended; ending it twice, or after it ran out, changes nothing.
@@ -50,7 +58,7 @@ public sealed class EfCampaignStore(QuickCommerceDbContext db) : ICampaignStore,
             .ToListAsync(cancellationToken);
         return candidates
             .Where(campaign => OfferRules.ShowsAsBanner(campaign, now))
-            .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad))
+            .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad, campaign.CardDesign))
             .ToArray();
     }
 

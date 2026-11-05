@@ -31,7 +31,8 @@ public static class OfferRules
         campaign.EndsAt is { } ends ? DateTime.SpecifyKind(ends, DateTimeKind.Utc) : null,
         DiscountRunning(campaign, now),
         campaign.Stores.Select(link => new CampaignStoreInfo(link.StoreId, link.Store?.Name ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
-        campaign.Products.Select(link => link.ProductId).ToArray());
+        campaign.Products.Select(link => link.ProductId).ToArray(),
+        campaign.CardDesign);
 
     /// <summary>The discount is on: not cancelled, paid (when it has a fee) and between its start and its end.</summary>
     public static bool DiscountRunning(Campaign campaign, DateTime now) =>

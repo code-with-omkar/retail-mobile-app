@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../data/api/api_exception.dart';
 import '../data/models.dart';
 import '../features/cart/cart_controller.dart';
+import '../features/offers/festival_card.dart';
+import '../features/offers/offers_controller.dart';
 import 'l10n.dart';
 import 'theme.dart';
 
@@ -298,12 +300,13 @@ class PriceText extends StatelessWidget {
   }
 }
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   const ProductCard(this.product, {super.key});
   final Product product;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final festive = ref.watch(festivalProductThemesProvider)[product.id];
     final p = context.pal;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -318,6 +321,7 @@ class ProductCard extends StatelessWidget {
               child: Stack(fit: StackFit.expand, children: [
                 Opacity(opacity: product.inStock ? 1 : .45, child: ProductVisual(product)),
                 if (product.discountPct > 0) Positioned(top: 0, left: 0, child: DiscountRibbon(product.discountPct)),
+                if (festive != null) Positioned(bottom: 4, left: 4, child: FestivalProductTag(festive)),
               ]),
             ),
           ),

@@ -42,7 +42,8 @@ public sealed record SaveCouponRequest(
 public sealed record CouponPreviewRequest(string? Code);
 
 /// <summary>What the cart shows for a typed code. When not valid, <see cref="Discount"/> is 0 and <see cref="Message"/> says why.</summary>
-public sealed record CouponPreviewResponse(bool Valid, string Code, decimal Discount, string Message, decimal Total);
+/// <param name="Reason">When not valid, the kind of refusal (NotFound, Inactive, Expired, BelowMinimum, CustomerLimitReached ...); null when valid. For counting, not for showing.</param>
+public sealed record CouponPreviewResponse(bool Valid, string Code, decimal Discount, string Message, decimal Total, string? Reason = null);
 
 public sealed record CouponSummary(Coupon Coupon, decimal DiscountGiven);
 

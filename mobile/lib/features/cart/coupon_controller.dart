@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/coupon_repository.dart';
@@ -59,7 +60,11 @@ class CouponController extends Notifier<CouponState> {
       final storeId = ref.read(serverCartProvider)?.storeId ?? (await ref.read(selectedStoreProvider.future))?.id;
       if (storeId == null) throw const ConflictException('No store', statusCode: 409);
       final preview = await ref.read(couponRepositoryProvider).preview(storeId: storeId, code: code);
-      if (round == _round) state = CouponState(code: code, preview: preview);
+      if (round == _round) {
+        state = CouponState(code: code, preview: preview);
+        // Counted by kind, never by the code itself.
+        ref.read(analyticsProvider).track(preview.valid ? Track.couponApplied : Track.couponRefused, detail: preview.valid ? null : preview.reason?.toLowerCase());
+      }
     } on ApiException catch (e) {
       if (round == _round) state = CouponState(code: code, error: e is UnauthorizedException ? 'Sign in to use a code.' : 'Could not check the code. Try again.');
     }

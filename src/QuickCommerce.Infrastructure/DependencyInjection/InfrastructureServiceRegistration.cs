@@ -60,6 +60,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ICommissionStore, EfCommissionStore>();
         services.AddScoped<ICouponStore, EfCouponStore>();
         services.AddScoped<ISlotStore, EfSlotStore>();
+        services.AddScoped<ITodayStore, EfTodayStore>();
+        services.AddScoped<IAnalyticsStore, EfAnalyticsStore>();
         services.AddScoped<ITrackingStore, EfTrackingStore>();
         services.AddScoped<IOrderChangeStore, EfOrderChangeStore>();
         services.AddScoped<IReplacementStore, EfReplacementStore>();

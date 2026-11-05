@@ -22,6 +22,75 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("QuickCommerce.Domain.AnalyticsDaily", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(24)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<Guid>("StoreKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Events")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("int");
+
+                    b.HasKey("Day", "Name", "StoreKey");
+
+                    b.ToTable("AnalyticsDaily", t =>
+                        {
+                            t.HasCheckConstraint("CK_AnalyticsDaily_Counts", "[Events] >= 0 AND [Sessions] >= 0 AND [Sessions] <= [Events]");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AnalyticsEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("IX_AnalyticsEvents_OccurredAt");
+
+                    b.HasIndex("Name", "OccurredAt")
+                        .HasDatabaseName("IX_AnalyticsEvents_Name_OccurredAt");
+
+                    b.ToTable("AnalyticsEvents");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -322,6 +391,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("CardDesign")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -391,6 +464,8 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Campaigns", t =>
                         {
+                            t.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas')");
+
                             t.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");

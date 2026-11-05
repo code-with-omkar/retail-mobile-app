@@ -758,6 +758,21 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
+    public Task<Campaign?> TrySetCardAsync(Guid id, string? cardDesign, string? imageUrl, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var campaign = Campaigns.FirstOrDefault(item => item.Id == id);
+            if (campaign is not null && campaign.IsActive)
+            {
+                campaign.CardDesign = cardDesign;
+                campaign.ImageUrl = imageUrl;
+            }
+
+            return Task.FromResult(campaign);
+        }
+    }
+
     public Task<Campaign?> TryEndDiscountAsync(Guid id, DateTime now, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
@@ -801,7 +816,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             return Task.FromResult<IReadOnlyList<ActiveOffer>>(Campaigns
                 .Where(campaign => OfferRules.ShowsAsBanner(campaign, now) && OfferRules.AppliesToStore(campaign, storeId))
                 .OrderByDescending(campaign => campaign.StartsAt)
-                .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad))
+                .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad, campaign.CardDesign))
                 .ToArray());
         }
     }

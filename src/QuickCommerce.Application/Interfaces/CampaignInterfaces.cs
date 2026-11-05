@@ -24,7 +24,8 @@ public sealed record CampaignRequest(
     DateTime? EndsAt = null,
     IReadOnlyList<Guid>? ProductIds = null,
     bool Notify = true,
-    bool ShowOnLoad = false);
+    bool ShowOnLoad = false,
+    string? CardDesign = null);
 
 public sealed record CampaignStoreInfo(Guid Id, string Name);
 
@@ -52,7 +53,8 @@ public sealed record CampaignResponse(
     DateTime? EndsAt = null,
     bool Notify = true,
     IReadOnlyList<CampaignProductInfo>? Products = null,
-    bool ShowOnLoad = false);
+    bool ShowOnLoad = false,
+    string? CardDesign = null);
 
 /// <summary>Where a campaign is: waiting for its start time, sent (to <see cref="CampaignResponse.RecipientCount"/> customers) or cancelled before it was sent.</summary>
 public static class CampaignStatuses
@@ -83,8 +85,13 @@ public static class CampaignReasons
     public const string DiscountAlreadyEnded = "OfferDiscountEnded";
 }
 
+public sealed record CampaignCardRequest(string? CardDesign, string? ImageUrl);
+
 public interface ICampaignAdminService
 {
+    /// <summary>Administrator only: changes the card design and picture of an offer that is still open (not cancelled). Blank design = plain banner.</summary>
+    Task<CampaignOperationResult<CampaignResponse>> UpdateCardAsync(Guid id, CampaignCardRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>Administrators see every offer; store staff see the offers that are for their store.</summary>
     Task<CampaignOperationResult<IReadOnlyList<CampaignResponse>>> ListAsync(CancellationToken cancellationToken = default);
 
@@ -108,6 +115,9 @@ public interface ICampaignAdminService
 
 public interface ICampaignStore
 {
+    /// <summary>Sets the card design and picture of an offer that is not cancelled; null when it does not exist.</summary>
+    Task<Campaign?> TrySetCardAsync(Guid id, string? cardDesign, string? imageUrl, CancellationToken cancellationToken = default);
+
     /// <summary>Every campaign with the stores it is for.</summary>
     Task<IReadOnlyList<Campaign>> ListCampaignsAsync(CancellationToken cancellationToken = default);
 
@@ -143,7 +153,7 @@ public interface ICampaignStore
 public sealed record NotificationPreferences(bool Offers);
 
 /// <summary>An offer that is running at a store, for the customer's Home banner.</summary>
-public sealed record ActiveOffer(Guid Id, string TitleEn, string? BodyEn, string? TitleMr, string? BodyMr, string? ImageUrl, int DiscountPercent, DateTime? EndsAt, IReadOnlyList<Guid> ProductIds, bool ShowOnLoad = false);
+public sealed record ActiveOffer(Guid Id, string TitleEn, string? BodyEn, string? TitleMr, string? BodyMr, string? ImageUrl, int DiscountPercent, DateTime? EndsAt, IReadOnlyList<Guid> ProductIds, bool ShowOnLoad = false, string? CardDesign = null);
 
 /// <summary>One offer opened from a notification or a banner. Anyone can read an offer that has started and was not cancelled; its fee state is never shown.</summary>
 public sealed record OfferDetail(
@@ -157,7 +167,8 @@ public sealed record OfferDetail(
     DateTime? EndsAt,
     bool Running,
     IReadOnlyList<CampaignStoreInfo> Stores,
-    IReadOnlyList<Guid> ProductIds);
+    IReadOnlyList<Guid> ProductIds,
+    string? CardDesign = null);
 
 /// <summary>What is on offer at a store right now. A discount runs from its start to its end, only when it is not cancelled and (with a fee) is paid.</summary>
 public interface IOfferDiscountLookup

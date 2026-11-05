@@ -97,14 +97,14 @@ public sealed class CouponService(
         var cart = await carts.GetCartAsync(storeId, cancellationToken);
         if (cart is null || cart.Items.Count == 0 || cart.Subtotal <= 0)
         {
-            return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(false, typed, 0, "Your cart is empty.", cart?.Total ?? 0));
+            return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(false, typed, 0, "Your cart is empty.", cart?.Total ?? 0, "EmptyCart"));
         }
 
         var coupon = CouponRules.IsValidCode(typed) ? await coupons.GetByCodeAsync(context.OrganizationId, typed, cancellationToken) : null;
         var mine = coupon is null ? 0 : await coupons.UsesByUserAsync(coupon.Id, context.UserId, cancellationToken);
         var hasOrders = coupon is { FirstOrderOnly: true } && await coupons.HasOrdersAsync(context.UserId, cancellationToken);
         var outcome = CouponRules.Check(coupon, new CouponContext(cart.Subtotal, cart.DeliveryFee, clock.GetUtcNow().UtcDateTime, coupon?.UsedCount ?? 0, mine, hasOrders));
-        return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(outcome.Check == CouponCheck.Valid, typed, outcome.Discount, outcome.Message, cart.Total - outcome.Discount));
+        return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(outcome.Check == CouponCheck.Valid, typed, outcome.Discount, outcome.Message, cart.Total - outcome.Discount, outcome.Check == CouponCheck.Valid ? null : outcome.Check.ToString()));
     }
 
     private static string? Problem(SaveCouponRequest request, string code, DateTime startsAt)

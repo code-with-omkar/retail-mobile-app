@@ -93,6 +93,17 @@ public sealed class CampaignAdminService(
             }
         }
 
+        var design = OfferCardDesigns.Normalize(request.CardDesign);
+        if (!OfferCardDesigns.IsKnown(design))
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: "That card design is not known");
+        }
+
+        if (design is not null && !actor.Admin)
+        {
+            return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator can choose a card design");
+        }
+
         if (request.ImageUrl is not null && !OfferImages.IsOwnPath(request.ImageUrl))
         {
             return new(CampaignOperationStatus.InvalidRequest, Message: "Upload the picture first and use the path it returns");
@@ -148,11 +159,47 @@ public sealed class CampaignAdminService(
             DiscountPercent = request.DiscountPercent,
             EndsAt = endsAt,
             ImageUrl = request.ImageUrl,
+            CardDesign = design,
             Products = request.DiscountPercent > 0 ? productIds.Select(id => new CampaignProduct { ProductId = id }).ToList() : []
         };
         await store.AddCampaignAsync(campaign, cancellationToken);
         var saved = await store.GetCampaignAsync(campaign.Id, cancellationToken) ?? campaign;
         return new(CampaignOperationStatus.Succeeded, CampaignMapping.ToResponse(saved, await store.GetProductNamesAsync(productIds, cancellationToken)));
+    }
+
+    public async Task<CampaignOperationResult<CampaignResponse>> UpdateCardAsync(Guid id, CampaignCardRequest request, CancellationToken cancellationToken = default)
+    {
+        var actor = await ResolveAsync(cancellationToken);
+        if (actor is null || !actor.Admin)
+        {
+            return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator can change a card design");
+        }
+
+        var design = OfferCardDesigns.Normalize(request.CardDesign);
+        if (!OfferCardDesigns.IsKnown(design))
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: "That card design is not known");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl) && !OfferImages.IsOwnPath(request.ImageUrl))
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: "The picture must be one uploaded here");
+        }
+
+        var existing = await store.GetCampaignAsync(id, cancellationToken);
+        if (existing is null)
+        {
+            return new(CampaignOperationStatus.NotFound, Message: "Offer not found");
+        }
+
+        if (!existing.IsActive)
+        {
+            return new(CampaignOperationStatus.Conflict, Message: "A cancelled offer cannot be changed.");
+        }
+
+        var image = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl;
+        var updated = await store.TrySetCardAsync(id, design, image, cancellationToken) ?? existing;
+        return new(CampaignOperationStatus.Succeeded, CampaignMapping.ToResponse(updated, await store.GetProductNamesAsync(updated.Products.Select(link => link.ProductId).ToArray(), cancellationToken)));
     }
 
     public async Task<CampaignOperationResult<CampaignResponse>> EndDiscountAsync(Guid id, CancellationToken cancellationToken = default)

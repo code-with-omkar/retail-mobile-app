@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -72,6 +73,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   void initState() {
     super.initState();
     Future.microtask(() => mounted ? ref.read(cartProvider.notifier).reload() : null);
+    ref.read(analyticsProvider).track(Track.checkoutStart);
   }
 
   Future<void> _place() async {
@@ -94,6 +96,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _key = null;
       ref.read(lastPlacedOrderProvider.notifier).set(order);
       ref.read(ordersProvider.notifier).placed(order);
+      ref.read(analyticsProvider).track(Track.orderPlaced, detail: [online ? 'online' : 'cash', if (ref.read(couponProvider).orderCode != null) 'coupon', if (ref.read(chosenSlotProvider) != null) 'slot'].join('+'));
       cart.orderPlaced();
       ref.read(chosenSlotProvider.notifier).choose(null);
       // An online order is not placed until it is paid: on to the payment, with the provider's screen opening at once.
@@ -128,6 +131,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         await ref.read(cartProvider.notifier).reload();
         if (mounted) setState(() => _failure = _Failure.cartEmpty);
       case ServiceabilityReasons.outsideServiceArea:
+        ref.read(analyticsProvider).track(Track.outOfServiceArea);
         if (mounted) setState(() => _failure = _Failure.outsideArea);
       case CheckoutReasons.slotUnavailable:
         // The window filled up (or its cut-off passed) after it was chosen: read the offers again and let the customer pick another.

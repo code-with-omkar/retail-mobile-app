@@ -102,3 +102,61 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+
+  # The customer app's real client code against the real API and a real SQL Server: an administrator sets up a coupon and delivery times,
+  # a customer orders with both, then cancels, and everything is given back. Catches contract drift between app and API that neither side's own tests can see.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          # A throwaway container that lives for this job only; nothing real is behind it.
+          MSSQL_SA_PASSWORD: "Ci-only-Passw0rd!"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci-only-Passw0rd!' -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      ConnectionStrings__QuickCommerceDb: "Server=localhost,1433;Database=qc_e2e;User Id=sa;Password=Ci-only-Passw0rd!;TrustServerCertificate=true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - name: Build the API
+        run: dotnet build src/QuickCommerce.Api -c Release
+      - name: Create the database
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.*
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet ef database update --project src/QuickCommerce.Infrastructure --startup-project src/QuickCommerce.Api
+      - name: Start the API
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5067
+          Authentication__DevelopmentAdminPassword: "Ci-only-Admin1!"
+        run: |
+          nohup dotnet run --project src/QuickCommerce.Api -c Release --no-build --no-launch-profile > api.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fs http://localhost:5067/health/ready > /dev/null && exit 0
+            sleep 2
+          done
+          cat api.log
+          echo "The API did not become ready."
+          exit 1
+      - name: End-to-end test
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter test test/integration/e2e_coupon_slot_test.dart --dart-define=SMOKE_API_URL=http://localhost:5067 --dart-define=SMOKE_ACCOUNTS=true --dart-define=E2E_ADMIN_PASSWORD=Ci-only-Admin1!
+      - name: API log
+        if: failure()
+        run: cat api.log

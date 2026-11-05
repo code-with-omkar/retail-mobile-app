@@ -120,7 +120,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
 
 <script type="application/json" id="plan-data">
 {
-"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-02","version":1,
+"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-06","version":1,
  "note":"Task status below is the baseline in this file. Changes you make in the browser are saved locally; use Export to share them, and ask Claude to fold an exported file back into this baseline."},
 "layers":{"M":"Mobile (Flutter)","A":"API (.NET)","D":"Database (EF/SQL)","W":"Admin portal (Angular)","I":"Infra / DevOps","Q":"QA / testing","X":"Decision / process"},
 "phases":[
@@ -265,7 +265,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
 
 {"id":"P9","name":"Quality, hardening and Android release","goal":"Ship a stable build to real users through Play internal testing.","deps":["P6","P7"],"exit":["Signed release bundle passes the go/no-go checklist","Staging end-to-end suite green","Production backend settings verified"],
  "tasks":[
- {"id":"9.1","t":"End-to-end suite (integration_test) against staging","l":["Q"],"s":"L","d":"Browse, register, add to cart, address, checkout, pay, track.","ac":["Runs in one command","Covers failure paths"],"a":["mobile/integration_test"],"dep":["7.6","6.7"],"st":"todo"},
+ {"id":"9.1","t":"End-to-end suite (integration_test) against staging","l":["Q"],"s":"L","d":"Browse, register, add to cart, address, checkout, pay, track. Done so far: an app-code-to-real-API end-to-end test (coupon plus scheduled delivery, cancel gives both back) with a CI job. Still to do: on-device integration_test.","ac":["Runs in one command","Covers failure paths"],"a":["mobile/integration_test"],"dep":["7.6","6.7"],"st":"doing"},
  {"id":"9.2","t":"Accessibility audit (TalkBack, contrast, targets, font scale)","l":["Q","M"],"s":"M","d":"Done: automatic checks (48 dp targets, labelled buttons) on home, profile and cart in both themes, and exact text-contrast checks on the palette; fixed See all, Voice search and the language toggle sizes and two low-contrast colours. Still to do: TalkBack walk-through on a phone, large-font check, Marathi.","ac":["Issues fixed or logged"],"a":["mobile"],"dep":["7.6"],"st":"doing"},
  {"id":"9.3","t":"Marathi review by a native speaker; Devanagari font decision","l":["M","X"],"s":"S","d":"Translations were written without review. Decide whether to bundle a Devanagari font.","ac":["Reviewed strings merged"],"a":["mobile/lib/core/strings_mr.dart"],"dep":[],"st":"todo"},
  {"id":"9.4","t":"Performance pass: image caching, list performance, startup","l":["M"],"s":"M","d":"Profile in release mode on a mid-range device; Done: product and offer pictures now use a disk cache and are decoded at display size. Still to do: profile in release mode on a mid-range device.","ac":["Targets recorded and met"],"a":["mobile"],"dep":["1.7"],"st":"doing"},
@@ -393,9 +393,41 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"29.5","t":"Customer app: choose a time at checkout, window on orders","l":["M","Q"],"s":"L","d":"Marathi labels.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
  {"id":"29.6","t":"Partner app: show the window","l":["D","Q"],"s":"S","d":"Card and detail.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
  {"id":"29.7","t":"Apply migration to the dev database and walk section V","l":["I"],"s":"S","d":"Done: backup, migration applied, APIs restarted. Still to do: phone rebuild and your walk of section V.","ac":[],"a":[],"dep":["29.5"],"st":"doing","bk":"Phone rebuild and manual walk of section V"}
+ ]},
+{"id":"P30","name":"API tests over HTTP","goal":"The real API is tested through HTTP, including who may call what.","deps":["P29"],"exit":["Permissions checked per role","No endpoint is open by accident"],
+ "tasks":[
+ {"id":"30.1","t":"HTTP test harness with the demo users and the coupon, delivery-time and admin permission tests","l":["A","Q"],"s":"M","d":"7 tests on the test SQL database.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"30.2","t":"Route coverage test: every endpoint needs a sign-in unless deliberately open","l":["A","Q"],"s":"S","d":"Removed the unused WeatherForecast endpoint it found.","ac":[],"a":[],"dep":["30.1"],"st":"done"}
+ ]},
+{"id":"P31","name":"Store Today screen and alerts","goal":"Store staff see their day and what needs attention without hunting for it.","deps":["P29"],"exit":["New and ready orders left waiting are flagged","Low stock and filling delivery windows are flagged"],
+ "tasks":[
+ {"id":"31.1","t":"Today rules, service, SQL reads and API (no migration)","l":["A","Q"],"s":"M","d":"Counts, five alert kinds, upcoming scheduled orders.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"31.2","t":"Portal Today screen with 30-second refresh","l":["W","Q"],"s":"M","d":"Store staff and administrators; 196 portal tests.","ac":[],"a":[],"dep":["31.1"],"st":"done"},
+ {"id":"31.3","t":"Restart the APIs and walk section W","l":["I"],"s":"S","d":"No database change; restart both APIs.","ac":[],"a":[],"dep":["31.2"],"st":"todo"}
+ ]},
+{"id":"P32","name":"Customer behaviour analytics","goal":"See how customers move through the app without knowing who they are.","deps":["P31"],"exit":["Nothing personal is stored","Funnels per store and for all stores","Old events purged, daily counts kept"],
+ "tasks":[
+ {"id":"32.1","t":"Event rules, tables, anonymous intake, daily rollup and purge, behaviour report API (migration AddAnalytics)","l":["D","A","Q"],"s":"L","d":"Rules, service, SQL and HTTP tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"32.2","t":"Customer app tracker (batched, best effort) wired into search, product, cart, checkout, coupon, delivery time, store","l":["M","Q"],"s":"M","d":"599 app tests.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.3","t":"Portal Behaviour screen (funnel, searches, coupon refusals, sessions per day)","l":["W","Q"],"s":"M","d":"206 portal tests.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.4","t":"Privacy notes for the policy and the Play data safety form","l":["I"],"s":"S","d":"In RELEASE_AND_SECURITY.md.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.5","t":"Apply AddAnalytics to the dev database, restart APIs, rebuild the phone, walk section X","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update, restart APIs, phone rebuild.","ac":[],"a":[],"dep":["32.3"],"st":"todo","bk":"Owner go-ahead"}
+ ]},
+{"id":"P33","name":"Offer card designs and festival cards","goal":"Administrators give an offer a festival card design (or their own uploaded card) that customers see on Home.","deps":["P32"],"exit":["Eight festival designs drawn the same in the app and the portal","Only administrators choose a design","Uploaded card replaces the built-in artwork"],
+ "tasks":[
+ {"id":"33.1","t":"Card design on offers: entity, validation (admin only, eight keys), API fields, check constraint (migration AddOfferCardDesign)","l":["D","A","Q"],"s":"M","d":"Backend tests incl. HTTP and database constraint.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"33.2","t":"Portal: shared offer card component, design picker with live preview, upload guidance","l":["W","Q"],"s":"M","d":"222 portal tests.","ac":[],"a":[],"dep":["33.1"],"st":"done"},
+ {"id":"33.3","t":"Customer app: festival card widget with eight painted motifs in the Home rail and the offer screen, Marathi","l":["M","Q"],"s":"L","d":"621 app tests; layout never overflows.","ac":[],"a":[],"dep":["33.1"],"st":"done"},
+ {"id":"33.4","t":"Apply AddOfferCardDesign to the dev database, restart APIs, rebuild the phone, walk section Y","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update, restart APIs, phone rebuild.","ac":[],"a":[],"dep":["33.3"],"st":"todo","bk":"Owner go-ahead"}
+ ]},
+{"id":"P34","name":"Festival follow-ups","goal":"Change an existing offer's card; festive tags and a Marathi greeting in the app.","deps":["P33"],"exit":["Admin changes a live offer's card","Festive tag and greeting show only while a festival offer runs"],
+ "tasks":[
+ {"id":"34.1","t":"Change the card of an existing offer: admin-only API (PUT card) with checks, store methods, tests","l":["A","Q"],"s":"S","d":"Backend 1229 tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"34.2","t":"Portal: Change card on each offer (design picker, preview, keep or drop picture)","l":["W","Q"],"s":"S","d":"224 portal tests.","ac":[],"a":[],"dep":["34.1"],"st":"done"},
+ {"id":"34.3","t":"App: festive product tag and Marathi greeting chip from running festival offers","l":["M","Q"],"s":"S","d":"624 app tests.","ac":[],"a":[],"dep":["33.3"],"st":"done"}
  ]}
 ],
-"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Multi-organization store switching","Product analytics"],
+"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Multi-organization store switching","Festive touches still open: category tile tint, festival takeover of Home","Restyle the whole app to the Clean v4 final design"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

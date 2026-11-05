@@ -3,9 +3,12 @@ import '../dto/catalog_dto.dart';
 
 /// What the cart shows for a typed code (`POST api/carts/{storeId}/coupon`). When [valid] is false, [message] says why and [discount] is 0.
 class CouponPreview {
-  const CouponPreview({required this.valid, required this.code, required this.discount, required this.message, required this.total});
+  const CouponPreview({required this.valid, required this.code, required this.discount, required this.message, required this.total, this.reason});
   final bool valid;
   final String code, message;
+
+  /// When not valid, the kind of refusal (for example BelowMinimum), for counting; null when valid.
+  final String? reason;
   final double discount, total;
 
   factory CouponPreview.fromJson(Map<String, dynamic> j) => CouponPreview(
@@ -14,6 +17,7 @@ class CouponPreview {
         discount: (j['discount'] as num?)?.toDouble() ?? 0,
         message: (j['message'] as String?) ?? '',
         total: (j['total'] as num?)?.toDouble() ?? 0,
+        reason: j['reason'] as String?,
       );
 }
 

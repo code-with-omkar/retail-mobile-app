@@ -10,6 +10,7 @@ import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../stores/stores_screen.dart';
+import 'festival_card.dart';
 import 'offers_controller.dart';
 
 /// The picture of an offer, or a plain coloured block when it has none or it cannot be loaded.
@@ -42,7 +43,8 @@ class OffersRail extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), child: SectionHeader(context.tr('Offers for you'))),
       SizedBox(
-        height: 150,
+        // A festival card is 176 high, the plain banner 150.
+        height: offers.any((o) => festivalThemeOf(o.cardDesign) != null) ? 176 : 150,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
@@ -59,7 +61,9 @@ class OffersRail extends ConsumerWidget {
                 onTap: () => context.push('/offer/${offer.id}'),
                 child: SizedBox(
                   width: width,
-                  child: Stack(fit: StackFit.expand, children: [
+                  child: festivalThemeOf(offer.cardDesign) != null
+                      ? FestivalCard(offer)
+                      : Stack(fit: StackFit.expand, children: [
                     OfferImage(offer.imageUrl),
                     Positioned.fill(
                       child: DecoratedBox(

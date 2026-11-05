@@ -142,6 +142,74 @@ describe('CampaignsComponent', () => {
     expect(c.error()).toBe('Give the fee as a number of rupees, 0 or more.');
   });
 
+  it('only an administrator sees the card design choice, with Plain and the eight festivals', () => {
+    const admin = open(Role.Admin, apiWith({ get: baseGet() })).f.nativeElement as HTMLElement;
+    const names = Array.from(admin.querySelectorAll('.design-tile')).map(b => b.textContent?.trim());
+    expect(names).toEqual(['Plain', 'Diwali', 'Ganeshotsav', 'Navratri', 'Holi', 'Sankranti', 'Gudi Padwa', 'Eid', 'Christmas']);
+
+    TestBed.resetTestingModule();
+    expect((open(Role.StoreStaff, apiWith({ get: baseGet() })).f.nativeElement as HTMLElement).querySelector('.design-tile')).toBeNull();
+  });
+
+  it('choosing a design shows its card preview with the offer title, and Plain takes it away', () => {
+    const { f, c } = open(Role.Admin, apiWith({ get: baseGet() }));
+    const el = f.nativeElement as HTMLElement;
+    c.titleEn = 'Sweets sale';
+
+    c.cardDesign = 'diwali';
+    f.detectChanges();
+    expect(el.querySelector('app-offer-card')).not.toBeNull();
+    expect(el.querySelector('app-offer-card')?.textContent).toContain('Sweets sale');
+    expect(el.querySelector('.design-tile.on')?.textContent).toContain('Diwali');
+
+    c.cardDesign = '';
+    f.detectChanges();
+    expect(el.querySelector('app-offer-card')).toBeNull();
+  });
+
+  it('an administrator sends the chosen design with the offer, and the form goes back to Plain afterwards', () => {
+    const api = apiWith({ get: baseGet(), post: { '/admin/campaigns': campaign() } });
+    const { c } = open(Role.Admin, api);
+
+    c.titleEn = 'Diwali sale';
+    c.cardDesign = 'diwali';
+    c.create();
+
+    expect(api.post).toHaveBeenCalledWith('/admin/campaigns', expect.objectContaining({ cardDesign: 'diwali' }));
+    expect(c.cardDesign).toBe('');
+  });
+
+  it('Plain sends no design, and store staff never send one even if the field were set', () => {
+    const api = apiWith({ get: baseGet(), post: { '/admin/campaigns': campaign() } });
+    const admin = open(Role.Admin, api).c;
+    admin.titleEn = 'Plain';
+    admin.create();
+    expect(api.post.mock.calls[0][1].cardDesign).toBeNull();
+
+    TestBed.resetTestingModule();
+    const staffApi = apiWith({ get: baseGet(), post: { '/admin/campaigns': campaign() } });
+    const staff = open(Role.StoreStaff, staffApi).c;
+    staff.titleEn = 'Staff offer';
+    staff.cardDesign = 'diwali';
+    staff.create();
+    expect(staffApi.post.mock.calls[0][1].cardDesign).toBeNull();
+  });
+
+  it('an uploaded card picture shows on the preview card in place of the artwork', () => {
+    const { f, c } = open(Role.Admin, apiWith({ get: baseGet() }));
+    c.titleEn = 'Holi';
+    c.cardDesign = 'holi';
+    c.imageUrl.set('/media/offers/h.jpg');
+    f.detectChanges();
+
+    expect((f.nativeElement as HTMLElement).querySelector('app-offer-card img.art')?.getAttribute('src')).toBe('http://host/media/offers/h.jpg');
+  });
+
+  it('the offers list names the card design of an offer', () => {
+    const { f } = open(Role.Admin, apiWith({ get: baseGet({ '/admin/campaigns': [campaign({ cardDesign: 'padwa' })] }) }));
+    expect((f.nativeElement as HTMLElement).textContent).toContain('Card design: Gudi Padwa');
+  });
+
   it('creating sends trimmed text; the store picks only for an administrator; the form is cleared and the list read again', () => {
     const api = apiWith({ get: baseGet(), post: { '/admin/campaigns': campaign() } });
     const { c } = open(Role.Admin, api);
@@ -209,6 +277,35 @@ describe('CampaignsComponent', () => {
     c.endDiscount(offer);
     expect(api.post).toHaveBeenLastCalledWith('/admin/campaigns/c1/end-discount');
     expect(c.notice()).toBe('Discount ended.');
+  });
+
+  it('an administrator changes the card of an existing offer; the picture can be kept or dropped', () => {
+    const api = apiWith({ get: baseGet(), put: { '/admin/campaigns/c1/card': {} } });
+    const { c } = open(Role.Admin, api);
+    const offer = { ...(campaign() as object), imageUrl: '/media/o.jpg', cardDesign: null } as never;
+
+    c.startEdit(offer);
+    expect(c.editDesign).toBe('');
+    c.editDesign = 'holi';
+    c.saveCard();
+    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: 'holi', imageUrl: '/media/o.jpg' });
+    expect(c.notice()).toBe('Card changed.');
+    expect(c.editing()).toBeNull();
+
+    c.startEdit(offer);
+    c.editDesign = '';
+    c.editKeepPicture = false;
+    c.saveCard();
+    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: null, imageUrl: null });
+  });
+
+  it('a failed card change shows the error and keeps the editor open', () => {
+    const api = apiWith({ get: baseGet(), put: { '/admin/campaigns/c1/card': new Error('Only an administrator can change a card design') } });
+    const { c } = open(Role.Admin, api);
+    c.startEdit(campaign() as never);
+    c.saveCard();
+    expect(c.error()).toBe('Only an administrator can change a card design');
+    expect(c.editing()).not.toBeNull();
   });
 
   it('a picture is uploaded once chosen, and its path is kept for the offer', () => {

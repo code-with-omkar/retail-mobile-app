@@ -24,11 +24,13 @@ public sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(campaign => campaign.DiscountPercent).HasDefaultValue(0);
         builder.Property(campaign => campaign.EndsAt).HasColumnType("datetime2");
         builder.Property(campaign => campaign.ImageUrl).HasMaxLength(200);
+        builder.Property(campaign => campaign.CardDesign).HasMaxLength(20);
         // The sender looks for campaigns that are due and not sent yet.
         builder.HasIndex(campaign => campaign.StartsAt).HasFilter("[PublishedAt] IS NULL AND [IsActive] = 1");
         builder.ToTable(table =>
         {
             table.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");
+            table.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas')");
             table.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
         });
     }

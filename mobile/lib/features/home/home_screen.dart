@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/l10n.dart';
+import '../../core/analytics.dart';
 import '../../core/polling.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -14,6 +15,7 @@ import '../address/address_controller.dart';
 import '../auth/auth_controller.dart';
 import '../festival/festival_widgets.dart';
 import '../notifications/notifications_controller.dart';
+import '../offers/festival_card.dart';
 import '../offers/offers_controller.dart';
 import '../offers/offers_widgets.dart';
 import '../orders/orders_controller.dart';
@@ -60,7 +62,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _onSearchChanged(String value) {
     setState(() => _search = value);
     _debounce?.cancel();
-    _debounce = Timer(_searchDebounce, () => setState(_resetPager));
+    _debounce = Timer(_searchDebounce, () {
+      setState(_resetPager);
+      // Only the short, safe term is recorded, never anything that looks like a phone number or an email.
+      if (Analytics.safeTerm(value) case final term?) ref.read(analyticsProvider).track(Track.search, detail: term);
+    });
   }
 
   void _setMode(_Mode? mode) {
@@ -104,6 +110,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1))),
         ),
         if (!_searching) const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: FestivalBanner())),
+        if (!_searching)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
+            sliver: SliverToBoxAdapter(
+              child: Consumer(builder: (_, ref, _) {
+                final t = ref.watch(festivalGreetingProvider);
+                return t == null ? const SizedBox.shrink() : FestivalGreetingChip(t);
+              }),
+            ),
+          ),
         SliverPadding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _searchBar(context))),
         const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0), sliver: SliverToBoxAdapter(child: StoreBar())),
         if (_searching) ..._results(context) else ..._browse(context),

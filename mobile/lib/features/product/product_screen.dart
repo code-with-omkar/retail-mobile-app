@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/l10n.dart';
+import '../../core/analytics.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
@@ -47,6 +48,13 @@ class _ProductView extends ConsumerStatefulWidget {
 
 class _ProductViewState extends ConsumerState<_ProductView> {
   late final Product _p = widget.product;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(analyticsProvider).track(Track.productView);
+  }
+
   late PackOption? _pack = _initialPack();
   int _qty = 1;
 

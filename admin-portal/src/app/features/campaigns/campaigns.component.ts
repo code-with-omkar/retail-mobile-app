@@ -5,6 +5,8 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfigService } from '../../core/services/config.service';
 import { Role, Store } from '../../core/models/domain.model';
+import { OfferCardComponent } from '../../shared/components/offer-card/offer-card.component';
+import { OFFER_CARD_DESIGNS, designOf } from '../../shared/components/offer-card/offer-card-designs';
 
 interface StartPayment { keyId: string; providerOrderId: string; amountPaise: number; currency: string; orderNumber: string; }
 interface OfferFees { defaultPaise: number; loadPaise: number; stores: { storeId: string; name: string; overridePaise: number | null; effectivePaise: number }[]; }
@@ -12,6 +14,7 @@ declare const Razorpay: any;
 
 interface Campaign {
   id: string;
+  cardDesign?: string | null;
   titleEn: string;
   bodyEn: string;
   titleMr?: string | null;
@@ -41,7 +44,7 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
 @Component({
   selector: 'app-campaigns',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, OfferCardComponent],
   template: `
     <section class="page">
       <h2>Offers</h2>
@@ -67,10 +70,19 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
           <label class="check" *ngFor="let s of stores()"><input type="checkbox" [checked]="picked().has(s.id)" (change)="toggle(s.id)" /> {{ s.name }}</label>
         </fieldset>
         <p class="muted-card" *ngIf="!isAdmin()">This offer is for your store and goes to customers who have ordered from it or shopped there.</p>
+        <fieldset class="stores designs" *ngIf="isAdmin()">
+          <legend>Card design (optional): how this offer looks on the customers' home screen</legend>
+          <div class="design-grid" role="radiogroup" aria-label="Card design">
+            <button type="button" class="design-tile" role="radio" [attr.aria-checked]="!cardDesign" [class.on]="!cardDesign" (click)="cardDesign = ''"><span class="swatch plain"></span>Plain</button>
+            <button type="button" class="design-tile" role="radio" *ngFor="let d of designs" [attr.aria-checked]="cardDesign === d.key" [class.on]="cardDesign === d.key" (click)="cardDesign = d.key"><span class="swatch" [style.background]="d.bg"></span>{{ d.name }}</button>
+          </div>
+          <p class="muted-card">A festival design draws the festival's colours, its English and Marathi name, your offer title as the line, a countdown to the end of the discount and a button. Pick Plain for the usual banner.</p>
+        </fieldset>
         <fieldset class="stores">
-          <legend>Picture (optional, shown on the home screen and when the offer is opened)</legend>
+          <legend>Card picture (optional, shown on the home screen and when the offer is opened). With a card design it replaces the built-in artwork; the best size is 700 × 352 px (2:1), JPEG, PNG or WebP up to 2 MB.</legend>
           <div class="fee-row"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="pickImage($event)" /><button type="button" class="act" [disabled]="busy() || !uploadFile" (click)="uploadImage()">Upload</button><button type="button" class="act ghost" *ngIf="imageUrl()" (click)="imageUrl.set(null)">Remove</button></div>
-          <img class="banner" *ngIf="imageUrl()" [src]="img(imageUrl())" alt="" />
+          <img class="banner" *ngIf="imageUrl() && !cardDesign" [src]="img(imageUrl())" alt="" />
+          <app-offer-card *ngIf="cardDesign" [designKey]="cardDesign" [title]="titleEn || null" [imageUrl]="imageUrl() ? img(imageUrl()) : null" [endsAt]="endsAt ? endsAtIso() : null"></app-offer-card>
         </fieldset>
         <fieldset class="stores">
           <legend>Discount (optional): percent off chosen products, in every size</legend>
@@ -94,12 +106,18 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
       <div class="table" *ngIf="campaigns().length">
         <div class="row head"><span>Offer</span><span>Stores</span><span>Send at</span><span>Status</span><span>Sent to</span><span>Action</span></div>
         <div class="row" *ngFor="let c of campaigns()">
-          <span><img class="thumb" *ngIf="c.imageUrl" [src]="img(c.imageUrl)" alt="" /><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small><small *ngIf="c.discountPercent > 0">{{ c.discountPercent }}% off {{ productNames(c) }}, until {{ c.endsAt | date:'short' }}</small><small *ngIf="c.showOnLoad">Shown when the app opens</small><small *ngIf="!c.notify">No notification (quiet discount)</small></span>
+          <span><img class="thumb" *ngIf="c.imageUrl" [src]="img(c.imageUrl)" alt="" /><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small><small *ngIf="c.discountPercent > 0">{{ c.discountPercent }}% off {{ productNames(c) }}, until {{ c.endsAt | date:'short' }}</small><small *ngIf="c.showOnLoad">Shown when the app opens</small><small *ngIf="c.cardDesign">Card design: {{ designName(c.cardDesign) }}</small><small *ngIf="!c.notify">No notification (quiet discount)</small></span>
           <span>{{ c.allStores ? 'All stores' : storeNames(c) }}</span>
           <span>{{ c.startsAt | date:'short' }}</span>
           <span class="badge" [ngClass]="'badge-' + c.status.toLowerCase()">{{ c.status === 'AwaitingPayment' ? 'Awaiting payment' : c.status }}</span>
           <span>{{ c.status === 'Sent' && c.notify ? c.recipientCount + ' customers' : '—' }}</span>
-          <span class="actions"><button class="act" *ngIf="isRunning(c) && canCancel(c)" [disabled]="busy()" (click)="endDiscount(c)">End discount now</button><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button></span>
+          <span class="actions"><button class="act" *ngIf="isRunning(c) && canCancel(c)" [disabled]="busy()" (click)="endDiscount(c)">End discount now</button><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button><button class="act" *ngIf="isAdmin() && c.status !== 'Cancelled'" [disabled]="busy()" (click)="startEdit(c)">Change card</button></span>
+          <div class="edit-card" *ngIf="editing()?.id === c.id">
+            <label>Card design <select [(ngModel)]="editDesign" name="editDesign"><option value="">Plain banner</option><option *ngFor="let d of designs" [value]="d.key">{{ d.name }}</option></select></label>
+            <label *ngIf="c.imageUrl"><input type="checkbox" [(ngModel)]="editKeepPicture" name="editKeepPicture" /> Keep the uploaded picture</label>
+            <app-offer-card *ngIf="editDesign" [designKey]="editDesign" [title]="c.titleEn" [imageUrl]="editKeepPicture && c.imageUrl ? img(c.imageUrl) : null" [endsAt]="c.endsAt || null"></app-offer-card>
+            <button class="act" [disabled]="busy()" (click)="saveCard()">Save card</button> <button class="act" [disabled]="busy()" (click)="editing.set(null)">Close</button>
+          </div>
         </div>
       </div>
     </section>
@@ -139,6 +157,12 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
     .check{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;color:var(--on-card,#141118)}
     .muted-card{margin:0;font-size:12px;color:var(--on-card-muted,#5E5A66)}
     .banner{max-width:360px;border-radius:12px}
+    .designs{max-height:none;overflow:visible}
+    .design-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+    .design-tile{display:flex;align-items:center;gap:8px;border:2px solid rgba(20,17,24,.2);border-radius:12px;padding:8px 10px;background:#fff;color:#141118;font:700 12px Inter,sans-serif;cursor:pointer;min-height:44px}
+    .design-tile.on{border-color:#141118;box-shadow:0 0 0 2px #FFD400}
+    .swatch{width:18px;height:18px;border-radius:50%;flex:none;border:1px solid rgba(20,17,24,.25)}
+    .swatch.plain{background:repeating-linear-gradient(45deg,#fff,#fff 3px,#E9E4FF 3px,#E9E4FF 6px)}
     .thumb{width:48px;height:32px;object-fit:cover;border-radius:6px;display:block;margin-bottom:4px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
     .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;padding:4px 10px;font:700 11px 'Inter',sans-serif;background:#fff;color:#141118;cursor:pointer}
@@ -320,7 +344,35 @@ export class CampaignsComponent implements OnInit {
     });
   }
 
+  /** The offer whose card is being changed (administrators only), with the design and picture choice for it. */
+  readonly editing = signal<Campaign | null>(null);
+  editDesign = '';
+  editKeepPicture = true;
+
+  startEdit(c: Campaign) {
+    this.editing.set(c);
+    this.editDesign = c.cardDesign ?? '';
+    this.editKeepPicture = true;
+  }
+
+  saveCard() {
+    const c = this.editing();
+    if (!c || this.busy()) return;
+    this.busy.set(true); this.error.set(null); this.notice.set(null);
+    const body = { cardDesign: this.editDesign || null, imageUrl: this.editKeepPicture ? (c.imageUrl ?? null) : null };
+    this.api.put<Campaign>('/admin/campaigns/' + c.id + '/card', body).subscribe({
+      next: () => { this.busy.set(false); this.editing.set(null); this.notice.set('Card changed.'); this.load(); },
+      error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not change the card.'); },
+    });
+  }
+
   titleEn = '';
+  /** The festival card design key, or empty for the plain banner. Only administrators see the choice. */
+  cardDesign = '';
+  readonly designs = OFFER_CARD_DESIGNS;
+  designName(key: string | null | undefined): string { return designOf(key)?.name ?? ''; }
+  /** The picked end time (a local date and time) as the ISO text the card's countdown reads. */
+  endsAtIso(): string { return new Date(this.endsAt).toISOString(); }
   bodyEn = '';
   titleMr = '';
   bodyMr = '';
@@ -360,6 +412,7 @@ export class CampaignsComponent implements OnInit {
       notify: this.notify,
       showOnLoad: this.showOnLoad,
       imageUrl: this.imageUrl(),
+      cardDesign: this.isAdmin() && this.cardDesign ? this.cardDesign : null,
       discountPercent: this.discountPercent ?? 0,
       endsAt: this.discountPercent && this.endsAt ? new Date(this.endsAt).toISOString() : null,
       productIds: this.discountPercent ? [...this.pickedProducts().keys()] : [],
@@ -377,6 +430,7 @@ export class CampaignsComponent implements OnInit {
         this.titleEn = this.bodyEn = this.titleMr = this.bodyMr = this.startsAt = this.endsAt = this.productSearch = '';
         this.notify = true; this.showOnLoad = false; this.discountPercent = null;
         this.imageUrl.set(null); this.productResults.set([]); this.pickedProducts.set(new Map());
+        this.cardDesign = '';
         this.picked.set(new Set());
         this.load();
       },

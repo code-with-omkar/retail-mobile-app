@@ -138,9 +138,11 @@ export class ShellComponent implements OnInit {
   navItems = computed(() => {
     const baseItems: NavItem[] = [
       { label: 'Overview', icon: '◈', route: '/dashboard', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
+      { label: 'Today', icon: '◉', route: '/today', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Catalog', icon: '▦', route: '/products', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Orders', icon: '↗', route: '/orders', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff], requiredPermissions: ['orders:read'] },
       { label: 'Reports', icon: '◩', route: '/reports', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Behaviour', icon: '◐', route: '/behaviour', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
       { label: 'Stock', icon: '▤', route: '/stock', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
       { label: 'Placement', icon: '▲', route: '/placement', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
       { label: 'Offers', icon: '✦', route: '/campaigns', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },

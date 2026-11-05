@@ -82,6 +82,24 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'behaviour',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/behaviour/behaviour.component').then(
+            m => m.BehaviourComponent
+          ),
+      },
+      {
+        path: 'today',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/today/today.component').then(
+            m => m.TodayComponent
+          ),
+      },
+      {
         path: 'delivery-times',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin, Role.Admin] },

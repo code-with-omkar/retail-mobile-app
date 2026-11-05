@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'google_sign_in_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/analytics.dart';
 import '../core/config/app_config.dart';
 import '../core/prefs.dart';
 import 'api/api_client.dart';
@@ -114,6 +115,17 @@ final deliverySlotsRepositoryProvider = Provider<DeliverySlotsRepository>((ref) 
   return config.useSeedData ? LocalDeliverySlotsRepository() : ApiDeliverySlotsRepository(ref.watch(apiClientProvider));
 });
 
+/// The customer's steps, recorded anonymously (see [Analytics]). A new random session each time the app starts.
+final analyticsProvider = Provider<Analytics>((ref) {
+  final config = ref.watch(appConfigProvider);
+  final analytics = Analytics(
+    config.useSeedData ? NoAnalyticsSink() : ApiAnalyticsSink(ref.watch(apiClientProvider)),
+    storeId: () => ref.read(selectedStoreProvider).value?.id,
+  );
+  ref.onDispose(analytics.dispose);
+  return analytics;
+});
+
 final couponRepositoryProvider = Provider<CouponRepository>((ref) {
   final config = ref.watch(appConfigProvider);
   return config.useSeedData ? LocalCouponRepository() : ApiCouponRepository(ref.watch(apiClientProvider));
@@ -187,6 +199,7 @@ class SelectedStoreNotifier extends Notifier<String?> {
 
   void select(String id) {
     state = id;
+    ref.read(analyticsProvider).track(Track.storeChosen, store: id);
     ref.read(sharedPrefsProvider).setString(_key, id);
   }
 }

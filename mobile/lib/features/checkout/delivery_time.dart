@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/analytics.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../data/api/api_exception.dart';
@@ -92,7 +93,10 @@ class _DeliveryTimeSectionState extends ConsumerState<DeliveryTimeSection> {
       Text(context.tr('Delivery time'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
       const SizedBox(height: 12),
       if (slots.asapAllowed) ...[
-        chip(label: context.tr('As soon as possible'), selected: chosen == null, onTap: () => ref.read(chosenSlotProvider.notifier).choose(null)),
+        chip(label: context.tr('As soon as possible'), selected: chosen == null, onTap: () {
+          ref.read(chosenSlotProvider.notifier).choose(null);
+          ref.read(analyticsProvider).track(Track.slotChosen, detail: 'asap');
+        }),
         const SizedBox(height: 10),
       ] else if (chosen == null)
         Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(context.tr('Choose a delivery time to continue.'), style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w700))),
@@ -108,7 +112,12 @@ class _DeliveryTimeSectionState extends ConsumerState<DeliveryTimeSection> {
             chip(
               label: w.available ? w.timeLabel : '${w.timeLabel} · ${context.tr('Full')}',
               selected: chosen == w.start,
-              onTap: w.available ? () => ref.read(chosenSlotProvider.notifier).choose(w.start) : null,
+              onTap: w.available
+                  ? () {
+                      ref.read(chosenSlotProvider.notifier).choose(w.start);
+                      ref.read(analyticsProvider).track(Track.slotChosen, detail: 'window');
+                    }
+                  : null,
             ),
         ]),
       ],

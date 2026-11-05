@@ -685,8 +685,11 @@ public sealed class Campaign
 	/// <summary>When the discount stops. Required with a discount; null for a message-only offer.</summary>
 	public DateTime? EndsAt { get; set; }
 
-	/// <summary>The banner picture, a path this API saved under /media/offers.</summary>
+	/// <summary>The banner picture, a path this API saved under /media/offers. With a <see cref="CardDesign"/> it is the festival card artwork that replaces the built-in design.</summary>
 	public string? ImageUrl { get; set; }
+
+	/// <summary>The festival card design the administrator chose (diwali, ganesh, navratri, holi, sankranti, padwa, eid or christmas). Null is the plain banner.</summary>
+	public string? CardDesign { get; set; }
 
 	/// <summary>The products the discount is for.</summary>
 	public List<CampaignProduct> Products { get; set; } = [];

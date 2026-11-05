@@ -5,6 +5,7 @@ import '../../data/providers.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../auth/auth_controller.dart';
+import 'festival_card.dart';
 
 /// Running discounts and picture messages at the store being shopped in. A failure just means no banners.
 final activeOffersProvider = FutureProvider.autoDispose<List<Offer>>((ref) async {
@@ -70,3 +71,9 @@ class ShownLoadOffers extends Notifier<Set<String>> {
 }
 
 final shownLoadOffersProvider = NotifierProvider<ShownLoadOffers, Set<String>>(ShownLoadOffers.new);
+
+/// Product id -> festival design for the products of running festival offers (empty while loading or on failure).
+final festivalProductThemesProvider = Provider.autoDispose<Map<String, FestivalTheme>>((ref) => festivalProductThemes(ref.watch(activeOffersProvider).value ?? const []));
+
+/// The festival greeting for Home, or null.
+final festivalGreetingProvider = Provider.autoDispose<FestivalTheme?>((ref) => festivalGreetingTheme(ref.watch(activeOffersProvider).value ?? const []));

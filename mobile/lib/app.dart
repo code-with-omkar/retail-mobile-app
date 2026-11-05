@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/analytics.dart';
 import 'core/l10n.dart';
 import 'core/prefs.dart';
 import 'core/theme.dart';
@@ -31,6 +32,7 @@ import 'features/product/product_screen.dart';
 import 'features/profile/account_screens.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'data/providers.dart';
 import 'features/stores/stores_screen.dart';
 
 /// Screens that need a signed-in customer. The API enforces this too; this only saves a guest from a dead end.
@@ -112,20 +114,29 @@ class QuickCartApp extends ConsumerStatefulWidget {
   ConsumerState<QuickCartApp> createState() => _QuickCartAppState();
 }
 
-class _QuickCartAppState extends ConsumerState<QuickCartApp> {
+class _QuickCartAppState extends ConsumerState<QuickCartApp> with WidgetsBindingObserver {
   final _signInChanged = ValueNotifier<int>(0);
   late final _router = createRouter(auth: () => ref.read(authProvider), refresh: _signInChanged);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ref.read(analyticsProvider).track(Track.appOpen);
     ref.listenManual(authProvider, (prev, next) {
       if (prev?.status != next.status) _signInChanged.value++;
     });
   }
 
+  // Steps still waiting are sent as the app goes to the background, so they are not lost if it is closed there.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) ref.read(analyticsProvider).flush();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _signInChanged.dispose();
     super.dispose();
   }

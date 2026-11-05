@@ -70,3 +70,8 @@ Reviewed: secrets, configuration, logging, browser access, authentication, uploa
 - Set `Media:RootPath` to a folder every server can reach. Uploaded pictures are files; without it each server keeps its own (the API now logs a warning at start-up).
 - Per-IP rate limits are per server (see above). Set `Proxy:KnownProxies` behind a load balancer.
 - Apply database changes from a reviewed script, not at start-up: `dotnet ef migrations script --idempotent --project src/QuickCommerce.Infrastructure --startup-project src/QuickCommerce.Api -o release.sql`, read it, then run it on the production database before the new version starts.
+
+**Analytics and the privacy policy / Play data safety form**
+- The app records anonymous steps (what screen was used, search words, why a coupon was refused) with a random session id made fresh at each app start. No account, phone number, email, address, location or device id is sent or kept. Raw steps are deleted after 90 days; daily counts are kept.
+- Say this in the privacy policy ("app activity: in-app search history and interactions, not linked to identity"). It is not linked to a person, so deleting an account has nothing to remove from it.
+- The endpoint is open without sign-in on purpose (guests browse too). It is rate limited and accepts only known step names and safe words.
