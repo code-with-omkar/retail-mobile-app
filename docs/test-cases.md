@@ -388,6 +388,8 @@ Needs the AddOfferCardDesign migration applied to the dev database first (ask me
 | Y15 | Sign in as store staff. | No Change card button. | ☐ | |
 | Y16 | App: open Home while a festival-design offer runs. | A Marathi greeting chip (e.g. शुभ दीपावली) sits under the date banner; products of that offer carry a small tag (e.g. DIWALI DEAL) on their picture. | ☐ | |
 | Y17 | After the offer ends. | Greeting chip and tags are gone. | ☐ | |
+| Y18 | App: while a festival-design offer runs, look at Home. | The top of Home has a soft wash of the festival colour; the four category tiles take the festival colour with a thin border and readable text. | ☐ | |
+| Y19 | After the offer ends, or with only plain offers. | Wash and tile colour are back to normal. | ☐ | |
 | Y12 | After the end date passes. | The festival card goes away with its offer. | ☐ | |
 
 ---

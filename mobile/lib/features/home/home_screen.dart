@@ -101,6 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       active: ref.watch(authProvider.select((a) => a.isSignedIn)) && TickerMode.valuesOf(context).enabled,
       onTick: ref.read(unreadCountProvider.notifier).poll,
       child: Stack(children: [
+      if (!_searching) const Positioned(top: 0, left: 0, right: 0, height: 320, child: FestivalGlow()),
       SafeArea(
       bottom: false,
       child: CustomScrollView(slivers: [
@@ -361,6 +362,7 @@ class _CategoryRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = context.pal;
     final cats = ref.watch(categoriesProvider);
+    final festive = ref.watch(festivalGreetingProvider);
     return cats.when(
       loading: () => Row(children: [for (var i = 0; i < 4; i++) ...[if (i > 0) const SizedBox(width: 10), const Expanded(child: SkeletonBox(height: 64, radius: QC.rCard))]]),
       error: (e, _) => ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(categoriesProvider)),
@@ -376,11 +378,11 @@ class _CategoryRow extends ConsumerWidget {
                       onTap: () => context.push('/category/${shown[i].id}'),
                       child: Container(
                         height: 64,
-                        decoration: BoxDecoration(color: p.tiles[i], borderRadius: BorderRadius.circular(QC.rCard)),
+                        decoration: BoxDecoration(color: festive?.bg ?? p.tiles[i], borderRadius: BorderRadius.circular(QC.rCard), border: festive == null ? null : Border.all(color: festive.m1.withValues(alpha: .7))),
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Icon(shown[i].icon, size: 22, color: Pal.ink),
+                          Icon(shown[i].icon, size: 22, color: festive?.ink ?? Pal.ink),
                           const SizedBox(height: 4),
-                          Text(categoryLabel(context, shown[i]), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800, fontSize: 12)),
+                          Text(categoryLabel(context, shown[i]), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: festive?.ink ?? Pal.ink, fontWeight: FontWeight.w800, fontSize: 12)),
                         ]),
                       ),
                     ),

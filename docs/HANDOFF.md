@@ -24,7 +24,8 @@ Store offers a replacement for an out-of-stock line (portal: Change items, Repla
 - Admin can change the card design and picture of an existing offer: PUT api/admin/campaigns/{id}/card ({cardDesign, imageUrl}); administrator only (403), unknown design/foreign picture 400, cancelled 409. Portal: "Change card" on each offer row (design picker with preview, keep or drop the picture).
 - App: products of a running festival-design offer carry a small tag on their picture (DIWALI DEAL, BAPPA SPECIAL, ...) and Home shows a Marathi greeting chip (शुभ दीपावली, ...) under the date-based festival banner. Both come from the active offers; nothing new on the server.
 - Tests: backend 1229, app 624, portal 224. Walk test-cases Y13-Y17.
-- Still not done from the design file: category tile tint, full Home takeover, whole-app Clean v4 restyle.
+- Festive finish: while a festival-design offer runs, Home gets a soft wash of the festival colour at the top (FestivalGlow) and the four category tiles take the festival colour (test-cases Y18-Y19). App only.
+- Still not done from the design file: whole-app Clean v4 restyle.
 
 ## P33 Offer card designs and festival card upload (built, tested, not committed; MIGRATION AddOfferCardDesign NOT applied to the dev DB)
 - From the design file https://claude.ai/artifact/DoZbGUX2mXZGGejNvKgLyN (Festival offer cards): an offer can have one of eight festival card designs (diwali, ganesh, navratri, holi, sankranti, padwa, eid, christmas). The card draws the festival colours, motif, a countdown chip (from the discount end), English and Marathi festival names, the offer title as the line, and a button. No design is the plain banner as before.

@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../data/repositories/offers_repository.dart';
+import 'offers_controller.dart';
 
 /// One festival's look on an offer card, from the QuickCart design file (Festival offer cards). The key is what the API stores on the offer;
 /// the portal draws the same eight.
@@ -619,6 +621,22 @@ class FestivalGreetingChip extends StatelessWidget {
             child: ExcludeSemantics(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.ink, fontWeight: FontWeight.w800, fontSize: 13))),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A soft wash of the festival's colour behind the top of Home while a festival offer runs. Nothing when there is none.
+class FestivalGlow extends ConsumerWidget {
+  const FestivalGlow({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = ref.watch(festivalGreetingProvider);
+    if (t == null) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [t.bg.withValues(alpha: .55), t.bg.withValues(alpha: 0)])),
       ),
     );
   }

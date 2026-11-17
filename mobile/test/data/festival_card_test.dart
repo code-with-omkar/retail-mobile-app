@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickcart_customer/core/l10n.dart';
 import 'package:quickcart_customer/data/repositories/offers_repository.dart';
 import 'package:quickcart_customer/features/offers/festival_card.dart';
+import 'package:quickcart_customer/features/offers/offers_controller.dart';
 
 Offer _offer({String? design = 'diwali', String title = 'Up to 20% off sweets', String? titleMr = 'मिठाईवर २०% सूट', String? image, DateTime? endsAt}) =>
     Offer(id: 'o1', title: title, titleMr: titleMr, cardDesign: design, imageUrl: image, endsAt: endsAt, discountPercent: 20);
@@ -168,6 +170,22 @@ void main() {
       expect(find.text('BAPPA SPECIAL'), findsOneWidget);
       expect(find.text('गणपती बाप्पा मोरया'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the glow over Home shows only while a festival offer runs', (tester) async {
+      Future<void> pump(List<Offer> offers) => tester.pumpWidget(ProviderScope(
+            overrides: [activeOffersProvider.overrideWith((ref) async => offers)],
+            key: UniqueKey(),
+            child: const MaterialApp(home: Scaffold(body: SizedBox(height: 300, child: FestivalGlow()))),
+          ));
+
+      await pump([Offer(id: 'a', title: 'Plain')]);
+      await tester.pumpAndSettle();
+      expect(find.byType(DecoratedBox), findsNothing);
+
+      await pump([Offer(id: 'b', title: 'Diwali', cardDesign: 'diwali')]);
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byType(FestivalGlow), matching: find.byType(DecoratedBox)), findsOneWidget);
     });
   });
 
