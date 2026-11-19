@@ -89,7 +89,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               child: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 16), children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: Text(context.tr('{n} stores deliver to {address}. Pick one to see what it has in stock.', {'n': '${raw.length}', 'address': area}), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 15, height: 1.3)),
+                  child: Text(context.tr('{n} stores deliver to {address}. Pick one to see what it has in stock.', {'n': '${raw.length}', 'address': area}), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 15, height: 1.3)),
                 ),
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   _SortChip(context.tr('Nearest'), Icons.place_outlined, _sort == StoreSort.nearest, () => setState(() => _sort = StoreSort.nearest)),
@@ -141,10 +141,10 @@ class _SortChip extends StatelessWidget {
           child: Container(
             height: QC.minTap - 4,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(color: selected ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill), border: Border.all(color: selected ? Pal.yellow : Colors.white54, width: 2)),
+            decoration: BoxDecoration(color: selected ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill), border: Border.all(color: selected ? Pal.yellow : context.pal.mutedOnGround, width: 2)),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (icon != null) ...[Icon(icon, size: 16, color: selected ? Pal.ink : Colors.white), const SizedBox(width: 6)],
-              Text(label, style: TextStyle(color: selected ? Pal.ink : Colors.white, fontSize: 14, fontWeight: selected ? FontWeight.w900 : FontWeight.w700)),
+              if (icon != null) ...[Icon(icon, size: 16, color: selected ? Pal.ink : context.pal.onGround), const SizedBox(width: 6)],
+              Text(label, style: TextStyle(color: selected ? Pal.ink : context.pal.onGround, fontSize: 14, fontWeight: selected ? FontWeight.w900 : FontWeight.w700)),
             ]),
           ),
         ),

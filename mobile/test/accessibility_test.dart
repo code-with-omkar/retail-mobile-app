@@ -50,9 +50,9 @@ void main() {
       test('text on the screen background, $name', () {
         // The background is a gradient: every stop must work with each text colour used on it.
         for (final stop in pal.gradient) {
-          expect(_ratio(Pal.onGround, stop), greaterThanOrEqualTo(4.5), reason: 'white on $stop');
-          expect(_ratio(Pal.mutedOnGround, stop), greaterThanOrEqualTo(4.5), reason: 'muted on $stop');
-          expect(_ratio(Pal.yellow, stop), greaterThanOrEqualTo(4.5), reason: 'links on $stop');
+          expect(_ratio(pal.onGround, stop), greaterThanOrEqualTo(4.5), reason: 'white on $stop');
+          expect(_ratio(pal.mutedOnGround, stop), greaterThanOrEqualTo(4.5), reason: 'muted on $stop');
+          expect(_ratio(pal.dark ? Pal.yellow : Pal.ink, stop), greaterThanOrEqualTo(4.5), reason: 'links on $stop'); // light text buttons are ink (yellow is for button fills)
         }
       });
 

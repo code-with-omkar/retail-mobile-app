@@ -52,7 +52,7 @@ class _Body extends ConsumerWidget {
     return ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 24), children: [
       if (festivalThemeOf(offer.cardDesign) != null) FestivalCard(offer, height: 176) else OfferImage(offer.imageUrl, height: 190),
       const SizedBox(height: 14),
-      Text(offer.titleIn(marathi), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.15)),
+      Text(offer.titleIn(marathi), style: TextStyle(color: context.pal.onGround, fontSize: 24, fontWeight: FontWeight.w900, height: 1.15)),
       const SizedBox(height: 8),
       Wrap(spacing: 8, runSpacing: 6, children: [
         if (offer.discountPercent > 0) _Chip(context.tr('{n}% off', {'n': '${offer.discountPercent}'}), Pal.yellow, Pal.ink),
@@ -65,11 +65,11 @@ class _Body extends ConsumerWidget {
       ],
       if (offer.stores.isNotEmpty) ...[
         const SizedBox(height: 14),
-        Text('${context.tr('From')} ${offer.stores.map((s) => s.name).join(', ')}', style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w700)),
+        Text('${context.tr('From')} ${offer.stores.map((s) => s.name).join(', ')}', style: TextStyle(color: context.pal.mutedOnGround, fontWeight: FontWeight.w700)),
       ],
       if (offer.productIds.isNotEmpty && selectedHasIt) ...[
         const SizedBox(height: 18),
-        Text(context.tr('Products in this offer'), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+        Text(context.tr('Products in this offer'), style: TextStyle(color: context.pal.onGround, fontSize: 18, fontWeight: FontWeight.w900)),
         const SizedBox(height: 8),
         _Products(offer.productIds),
       ],
@@ -77,7 +77,7 @@ class _Body extends ConsumerWidget {
       if (selectedHasIt)
         PillButton(context.tr('Shop at {store}', {'store': selected.name}), onPressed: () => context.go('/'))
       else if (here.isEmpty)
-        Text(context.tr('This offer is not for a store that delivers to you.'), style: const TextStyle(color: Pal.mutedOnGround))
+        Text(context.tr('This offer is not for a store that delivers to you.'), style: TextStyle(color: context.pal.mutedOnGround))
       else
         for (final store in here.take(4)) ...[
           PillButton(context.tr('Shop at {store}', {'store': store.name}), onPressed: () async {
@@ -117,7 +117,7 @@ class _Products extends ConsumerWidget {
     final products = ref.watch(offerProductsProvider(ids.take(12).join(','))).value ?? const <Product>[];
     if (products.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 168,
+      height: 182,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: products.length,

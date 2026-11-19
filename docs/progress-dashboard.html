@@ -439,9 +439,17 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"36.2","t":"Customer app: money line on cancelled and declined orders (Marathi too)","l":["M","Q"],"s":"S","d":"Widget tests.","ac":[],"a":[],"dep":[],"st":"done"},
  {"id":"36.3","t":"Partner app: code and cash checks on the phone, cash difference note","l":["M","Q"],"s":"S","d":"27 partner app tests.","ac":[],"a":[],"dep":[],"st":"done"},
  {"id":"36.4","t":"Create a Sentry account, add the keys, verify a test crash from each place, build both apps once with sentry_flutter","l":["I"],"s":"S","d":"Needs your account.","ac":[],"a":[],"dep":["36.1"],"st":"todo"}
+ ]},
+{"id":"P37","name":"Clean v4 restyle","goal":"The customer app looks like the Clean v4 design.","deps":["P36"],"exit":["White v4 theme, fonts and colours app-wide","Home, Categories, Orders, Order, Profile and the product tiles follow the design"],
+ "tasks":[
+ {"id":"37.1","t":"v4 theme: white page, tiles, yellow buttons, success green and error red, bundled fonts","l":["M","Q"],"s":"M","d":"App tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"37.2","t":"Home: festival hero, slim offers, rank badges, section order; product tiles and 3-up grids","l":["M","Q"],"s":"L","d":"App tests and screenshots.","ac":[],"a":[],"dep":["37.1"],"st":"done"},
+ {"id":"37.3","t":"Categories rail, order cards and status pills, live order heading and bar, Profile","l":["M","Q"],"s":"L","d":"App tests and screenshots.","ac":[],"a":[],"dep":["37.1"],"st":"done"},
+ {"id":"37.4","t":"Live tracking map half and the design icons","l":["M"],"s":"L","d":"Needs the Google Maps key fixed.","ac":[],"a":[],"dep":["37.3"],"st":"todo"},
+ {"id":"37.5","t":"Check sign-in, search and checkout on the phone against the v4 look","l":["I","Q"],"s":"S","d":"Screenshots with a signed-in test customer.","ac":[],"a":[],"dep":["37.3"],"st":"todo"}
  ]}
 ],
-"backlog":["Push notifications (needs a Firebase project)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Restyle the whole app to the Clean v4 final design"],
+"backlog":["Push notifications (needs a Firebase project)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

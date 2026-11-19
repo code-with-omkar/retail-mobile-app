@@ -35,7 +35,7 @@ class _GuestView extends ConsumerWidget {
     final place = ref.watch(devicePlaceProvider);
     return ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
       if (place != null) ...[
-        Text(context.tr('Delivering to'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+        Text(context.tr('Delivering to'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
@@ -87,7 +87,7 @@ class _SavedList extends ConsumerWidget {
       error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(savedAddressesProvider)),
       data: (list) => ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
         if (list.isEmpty)
-          Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(context.tr('You have no saved addresses yet. Add one so we can find the stores that deliver to you.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 15, height: 1.3))),
+          Padding(padding: const EdgeInsets.only(bottom: 16), child: Text(context.tr('You have no saved addresses yet. Add one so we can find the stores that deliver to you.'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 15, height: 1.3))),
         for (final address in list)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),

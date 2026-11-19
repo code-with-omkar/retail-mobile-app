@@ -34,9 +34,9 @@ class AppShell extends ConsumerWidget {
             Expanded(
               flex: 5,
               child: Container(
-                height: 72,
+                height: 62,
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: p.nav, borderRadius: BorderRadius.circular(QC.rPill), border: p.dark ? Border.all(color: p.border) : null),
+                decoration: BoxDecoration(color: p.nav, borderRadius: BorderRadius.circular(QC.rPill), border: p.dark ? Border.all(color: p.border) : null, boxShadow: const [BoxShadow(color: Color(0x40141118), blurRadius: 32, offset: Offset(0, 12))]),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   for (var i = 0; i < tabs.length; i++)
                     Expanded(
@@ -51,8 +51,8 @@ class AppShell extends ConsumerWidget {
                             onTap: () => shell.goBranch(i, initialLocation: i == shell.currentIndex),
                             child: Center(
                               child: Container(
-                                width: 52,
-                                height: 60,
+                                width: 48,
+                                height: 48,
                                 decoration: BoxDecoration(color: i == shell.currentIndex ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill)),
                                 child: Icon(i == shell.currentIndex ? tabs[i].$2 : tabs[i].$1, color: i == shell.currentIndex ? Pal.ink : Colors.white),
                               ),
@@ -80,7 +80,7 @@ class _CartPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final empty = totals.isEmpty;
-    final bag = Container(width: 52, height: 52, decoration: const BoxDecoration(color: Pal.ink, shape: BoxShape.circle), child: const Icon(Icons.shopping_bag_outlined, color: Pal.yellow));
+    final bag = Container(width: 42, height: 42, decoration: const BoxDecoration(color: Pal.ink, shape: BoxShape.circle), child: const Icon(Icons.shopping_bag_outlined, color: Pal.yellow));
     return Tooltip(
       message: context.tr('Cart'),
       child: Semantics(
@@ -89,14 +89,14 @@ class _CartPill extends StatelessWidget {
         child: GestureDetector(
           onTap: () => context.push('/cart'),
           child: Container(
-            height: 72,
-            padding: EdgeInsets.fromLTRB(empty ? 10 : 18, 0, 10, 0),
-            decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rPill)),
+            height: 60,
+            padding: EdgeInsets.fromLTRB(empty ? 9 : 16, 0, 9, 0),
+            decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rPill), boxShadow: const [BoxShadow(color: Color(0x40141118), blurRadius: 32, offset: Offset(0, 12))]),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               if (!empty) ...[
                 Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(context.tr(totals.count == 1 ? '{n} item' : '{n} items', {'n': '${totals.count}'}), style: const TextStyle(color: Pal.ink, fontSize: 12, fontWeight: FontWeight.w800)),
-                  Text(rupees(totals.subtotal), style: const TextStyle(color: Pal.ink, fontSize: 20, fontWeight: FontWeight.w900)),
+                  Text(context.tr(totals.count == 1 ? '{n} item' : '{n} items', {'n': '${totals.count}'}), style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w700)),
+                  Text(rupees(totals.subtotal), style: QC.display(16, color: Pal.ink)),
                 ]),
                 const SizedBox(width: 12),
               ],

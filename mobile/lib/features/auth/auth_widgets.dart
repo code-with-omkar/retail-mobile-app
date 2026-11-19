@@ -16,9 +16,9 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) => AppScaffold(
         appBar: appTopBar(context, ''),
         body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 24), keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag, children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1.1)),
+          Text(title, style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900, height: 1.1)),
           const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: Pal.mutedOnGround, fontSize: 16)),
+          Text(subtitle, style: TextStyle(color: context.pal.mutedOnGround, fontSize: 16)),
           const SizedBox(height: 24),
           ...children,
         ]),

@@ -43,8 +43,8 @@ class OffersRail extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), child: SectionHeader(context.tr('Offers for you'))),
       SizedBox(
-        // A festival card is 176 high, the plain banner 150.
-        height: offers.any((o) => festivalThemeOf(o.cardDesign) != null) ? 176 : 150,
+        // A festival card is 176 high, a banner with a picture 150, a plain offer is the slim v4 card (68).
+        height: offers.map(_offerCardHeight).reduce((a, b) => a > b ? a : b),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
@@ -52,18 +52,24 @@ class OffersRail extends ConsumerWidget {
           separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (context, i) {
             final offer = offers[i];
-            final width = (MediaQuery.sizeOf(context).width - 2 * QC.gutter) * (offers.length == 1 ? 1 : 0.86);
+            final slim = _offerCardHeight(offer) == _slimHeight;
+            final width = slim ? 196.0 : (MediaQuery.sizeOf(context).width - 2 * QC.gutter) * (offers.length == 1 ? 1 : 0.86);
             return Semantics(
               button: true,
               label: offer.titleIn(marathi),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => context.push('/offer/${offer.id}'),
-                child: SizedBox(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
                   width: width,
+                  height: _offerCardHeight(offer),
                   child: festivalThemeOf(offer.cardDesign) != null
                       ? FestivalCard(offer)
-                      : Stack(fit: StackFit.expand, children: [
+                      : slim
+                          ? _SlimOffer(offer, i)
+                          : Stack(fit: StackFit.expand, children: [
                     OfferImage(offer.imageUrl),
                     Positioned.fill(
                       child: DecoratedBox(
@@ -90,12 +96,47 @@ class OffersRail extends ConsumerWidget {
                     ),
                   ]),
                 ),
+                ),
               ),
             );
           },
         ),
       ),
     ]);
+  }
+}
+
+const _slimHeight = 68.0;
+
+double _offerCardHeight(Offer o) => festivalThemeOf(o.cardDesign) != null ? 176 : (o.imageUrl != null ? 150 : _slimHeight);
+
+/// The v4 offer card for an offer without a picture: a tinted 68px strip with an icon, the title and one small line.
+class _SlimOffer extends StatelessWidget {
+  const _SlimOffer(this.offer, this.index);
+  final Offer offer;
+  final int index;
+
+  static const _tints = [Color(0xFFFFF4D6), Color(0xFFE7F6E7), Color(0xFFEAF2FF), Color(0xFFFFECE6)];
+
+  @override
+  Widget build(BuildContext context) {
+    final marathi = context.isMarathi;
+    final dark = context.pal.dark;
+    final line = offer.discountPercent > 0 ? context.tr('{n}% off', {'n': '${offer.discountPercent}'}) : offer.bodyIn(marathi);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: dark ? context.pal.card : _tints[index % _tints.length], borderRadius: BorderRadius.circular(QC.rCard)),
+      child: Row(children: [
+        Container(width: 34, height: 34, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.local_offer_outlined, size: 18, color: Pal.ink)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(offer.titleIn(marathi), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.pal.onCard, fontSize: 14, fontWeight: FontWeight.w800)),
+            if (line != null && line.isNotEmpty) Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.pal.mutedOnCard, fontSize: 11)),
+          ]),
+        ),
+      ]),
+    );
   }
 }
 
@@ -174,9 +215,9 @@ class BoughtBeforeRail extends ConsumerWidget {
     final products = ref.watch(boughtBeforeProvider).value ?? const <Product>[];
     if (products.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), child: SectionHeader(context.tr('Bought before'))),
+      Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), child: SectionHeader(context.tr('Forgot something?'))),
       SizedBox(
-        height: 168,
+        height: 182,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: QC.gutter),

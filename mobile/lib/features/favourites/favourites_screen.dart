@@ -30,7 +30,7 @@ class FavouritesScreen extends ConsumerWidget {
               )
             : GridView.builder(
                 padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 24),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 188),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 8, mainAxisExtent: 178),
                 itemCount: products.length,
                 itemBuilder: (_, i) => ProductCard(products[i]),
               ),

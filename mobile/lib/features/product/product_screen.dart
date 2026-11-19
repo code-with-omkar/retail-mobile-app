@@ -129,7 +129,7 @@ class _ProductViewState extends ConsumerState<_ProductView> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   _inStock
-                      ? Chip2(context.tr('In stock'), dot: Pal.green, background: p.dark ? const Color(0xFF0B0820) : Pal.ink, foreground: Pal.green)
+                      ? Chip2(context.tr('In stock'), dot: Pal.green, background: p.dark ? const Color(0xFF0B0820) : const Color(0xFFE3F7EA), foreground: p.dark ? Pal.green : const Color(0xFF0B6B33))
                       : Chip2(context.tr('Out of stock'), background: Pal.pink, foreground: Colors.white),
                   if (_inStock && _lowStock) Chip2(context.tr('Only a few left'), background: Pal.pink, foreground: Colors.white),
                   Chip2(context.tr('Fresh today')),
@@ -138,31 +138,31 @@ class _ProductViewState extends ConsumerState<_ProductView> {
                 const SizedBox(height: 16),
                 Text.rich(
                   TextSpan(children: [
-                    TextSpan(text: mr ? _p.nameMr : _p.name, style: const TextStyle(color: Colors.white)),
+                    TextSpan(text: mr ? _p.nameMr : _p.name, style: TextStyle(color: context.pal.onGround)),
                     // The second-language name is shown only when it differs (the API has no Marathi names yet).
-                    if (_p.nameMr != _p.name) TextSpan(text: '  ${mr ? _p.name : _p.nameMr}', style: const TextStyle(color: Color(0xFFC9B8FF), fontSize: 32)),
+                    if (_p.nameMr != _p.name) TextSpan(text: '  ${mr ? _p.name : _p.nameMr}', style: TextStyle(color: context.pal.dark ? const Color(0xFFC9B8FF) : context.pal.mutedOnGround, fontSize: 32)),
                   ]),
                   style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, height: 1.1),
                 ),
                 const SizedBox(height: 6),
                 if (ref.watch(selectedStoreProvider).value case final store?) ...[
-                  Text(context.tr('Sold by {store}', {'store': store.name}), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 16)),
+                  Text(context.tr('Sold by {store}', {'store': store.name}), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 16)),
                   const SizedBox(height: 10),
                 ],
                 Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 14, children: [
-                  Text(rupees(price), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, height: 1.1)),
-                  if (mrp > price) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(rupees(mrp), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 20, decoration: TextDecoration.lineThrough))),
-                  if (mrp > price) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(context.tr('You save ₹{n}', {'n': amount(mrp - price)}), style: const TextStyle(color: Pal.green, fontSize: 18, fontWeight: FontWeight.w800))),
+                  Text(rupees(price), style: TextStyle(color: context.pal.onGround, fontSize: 48, fontWeight: FontWeight.w900, height: 1.1)),
+                  if (mrp > price) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(rupees(mrp), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 20, decoration: TextDecoration.lineThrough))),
+                  if (mrp > price) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(context.tr('You save ₹{n}', {'n': amount(mrp - price)}), style: TextStyle(color: context.pal.dark ? Pal.green : const Color(0xFF0B6B33), fontSize: 18, fontWeight: FontWeight.w800))),
                 ]),
-                if (_p.packs.length > 1) ...[const SizedBox(height: 16), _PackSelector(_p.packs, _pack!, (pack) => setState(() => _pack = pack))] else ...[const SizedBox(height: 4), Text(_p.packs.length == 1 ? _p.packs.single.label : _p.unit, style: const TextStyle(color: Pal.mutedOnGround))],
+                if (_p.packs.length > 1) ...[const SizedBox(height: 16), _PackSelector(_p.packs, _pack!, (pack) => setState(() => _pack = pack))] else ...[const SizedBox(height: 4), Text(_p.packs.length == 1 ? _p.packs.single.label : _p.unit, style: TextStyle(color: context.pal.mutedOnGround))],
                 const SizedBox(height: 20),
-                Text(productDescription(context, _p), style: const TextStyle(color: Colors.white, height: 1.45, fontSize: 15)),
+                Text(productDescription(context, _p), style: TextStyle(color: context.pal.onGround, height: 1.45, fontSize: 15)),
                 if (related.isNotEmpty) ...[
                   const SizedBox(height: 28),
                   SectionHeader(context.tr('You might also like')),
                   const SizedBox(height: 12),
                   SizedBox(
-                    height: 188,
+                    height: 190,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       clipBehavior: Clip.none,

@@ -237,7 +237,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
               const DeliveryTimeSection(),
               const SizedBox(height: 24),
-              Text(context.tr('If an item is out of stock'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(context.tr('If an item is out of stock'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               for (final (value, title, subtitle, icon) in [
                 ('CallMe', 'Call me', 'The store phones you to decide.', Icons.phone_outlined),
@@ -248,7 +248,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 const SizedBox(height: 8),
               ],
               const SizedBox(height: 16),
-              Text(context.tr('Note for the store'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(context.tr('Note for the store'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               TextField(
                 controller: _note,
@@ -258,7 +258,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 decoration: InputDecoration(labelText: context.tr('Optional, for example: ring the bell twice')),
               ),
               const SizedBox(height: 16),
-              Text(context.tr('Payment method'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(context.tr('Payment method'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               _MethodTile(
                 icon: Icons.payments_outlined,
@@ -278,7 +278,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ),
               ],
               const SizedBox(height: 24),
-              Text(context.tr('Order summary'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text(context.tr('Order summary'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
               const SizedBox(height: 12),
               Surface(
                 child: Column(children: [

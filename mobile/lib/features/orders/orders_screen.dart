@@ -59,8 +59,8 @@ class OrdersScreen extends ConsumerWidget {
       child: SafeArea(
       bottom: false,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: EdgeInsets.fromLTRB(QC.gutter, 20, QC.gutter, failing ? 6 : 16), child: Text(context.tr('Your orders'), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900))),
-        if (failing) Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 10), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
+        Padding(padding: EdgeInsets.fromLTRB(QC.gutter, 20, QC.gutter, failing ? 6 : 16), child: Text(context.tr('Your orders'), style: QC.display(32, color: context.pal.onGround))),
+        if (failing) Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 10), child: Text(context.tr('Could not refresh. Showing the last update.'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
         Expanded(
           child: guest
               ? EmptyState(icon: Icons.lock_outline, title: context.tr('Sign in to see your orders'), message: context.tr('Your orders are saved to your account.'), actionLabel: context.tr('Log in'), onAction: () => context.push(withNext('/welcome', '/orders')))
@@ -95,18 +95,25 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    final done = order.stage == OrderStage.delivered;
     return GestureDetector(
       onTap: () => context.push('/order/${order.id}'),
-      child: Surface(
+      // v4: a white card with a thin line (the dark theme keeps its filled card), the shop and status on the first line.
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: p.dark ? p.card : Colors.white, borderRadius: BorderRadius.circular(QC.rCard), border: Border.all(color: p.border)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Flexible(child: Text('#${order.number}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 16))),
+            Flexible(child: Text('#${order.number}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800, fontSize: 15))),
             const SizedBox(width: 8),
-            Chip2(stageLabel(context, order.stage), dot: done ? Pal.green : (order.stage == OrderStage.rejected || order.stage == OrderStage.cancelled ? Pal.pink : Pal.yellow), background: Pal.ink, foreground: Colors.white),
+            StatusPill(stageLabel(context, order.stage), switch (order.stage) {
+              OrderStage.delivered => StatusTone.done,
+              OrderStage.cancelled || OrderStage.rejected => StatusTone.stopped,
+              OrderStage.onTheWay => StatusTone.moving,
+              _ => StatusTone.progress,
+            }),
           ]),
           const SizedBox(height: 4),
-          Text(formatDate(order.placedAt), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+          Text([if (order.storeName != null) order.storeName!, formatDate(order.placedAt)].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
           const SizedBox(height: 14),
           Row(children: [
             for (final l in order.lines.take(4)) Padding(padding: const EdgeInsets.only(right: 6), child: OrderLineThumb(l, size: 44)),

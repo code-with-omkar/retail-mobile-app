@@ -15,6 +15,7 @@ import '../address/address_controller.dart';
 import '../auth/auth_controller.dart';
 import '../festival/festival_widgets.dart';
 import '../notifications/notifications_controller.dart';
+import '../festival/festival.dart';
 import '../offers/festival_card.dart';
 import '../offers/offers_controller.dart';
 import '../offers/offers_widgets.dart';
@@ -96,6 +97,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (offers != null && offers.any((o) => o.showOnLoad)) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? showLoadOfferIfAny(context, ref, offers) : null);
     });
     // The bell is checked every minute while Home is in front (not in the background, not on another tab).
+    // The festival of the day (if any) takes over the top of Home; searching puts the plain header back so results have room.
+    final hero = _searching ? null : ref.watch(activeFestivalProvider);
     return Polling(
       interval: const Duration(seconds: 60),
       active: ref.watch(authProvider.select((a) => a.isSignedIn)) && TickerMode.valuesOf(context).enabled,
@@ -103,14 +106,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Stack(children: [
       if (!_searching) const Positioned(top: 0, left: 0, right: 0, height: 320, child: FestivalGlow()),
       SafeArea(
+      top: hero == null,
       bottom: false,
       child: CustomScrollView(slivers: [
-        const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 0), sliver: SliverToBoxAdapter(child: _Header())),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 12),
-          sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1))),
-        ),
-        if (!_searching) const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: FestivalBanner())),
+        if (hero != null)
+          SliverToBoxAdapter(child: _FestivalHero(festival: hero, greeting: _greeting(context), search: _searchBar(context, onHero: true), onShop: () => _setMode(_Mode.deals)))
+        else ...[
+          const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 0), sliver: SliverToBoxAdapter(child: _Header())),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 12),
+            sliver: SliverToBoxAdapter(child: Text(_greeting(context), style: QC.display(26, color: context.pal.onGround, height: 1.1))),
+          ),
+        ],
         if (!_searching)
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
@@ -121,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }),
             ),
           ),
-        SliverPadding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _searchBar(context))),
+        if (hero == null) SliverPadding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _searchBar(context))),
         const SliverPadding(padding: EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0), sliver: SliverToBoxAdapter(child: StoreBar())),
         if (_searching) ..._results(context) else ..._browse(context),
       ]),
@@ -138,21 +145,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return [
       const SliverToBoxAdapter(child: YourStoresRail()),
       const SliverToBoxAdapter(child: OffersRail()),
-      const SliverToBoxAdapter(child: BoughtBeforeRail()),
       const SliverToBoxAdapter(child: StoresRail()),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0),
-        sliver: SliverToBoxAdapter(child: _HeroRow(maxOff: maxOff, onOffers: () => _setMode(maxOff > 0 ? _Mode.deals : _Mode.all))),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8),
-        sliver: SliverToBoxAdapter(child: SectionHeader(context.tr('Shop by category'), action: context.tr('See all'), onAction: () => context.go('/categories'))),
-      ),
-      const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _CategoryRow())),
-      SliverPadding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), sliver: SliverToBoxAdapter(child: SectionHeader(context.tr('Popular near you')))),
+      SliverPadding(padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8), sliver: SliverToBoxAdapter(child: SectionHeader(context.tr('Popular near you'), subtitle: context.tr('Most searched in your area today')))),
       SliverToBoxAdapter(
         child: SizedBox(
-          height: 168,
+          height: 182,
           child: popular.when(
             loading: () => ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -160,20 +157,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
               itemCount: 3,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (_, _) => const SkeletonBox(width: 140, height: 168, radius: QC.rCard),
+              itemBuilder: (_, _) => const SkeletonBox(width: 140, height: 182, radius: QC.rCard),
             ),
             error: (e, _) => Padding(padding: const EdgeInsets.symmetric(horizontal: QC.gutter), child: Align(alignment: Alignment.topCenter, child: ErrorState(error: e, compact: true, onRetry: () => ref.invalidate(popularProductsProvider)))),
             data: (items) => items.isEmpty
-                ? Center(child: Text(context.tr('Nothing here yet'), style: const TextStyle(color: Pal.mutedOnGround)))
+                ? Center(child: Text(context.tr('Nothing here yet'), style: TextStyle(color: context.pal.mutedOnGround)))
                 : ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
                     itemCount: items.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) => SizedBox(width: 140, child: ProductCard(items[i])),
+                    itemBuilder: (_, i) => SizedBox(width: 140, child: ProductCard(items[i], rank: i + 1)),
                   ),
           ),
         ),
+      ),
+      const SliverToBoxAdapter(child: BoughtBeforeRail()),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8),
+        sliver: SliverToBoxAdapter(child: SectionHeader(context.tr('Shop by category'), action: context.tr('See all'), onAction: () => context.go('/categories'))),
+      ),
+      const SliverPadding(padding: EdgeInsets.symmetric(horizontal: QC.gutter), sliver: SliverToBoxAdapter(child: _CategoryRow())),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 0),
+        sliver: SliverToBoxAdapter(child: _HeroRow(maxOff: maxOff, onOffers: () => _setMode(maxOff > 0 ? _Mode.deals : _Mode.all))),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 24)),
     ];
@@ -193,9 +200,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 24),
           sliver: SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: 188),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 8, mainAxisExtent: 178),
             itemCount: 4,
-            itemBuilder: (_, _) => const SkeletonBox(height: 188, radius: QC.rCard),
+            itemBuilder: (_, _) => const SkeletonBox(height: 178, radius: QC.rCard),
           ),
         )
       else if (pager.error != null && pager.items.isEmpty)
@@ -225,13 +232,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
   }
 
-  Widget _searchBar(BuildContext context) {
-    final p = context.pal;
+  Widget _searchBar(BuildContext context, {bool onHero = false}) {
+    // On the festival hero the shared dark palette would make a dark field, so the field is white with ink text there.
+    final p = onHero ? Pal.light : context.pal;
     final store = ref.watch(selectedStoreProvider).value;
     return Container(
       height: 48,
       padding: const EdgeInsets.only(left: 14, right: 6),
-      decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rPill)),
+      decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rField)),
       child: Row(children: [
         Icon(Icons.search, color: p.mutedOnCard),
         const SizedBox(width: 12),
@@ -266,6 +274,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+/// The v4 festival hero: the festival gradient holds the delivery place, the search, the festival name and a yellow "Shop now".
+class _FestivalHero extends StatelessWidget {
+  const _FestivalHero({required this.festival, required this.greeting, required this.search, required this.onShop});
+  final Festival festival;
+  final String greeting;
+  final Widget search;
+  final VoidCallback onShop;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = festival.onColor;
+    return Semantics(
+      container: true,
+      label: '${context.tr(festival.title)}. ${context.tr(festival.subtitle)}',
+      child: Container(
+        padding: EdgeInsets.fromLTRB(QC.gutter, MediaQuery.paddingOf(context).top + 12, QC.gutter, 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: festival.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // The header reads its colours from the palette; the dark palette is the one with white text.
+          Theme(data: Theme.of(context).copyWith(extensions: const [Pal.darkPal]), child: const _Header()),
+          const SizedBox(height: 14),
+          search,
+          const SizedBox(height: 18),
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(greeting, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: on.withValues(alpha: .85), fontSize: 13, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(context.tr(festival.title), style: QC.display(30, color: on, height: 1.05)),
+                const SizedBox(height: 6),
+                Text(context.tr(festival.subtitle), style: TextStyle(color: on.withValues(alpha: .85), fontSize: 13, height: 1.3)),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: onShop,
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rPill)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Flexible(child: Text(context.tr('Shop now'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800, fontSize: 14))),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.chevron_right_rounded, color: Pal.ink, size: 20),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(width: 12),
+            ExcludeSemantics(child: Text(festival.emoji, style: const TextStyle(fontSize: 64, height: 1))),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
 class _Header extends ConsumerWidget {
   const _Header();
 
@@ -283,8 +351,8 @@ class _Header extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(context.tr('DELIVER TO'), style: const TextStyle(fontSize: 12, letterSpacing: 1.6, color: Pal.mutedOnGround, fontWeight: FontWeight.w800)),
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+                Text(context.tr('DELIVER TO'), style: TextStyle(fontSize: 12, letterSpacing: 1.6, color: context.pal.mutedOnGround, fontWeight: FontWeight.w800)),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: context.pal.onGround)),
               ]),
             ),
           ]),
@@ -315,8 +383,8 @@ class _HeroRow extends ConsumerWidget {
       child: Row(children: [
         Expanded(
           child: maxOff > 0
-              ? _Tile(color: Pal.pink, onTap: onOffers, title: context.tr('Today’s deals'), subtitle: context.tr('Up to {n}% off', {'n': '$maxOff'}), fg: Pal.ink)
-              : _Tile(color: Pal.pink, onTap: onOffers, title: context.tr('All items'), subtitle: context.tr('Browse the full catalogue'), fg: Pal.ink),
+              ? _Tile(color: Pal.yellow, onTap: onOffers, title: context.tr('Today’s deals'), subtitle: context.tr('Up to {n}% off', {'n': '$maxOff'}), fg: Pal.ink)
+              : _Tile(color: Pal.yellow, onTap: onOffers, title: context.tr('All items'), subtitle: context.tr('Browse the full catalogue'), fg: Pal.ink),
         ),
         const SizedBox(width: 10),
         Expanded(

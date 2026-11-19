@@ -418,6 +418,23 @@ Needs a second organization in the database (ask me to add a test one). Sign in 
 | AA7 | Partner app: type less or more cash than due. | A red note under the box says it is less or more than the amount to collect. | ☐ | |
 | AA8 | (Only once you have a Sentry account) set Sentry:Dsn for the API, window.__SENTRY_DSN__ for the portal and --dart-define=SENTRY_DSN for the apps, cause a test crash. | The crash shows in Sentry with no user, no phone number, no request details. | ☐ | |
 
+## AB. Clean v4 look (customer app)
+
+Compare each screen with the design file (Clean v4 FINAL). Rebuild the phone app first.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| AB1 | Open the app. | White page, ink text, yellow buttons, Bricolage headings and Plus Jakarta text; Marathi in Mukta. | ☐ | |
+| AB2 | Home. | Location row, search (14 px corners), offers as slim tinted strips (festival cards and picture offers keep their own look), Popular near you with #1 #2 badges and a grey line, Forgot something, Shop by category tiles in soft tints. | ☐ | |
+| AB3 | During a festival (Diwali dates). | Festival gradient hero holds the place, search, festival name and a yellow Shop now. | ☐ | |
+| AB4 | Product tiles anywhere. | Picture tile with soft tint, small green "N% off" pill, yellow + on the corner, name on one line with the size under it, price below. | ☐ | |
+| AB5 | Categories tab. | Shop bar, left rail of category icons (selected has a yellow mark), products three across with the category name and item count. | ☐ | |
+| AB6 | Orders (signed in). | White cards with a thin line; shop and date; status as a coloured pill (blue, yellow, green, red). | ☐ | |
+| AB7 | Open a live order. | Small line (stage, shop, items), big "Arriving in..." heading, four-step bar, then the timeline. | ☐ | |
+| AB8 | Profile. | Header with a yellow Edit button, quick cards of equal height, grouped white lists (Account only when signed in), language and theme toggles readable. | ☐ | |
+| AB9 | Bottom bar. | Dark capsule with a yellow active icon and a yellow cart pill with items and total. | ☐ | |
+| AB10 | Product page. | Light green In stock pill, dark green You save, muted Marathi name. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

@@ -54,9 +54,10 @@ void main() {
   testWidgets('home shows the reference layout and search filters products', (tester) async {
     await _pump(tester);
     expect(find.text('DELIVER TO'), findsOneWidget);
-    expect(find.text('Shop by category'), findsOneWidget);
     await _seePopular(tester);
     expect(find.textContaining('Tomato', findRichText: true), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Shop by category'), 300, scrollable: find.byType(Scrollable).first); // below Popular and Forgot something, as in the design
+    expect(find.text('Shop by category'), findsOneWidget);
 
     // Back to the top, where the search field is.
     await tester.drag(find.byType(CustomScrollView).first, const Offset(0, 1500));
@@ -111,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('₹28'), findsWidgets);
 
-    await tester.tap(find.text('500 g'));
+    await tester.tap(find.text('500 g').first);
     await tester.pumpAndSettle();
     expect(find.text('₹15'), findsWidgets);
 
@@ -205,9 +206,12 @@ void main() {
     await _pump(tester);
     await tester.tap(find.byTooltip('Profile'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('मराठी'), 300); // the language choice is further down now that Profile has quick cards and groups
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200)); // clear of the bottom bar
+    await tester.pumpAndSettle();
     await tester.tap(find.text('मराठी'));
     await tester.pumpAndSettle();
-    expect(find.text('प्रोफाइल'), findsWidgets);
+    expect(find.byTooltip('प्रोफाइल'), findsWidgets); // the title has scrolled out of the list; the tab keeps its name
     expect((await SharedPreferences.getInstance()).getString('language'), 'mr');
   });
 

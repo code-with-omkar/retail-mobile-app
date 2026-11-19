@@ -234,9 +234,9 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              iconColor: Colors.white,
-              collapsedIconColor: Colors.white,
-              title: Text(context.tr('Enter coordinates yourself'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 14, fontWeight: FontWeight.w700)),
+              iconColor: context.pal.onGround,
+              collapsedIconColor: context.pal.onGround,
+              title: Text(context.tr('Enter coordinates yourself'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 14, fontWeight: FontWeight.w700)),
               children: [
                 Row(children: [
                   Expanded(child: AuthField(context.tr('Latitude'), Icons.swap_vert, controller: _latText, keyboard: const TextInputType.numberWithOptions(decimal: true, signed: true))),
@@ -265,7 +265,7 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
             ),
             Padding(
               padding: const EdgeInsets.only(left: 6, bottom: 6),
-              child: Text(context.tr('Save as'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 13, fontWeight: FontWeight.w800)),
+              child: Text(context.tr('Save as'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 13, fontWeight: FontWeight.w800)),
             ),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final l in _labels)
@@ -315,7 +315,7 @@ class _LocationStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.pal;
     if (working) {
-      return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Pal.yellow)), const SizedBox(width: 10), Text(context.tr('Looking…'), style: const TextStyle(color: Pal.mutedOnGround))]));
+      return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: Pal.yellow)), const SizedBox(width: 10), Text(context.tr('Looking…'), style: TextStyle(color: context.pal.mutedOnGround))]));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (error != null) ErrorBanner(error!),

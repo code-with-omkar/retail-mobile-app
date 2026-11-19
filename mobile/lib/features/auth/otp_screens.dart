@@ -129,9 +129,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     return AppScaffold(
       appBar: appTopBar(context, ''),
       body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 0, QC.gutter, 24), children: [
-        Text(context.tr('Verify your number'), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1.1)),
+        Text(context.tr('Verify your number'), style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900, height: 1.1)),
         const SizedBox(height: 8),
-        Text(context.tr('Enter the 6-digit code sent to {phone}', {'phone': masked}), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 16)),
+        Text(context.tr('Enter the 6-digit code sent to {phone}', {'phone': masked}), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 16)),
         const SizedBox(height: 28),
         GestureDetector(
           onTap: _focus.requestFocus,
@@ -171,7 +171,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         if (_error != null) ErrorBanner(_error!),
         Center(
           child: _left > 0
-              ? Text(context.tr('Resend code in 0:{s}', {'s': _left.toString().padLeft(2, '0')}), style: const TextStyle(color: Pal.mutedOnGround))
+              ? Text(context.tr('Resend code in 0:{s}', {'s': _left.toString().padLeft(2, '0')}), style: TextStyle(color: context.pal.mutedOnGround))
               : TextButton(onPressed: _busy ? null : _resend, child: Text(context.tr('Resend code'))),
         ),
         const SizedBox(height: 12),

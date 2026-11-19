@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'l10n.dart';
 
-/// "Electric Yellow" design system (see docs/design). All colours come from [Pal];
+/// "Instamart Clean" (v4) design system: a white app, light-grey tiles, ink text and one yellow action colour (see the design file in docs/design).
+/// The dark theme keeps its deep ground. All colours come from [Pal];
 /// never hardcode them in widgets. Read it with `context.pal`.
 class Pal extends ThemeExtension<Pal> {
   const Pal({
@@ -23,38 +24,48 @@ class Pal extends ThemeExtension<Pal> {
     required this.chip,
     required this.onChip,
     required this.border,
+    required this.onGround,
+    required this.mutedOnGround,
+    required this.error,
   });
 
   static const yellow = Color(0xFFFFD400);
   static const ink = Color(0xFF141118);
-  static const pink = Color(0xFFFB1A8E);
-  static const green = Color(0xFF02F34C);
-  static const onGround = Colors.white;
-  static const mutedOnGround = Color(0xFFE9E4FF);
+  static const pink = Color(0xFFC42F1D); // v4 error red (there is no pink in the design)
+  static const green = Color(0xFF14A44D); // v4 success green
 
   final bool dark;
   final List<Color> gradient;
   final Color card, onCard, mutedOnCard, soft, onSoft, nav, stepper, onStepper, minus, chip, onChip, border;
+
+  /// Text and icons that sit directly on the page (not on a card): ink on the white page, white on the dark one.
+  final Color onGround, mutedOnGround;
+
+  /// Error text and borders that read on the page.
+  final Color error;
 
   /// Four category / feature tile colours (mint, pink, yellow, lavender in light).
   final List<Color> tiles;
 
   static const light = Pal(
     dark: false,
-    gradient: [Color(0xFF2A1BFF), Color(0xFF6A11E8), Color(0xFFA80695)],
-    card: Color(0xFFE9E4FF),
+    gradient: [Colors.white, Colors.white],
+    card: Color(0xFFF5F5F7),
     onCard: ink,
-    mutedOnCard: Color(0xFF5B5575),
-    soft: Color(0xFFFFEEAA),
+    mutedOnCard: Color(0xFF62606E),
+    soft: Color(0xFFFFF4D6),
     onSoft: ink,
-    tiles: [Color(0xFFB8FFD2), Color(0xFFFFC4E1), Color(0xFFFFEEAA), Color(0xFFE9E4FF)],
+    tiles: [Color(0xFFE7F6E7), Color(0xFFFFECE6), Color(0xFFEAF2FF), Color(0xFFFFF3DC)],
     nav: ink,
-    stepper: ink,
-    onStepper: Colors.white,
-    minus: Color(0xFF3A3640),
+    stepper: yellow,
+    onStepper: ink,
+    minus: Color(0xFF62606E),
     chip: Colors.white,
     onChip: ink,
-    border: Color(0xFFD3C9FA),
+    border: Color(0xFFECECF0),
+    onGround: ink,
+    mutedOnGround: Color(0xFF62606E),
+    error: Color(0xFFC42F1D),
   );
 
   static const darkPal = Pal(
@@ -65,7 +76,7 @@ class Pal extends ThemeExtension<Pal> {
     mutedOnCard: Color(0xFFC7BDF0),
     soft: Color(0xFF2A2260),
     onSoft: Colors.white,
-    tiles: [green, pink, yellow, Color(0xFFB9A8FF)],
+    tiles: [Color(0xFF7BE3A0), Color(0xFFFF9E91), yellow, Color(0xFFB9A8FF)],
     nav: Color(0xFF0B0820),
     stepper: Color(0xFFE9E4FF),
     onStepper: ink,
@@ -73,6 +84,9 @@ class Pal extends ThemeExtension<Pal> {
     chip: Color(0xFF0B0820),
     onChip: Colors.white,
     border: Color(0xFF332A73),
+    onGround: Colors.white,
+    mutedOnGround: Color(0xFFE9E4FF),
+    error: Color(0xFFFFB3D9),
   );
 
   @override
@@ -88,6 +102,13 @@ extension PalContext on BuildContext {
 
 class QC {
   static const rCard = 16.0, rField = 14.0, rPill = 999.0;
+
+  /// v4 type: Bricolage Grotesque for headings and prices, Plus Jakarta Sans for everything else, Mukta behind both for Marathi.
+  static const displayFont = 'Bricolage', bodyFont = 'PlusJakartaSans', marathiFont = 'Mukta';
+
+  /// A heading style (Bricolage, 800). Colour comes from the caller or the surrounding text style.
+  static TextStyle display(double size, {Color? color, FontWeight weight = FontWeight.w800, double? height}) =>
+      TextStyle(fontFamily: displayFont, fontFamilyFallback: const [marathiFont], fontSize: size, fontWeight: weight, color: color, height: height, letterSpacing: -size * .02);
   static const gutter = 16.0;
   static const minTap = 48.0;
 
@@ -98,29 +119,30 @@ class QC {
     return ThemeData(
       useMaterial3: true,
       brightness: b,
-      fontFamily: 'Arial',
+      fontFamily: QC.bodyFont,
+      fontFamilyFallback: const [QC.marathiFont],
       extensions: [pal],
       colorScheme: ColorScheme.fromSeed(seedColor: Pal.yellow, brightness: b).copyWith(
         primary: Pal.yellow,
         onPrimary: Pal.ink,
         surface: pal.card,
         onSurface: pal.onCard,
-        error: Pal.pink,
+        error: pal.dark ? Pal.pink : pal.error,
       ),
       scaffoldBackgroundColor: Colors.transparent,
       canvasColor: pal.card,
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        foregroundColor: Colors.white,
-        titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Arial'),
-        iconTheme: IconThemeData(color: Colors.white),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        foregroundColor: pal.onGround,
+        titleTextStyle: TextStyle(color: pal.onGround, fontSize: 20, fontWeight: FontWeight.w800, fontFamily: QC.displayFont, fontFamilyFallback: const [QC.marathiFont]),
+        iconTheme: IconThemeData(color: pal.onGround),
+        systemOverlayStyle: pal.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       ),
-      textTheme: ThemeData(brightness: b, fontFamily: 'Arial').textTheme.apply(bodyColor: Pal.onGround, displayColor: Pal.onGround),
+      textTheme: ThemeData(brightness: b, fontFamily: QC.bodyFont).textTheme.apply(bodyColor: pal.onGround, displayColor: pal.onGround),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: pal.card,
@@ -136,7 +158,7 @@ class QC {
         focusedBorder: border(Pal.yellow, 2),
         errorBorder: border(Pal.pink, 2),
         focusedErrorBorder: border(Pal.pink, 2),
-        errorStyle: const TextStyle(color: Color(0xFFFFB3D9), fontWeight: FontWeight.bold),
+        errorStyle: TextStyle(color: pal.error, fontWeight: FontWeight.bold),
       ),
       textSelectionTheme: const TextSelectionThemeData(cursorColor: Pal.yellow),
       dividerTheme: DividerThemeData(color: pal.border, space: 1, thickness: 1),
@@ -144,9 +166,9 @@ class QC {
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Pal.yellow : Colors.transparent),
         checkColor: const WidgetStatePropertyAll(Pal.ink),
-        side: const BorderSide(color: Colors.white70, width: 2),
+        side: BorderSide(color: pal.dark ? Colors.white70 : pal.mutedOnGround, width: 2),
       ),
-      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Pal.yellow, textStyle: const TextStyle(fontWeight: FontWeight.w800))),
+      textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: pal.dark ? Pal.yellow : Pal.ink, textStyle: const TextStyle(fontWeight: FontWeight.w800))),
     );
   }
 }
@@ -161,7 +183,7 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle.light,
+        value: context.pal.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
         child: Container(
           decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: context.pal.gradient)),
           child: Scaffold(backgroundColor: Colors.transparent, appBar: appBar, body: body, bottomNavigationBar: bottom, resizeToAvoidBottomInset: resizeToAvoidBottomInset),

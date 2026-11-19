@@ -90,7 +90,7 @@ class _DeliveryTimeSectionState extends ConsumerState<DeliveryTimeSection> {
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 24),
-      Text(context.tr('Delivery time'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+      Text(context.tr('Delivery time'), style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900)),
       const SizedBox(height: 12),
       if (slots.asapAllowed) ...[
         chip(label: context.tr('As soon as possible'), selected: chosen == null, onTap: () {
@@ -99,9 +99,9 @@ class _DeliveryTimeSectionState extends ConsumerState<DeliveryTimeSection> {
         }),
         const SizedBox(height: 10),
       ] else if (chosen == null)
-        Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(context.tr('Choose a delivery time to continue.'), style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w700))),
+        Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(context.tr('Choose a delivery time to continue.'), style: TextStyle(color: context.pal.mutedOnGround, fontWeight: FontWeight.w700))),
       if (byDay.isEmpty)
-        Text(context.tr('No delivery times are open right now.'), style: const TextStyle(color: Pal.mutedOnGround))
+        Text(context.tr('No delivery times are open right now.'), style: TextStyle(color: context.pal.mutedOnGround))
       else ...[
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final entry in byDay.entries) chip(label: context.tr(entry.value.first.dayLabel), selected: entry.key == day, onTap: () => setState(() => _day = entry.key)),

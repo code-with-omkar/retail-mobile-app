@@ -117,9 +117,9 @@ class _StoreLine extends StatelessWidget {
       : Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(children: [
-            const Icon(Icons.storefront_outlined, size: 18, color: Pal.mutedOnGround),
+            Icon(Icons.storefront_outlined, size: 18, color: context.pal.mutedOnGround),
             const SizedBox(width: 8),
-            Expanded(child: Text(context.tr('From {store}', {'store': store!.name}), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w800))),
+            Expanded(child: Text(context.tr('From {store}', {'store': store!.name}), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.pal.mutedOnGround, fontWeight: FontWeight.w800))),
           ]),
         );
 }

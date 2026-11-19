@@ -37,7 +37,7 @@ class LabeledField extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Padding(
             padding: const EdgeInsets.only(left: 6, bottom: 6),
-            child: ExcludeSemantics(child: Text(label, style: TextStyle(color: onGround ? Pal.mutedOnGround : context.pal.mutedOnCard, fontSize: 13, fontWeight: FontWeight.w800))),
+            child: ExcludeSemantics(child: Text(label, style: TextStyle(color: onGround ? context.pal.mutedOnGround : context.pal.mutedOnCard, fontSize: 13, fontWeight: FontWeight.w800))),
           ),
           Semantics(label: label, child: child),
         ]),
@@ -45,15 +45,28 @@ class LabeledField extends StatelessWidget {
 }
 
 class Surface extends StatelessWidget {
-  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.color, this.radius = QC.rCard});
+  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.color, this.radius = QC.rCard, this.bordered = false});
   final Widget child;
   final EdgeInsets padding;
   final Color? color;
   final double radius;
 
+  /// v4 list cards: white with a thin line instead of the grey fill (the dark theme keeps its filled card).
+  final bool bordered;
+
   @override
-  Widget build(BuildContext context) =>
-      Container(padding: padding, decoration: BoxDecoration(color: color ?? context.pal.card, borderRadius: BorderRadius.circular(radius)), child: child);
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: color ?? (bordered && !p.dark ? Colors.white : p.card),
+        borderRadius: BorderRadius.circular(radius),
+        border: bordered ? Border.all(color: p.border) : null,
+      ),
+      child: child,
+    );
+  }
 }
 
 /// Primary yellow pill. With [arrow] it shows the ink arrow circle on the right (Get OTP, Checkout).
@@ -210,8 +223,10 @@ class ProductVisual extends StatelessWidget {
         final side = c.biggest.shortestSide.isFinite ? c.biggest.shortestSide : 64.0;
         final fallback = Icon(product.icon, size: side * .5, color: Pal.ink.withValues(alpha: .7));
         final url = product.imageUrl;
+        // v4: soft tints. The saved colours are strong, so they are blended towards white on the light theme.
+        final tint = context.pal.dark ? product.color : Color.lerp(product.color, Colors.white, .5)!;
         return ColoredBox(
-          color: product.color,
+          color: tint,
           child: Center(child: url == null ? fallback : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, width: double.infinity, height: double.infinity, memCacheWidth: (side * MediaQuery.devicePixelRatioOf(context)).round(), placeholder: (_, _) => fallback, errorWidget: (_, _, _) => fallback)),
         );
       });
@@ -245,35 +260,21 @@ class DiscountSticker extends StatelessWidget {
 
 /// A corner ribbon for a discounted item, across the top-left corner of whatever it is placed over (give it a clipped parent).
 class DiscountRibbon extends StatelessWidget {
-  const DiscountRibbon(this.pct, {super.key, this.size = 58, this.fontSize = 9});
+  const DiscountRibbon(this.pct, {super.key, this.size = 58, this.fontSize = 10});
   final int pct;
+
+  /// Kept for the callers that size a corner sticker; the v4 discount is a small pill.
   final double size, fontSize;
 
   @override
   Widget build(BuildContext context) => Semantics(
         label: context.tr('{n}% off', {'n': '$pct'}),
         child: ExcludeSemantics(
-          child: SizedBox(
-            width: size,
-            height: size,
-            child: ClipRect(
-              child: Stack(children: [
-                Positioned(
-                  left: -size * 0.34,
-                  top: size * 0.2,
-                  child: Transform.rotate(
-                    angle: -math.pi / 4,
-                    child: Container(
-                      width: size * 1.5,
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      alignment: Alignment.center,
-                      color: Pal.pink,
-                      child: Text(context.tr('{n}% off', {'n': '$pct'}).toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: fontSize, letterSpacing: .3)),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
+          child: Container(
+            margin: const EdgeInsets.all(6),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0xFF14A44D), borderRadius: BorderRadius.circular(6)),
+            child: Text(context.tr('{n}% off', {'n': '$pct'}), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: fontSize)),
           ),
         ),
       );
@@ -289,20 +290,23 @@ class PriceText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
-    final color = onCard ? p.onCard : Pal.onGround;
+    final color = onCard ? p.onCard : context.pal.onGround;
     return Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
       Text(rupees(price), style: TextStyle(fontWeight: FontWeight.w900, fontSize: size, color: color)),
       if (mrp != null && mrp! > price) ...[
         const SizedBox(width: 8),
-        Text(rupees(mrp!), style: TextStyle(fontSize: size * .6, color: onCard ? p.mutedOnCard : Pal.mutedOnGround, decoration: TextDecoration.lineThrough)),
+        Text(rupees(mrp!), style: TextStyle(fontSize: size * .6, color: onCard ? p.mutedOnCard : context.pal.mutedOnGround, decoration: TextDecoration.lineThrough)),
       ],
     ]);
   }
 }
 
 class ProductCard extends ConsumerWidget {
-  const ProductCard(this.product, {super.key});
+  const ProductCard(this.product, {super.key, this.rank});
   final Product product;
+
+  /// Place in a ranked row (Popular near you): shown as a small #1, #2 badge on the tile.
+  final int? rank;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -311,38 +315,49 @@ class ProductCard extends ConsumerWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/product/${product.id}'),
+      // v4: the picture tile is the card (tint plus photo, no box around it); name, size and price sit on the page below.
       child: Surface(
-        padding: const EdgeInsets.all(8),
+        color: Colors.transparent,
+        padding: EdgeInsets.zero,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
-            height: 72,
+            height: 96,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Stack(fit: StackFit.expand, children: [
                 Opacity(opacity: product.inStock ? 1 : .45, child: ProductVisual(product)),
-                if (product.discountPct > 0) Positioned(top: 0, left: 0, child: DiscountRibbon(product.discountPct)),
+                if (rank != null)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: const Color(0xD1141118), borderRadius: BorderRadius.circular(6)),
+                      child: Text('#$rank', style: const TextStyle(color: Pal.yellow, fontSize: 10, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                if (product.discountPct > 0) Positioned(top: 0, left: rank == null ? 0 : null, right: rank == null ? null : 0, child: DiscountRibbon(product.discountPct)),
                 if (festive != null) Positioned(bottom: 4, left: 4, child: FestivalProductTag(festive)),
+                // v4: the add button sits on the picture tile's corner (30 drawn, 44 to tap); the stepper replaces it there.
+                if (product.inStock) Positioned(right: 0, bottom: 0, child: QuantityControl(product, size: 30)),
               ]),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(6, 8, 6, 0),
-            child: Text.rich(
-              TextSpan(children: [
-                TextSpan(text: productName(context, product), style: const TextStyle(fontWeight: FontWeight.w800)),
-                TextSpan(text: '  ${product.unit}', style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-              ]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: p.onCard, fontSize: 13),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 6, top: 2),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price, mrp: product.mrp, size: 16))),
-              QuantityControl(product, size: 30),
+            padding: const EdgeInsets.fromLTRB(2, 6, 2, 0),
+            // v4: the name on one line, the size under it, so a long name is not eaten by the size.
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(productName(context, product), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontSize: 12, fontWeight: FontWeight.w800, height: 1.25)),
+              Text(product.unit, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 11, height: 1.25)),
             ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 2, top: 2),
+            child: product.inStock
+                ? FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price, mrp: product.mrp, size: 15))
+                : Text(context.tr('Out of stock'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.pink, fontSize: 12, fontWeight: FontWeight.w800)),
           ),
         ]),
       ),
@@ -351,14 +366,22 @@ class ProductCard extends ConsumerWidget {
 }
 
 class SectionHeader extends StatelessWidget {
-  const SectionHeader(this.title, {super.key, this.action, this.onAction});
+  const SectionHeader(this.title, {super.key, this.action, this.onAction, this.subtitle});
   final String title;
+
+  /// A small grey line under the title (for example "Most searched in your area today").
+  final String? subtitle;
   final String? action;
   final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Flexible(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Pal.onGround))),
+        Flexible(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: QC.display(18, color: context.pal.onGround)),
+            if (subtitle != null) Text(subtitle!, style: TextStyle(color: context.pal.mutedOnGround, fontSize: 12)),
+          ]),
+        ),
         if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(minimumSize: const Size(QC.minTap, QC.minTap), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: Text(action!)),
       ]);
 }
@@ -377,9 +400,9 @@ class EmptyState extends StatelessWidget {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 96, height: 96, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: Icon(icon, size: 44, color: Pal.ink)),
             const SizedBox(height: 20),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Pal.onGround)),
+            Text(title, textAlign: TextAlign.center, style: QC.display(20, color: context.pal.onGround)),
             const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround)),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: context.pal.mutedOnGround)),
             if (actionLabel != null) ...[const SizedBox(height: 24), SizedBox(width: 240, child: PillButton(actionLabel!, onPressed: onAction, height: 56))],
           ]),
         ),
@@ -418,6 +441,37 @@ class Chip2 extends StatelessWidget {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (dot != null) ...[Container(width: 9, height: 9, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)), const SizedBox(width: 8)],
         Text(label, style: TextStyle(color: foreground ?? p.onChip, fontWeight: FontWeight.w800, fontSize: 13)),
+      ]),
+    );
+  }
+}
+
+/// The v4 order status pill: a small coloured pill with a dot. [tone] picks the colours: progress (blue), moving (yellow), done (green), stopped (red).
+enum StatusTone { progress, moving, done, stopped }
+
+class StatusPill extends StatelessWidget {
+  const StatusPill(this.label, this.tone, {super.key});
+  final String label;
+  final StatusTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = context.pal.dark;
+    final (bg, fg, dot) = switch (tone) {
+      StatusTone.progress => (const Color(0xFFEAF0FF), const Color(0xFF1E3A8A), const Color(0xFF2455E6)),
+      StatusTone.moving => (const Color(0xFFFFF4D6), const Color(0xFF5C3B00), const Color(0xFFF5A700)),
+      StatusTone.done => (const Color(0xFFE3F7EA), const Color(0xFF0B6B33), const Color(0xFF14A44D)),
+      StatusTone.stopped => (const Color(0xFFFDECEA), const Color(0xFF9B2414), const Color(0xFFC42F1D)),
+    };
+    // The pastel pills are light on purpose; on the dark theme they stay as they are so the colours keep their meaning.
+    return Container(
+      constraints: const BoxConstraints(minHeight: 26),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: dark ? bg.withValues(alpha: .95) : bg, borderRadius: BorderRadius.circular(QC.rPill)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 7, height: 7, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: 12))),
       ]),
     );
   }

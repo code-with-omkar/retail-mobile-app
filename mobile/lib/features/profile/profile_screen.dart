@@ -28,31 +28,69 @@ class ProfileScreen extends ConsumerWidget {
     return SafeArea(
       bottom: false,
       child: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 20, QC.gutter, 24), children: [
-        Text(context.tr('Profile'), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
+        Text(context.tr('Profile'), style: QC.display(32, color: context.pal.onGround)),
         const SizedBox(height: 16),
         Surface(
+          bordered: true,
           child: Row(children: [
-            Container(width: 60, height: 60, alignment: Alignment.center, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: Text(user == null ? '?' : user.fullName.substring(0, 1).toUpperCase(), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 24))),
+            Container(width: 56, height: 56, alignment: Alignment.center, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: Text(user == null ? '?' : user.fullName.characters.first.toUpperCase(), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 22))),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(user?.fullName ?? context.tr('Guest shopper'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 18)),
-                Text(user == null ? context.tr('Sign in to sync orders and addresses') : user.email, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                Text(user?.fullName ?? context.tr('Guest shopper'), maxLines: 1, overflow: TextOverflow.ellipsis, style: QC.display(18, color: p.onCard)),
+                Text(user == null ? context.tr('Sign in to sync orders and addresses') : ((user.phoneNumber ?? '').isNotEmpty ? user.phoneNumber! : user.email), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 13)),
               ]),
             ),
+            if (user != null)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.push('/account/profile'),
+                child: SizedBox(
+                  height: QC.minTap,
+                  child: Center(child: Container(height: 32, padding: const EdgeInsets.symmetric(horizontal: 14), alignment: Alignment.center, decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rPill)), child: Text(context.tr('Edit'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800, fontSize: 12)))),
+                ),
+              ),
+          ]),
+        ),
+        const SizedBox(height: 14),
+        IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(child: _QuickCard(Icons.receipt_long_outlined, context.tr('Orders'), context.tr('{n} placed', {'n': '$orderCount'}), () => context.go('/orders'))),
+          if (user != null) ...[
+            const SizedBox(width: 10),
+            Expanded(child: _QuickCard(Icons.favorite_border, context.tr('Saved'), null, () => context.push('/favourites'))),
+          ],
+          const SizedBox(width: 10),
+          Expanded(child: _QuickCard(Icons.location_on_outlined, context.tr('Addresses'), null, () => context.push('/addresses'))),
+        ])),
+        const SizedBox(height: 18),
+        if (user != null) _GroupTitle(context.tr('Account')),
+        if (user != null) Surface(
+          bordered: true,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Column(children: [
+            _Tile(Icons.person_outline, context.tr('Edit profile'), user.phoneNumber, () => context.push('/account/profile')),
+            if (!user.phoneVerified) _Tile(Icons.verified_user_outlined, context.tr('Verify phone number'), context.tr('So you can sign in with a code'), () => context.push('/phone?verify=1')),
+            if (user.phoneVerified) _Tile(Icons.verified_outlined, context.tr('Phone number verified'), user.phoneNumber, () => context.push('/phone?verify=1')),
+            if (user.email.isNotEmpty) _Tile(Icons.lock_outline, context.tr('Change password'), null, () => context.push('/account/password')),
           ]),
         ),
         const SizedBox(height: 16),
+        _GroupTitle(context.tr('Orders and places')),
         Surface(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          bordered: true,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Column(children: [
-            if (user != null) _Tile(Icons.person_outline, context.tr('Edit profile'), user.phoneNumber, () => context.push('/account/profile')),
-            if (user != null && !user.phoneVerified) _Tile(Icons.verified_user_outlined, context.tr('Verify phone number'), context.tr('So you can sign in with a code'), () => context.push('/phone?verify=1')),
-            if (user != null && user.phoneVerified) _Tile(Icons.verified_outlined, context.tr('Phone number verified'), user.phoneNumber, () => context.push('/phone?verify=1')),
-            if (user != null && user.email.isNotEmpty) _Tile(Icons.lock_outline, context.tr('Change password'), null, () => context.push('/account/password')),
             if (user != null) _Tile(Icons.favorite_border, context.tr('Saved items'), null, () => context.push('/favourites')),
             _Tile(Icons.receipt_long_outlined, context.tr('My orders'), context.tr('{n} placed', {'n': '$orderCount'}), () => context.go('/orders')),
             _Tile(Icons.location_on_outlined, context.tr('Saved addresses'), place == null ? context.tr('Add an address') : '${context.tr(place.label)} · ${place.line}', () => context.push('/addresses')),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        _GroupTitle(context.tr('Payments and support')),
+        Surface(
+          bordered: true,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Column(children: [
             _Tile(Icons.payments_outlined, context.tr('Payment methods'), null, () => soon(context.tr('Payment methods'))),
             _Tile(Icons.help_outline, context.tr('Help & support'), null, () => soon(context.tr('Support'))),
             if (user != null) _Tile(Icons.delete_outline, context.tr('Delete account'), null, () => context.push('/account/delete')),
@@ -114,6 +152,50 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+/// A small heading above a group of rows.
+class _GroupTitle extends StatelessWidget {
+  const _GroupTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Text(text.toUpperCase(), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1)),
+      );
+}
+
+/// A white card with an icon, a label and an optional second line: one tap to the places used most.
+class _QuickCard extends StatelessWidget {
+  const _QuickCard(this.icon, this.title, this.subtitle, this.onTap);
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 72),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(color: p.dark ? p.card : Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: p.border)),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(width: 32, height: 32, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: Icon(icon, size: 18, color: Pal.ink)),
+            const SizedBox(height: 4),
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800, fontSize: 11)),
+            if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(color: p.mutedOnCard, fontSize: 10)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 class _Tile extends StatelessWidget {
   const _Tile(this.icon, this.title, this.subtitle, this.onTap);
   final IconData icon;
@@ -126,13 +208,25 @@ class _Tile extends StatelessWidget {
     final p = context.pal;
     return Material(
       type: MaterialType.transparency,
-      child: ListTile(
-        minTileHeight: 60,
-        leading: Container(width: 40, height: 40, decoration: BoxDecoration(color: p.dark ? p.border : Colors.white, shape: BoxShape.circle), child: Icon(icon, color: p.onCard, size: 20)),
-        title: Text(title, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800)),
-        subtitle: subtitle == null ? null : Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard)),
-        trailing: Icon(Icons.chevron_right, color: p.mutedOnCard),
+      child: InkWell(
         onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: QC.minTap),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              Container(width: 30, height: 30, decoration: BoxDecoration(color: p.dark ? p.border : p.card, borderRadius: BorderRadius.circular(9)), child: Icon(icon, color: p.onCard, size: 17)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w700, fontSize: 14))),
+              if (subtitle != null) ...[
+                const SizedBox(width: 8),
+                Flexible(child: Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.end, style: TextStyle(color: p.mutedOnCard, fontSize: 12))),
+              ],
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, color: p.mutedOnCard, size: 20),
+            ]),
+          ),
+        ),
       ),
     );
   }

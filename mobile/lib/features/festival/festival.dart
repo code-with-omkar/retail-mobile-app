@@ -78,8 +78,8 @@ final festivals = <Festival>[
     emoji: '🪔',
     start: DateTime(2026, 11, 1),
     end: DateTime(2026, 11, 12),
-    colors: const [Color(0xFFFF6F00), Color(0xFFFFC400)],
-    onColor: Color(0xFF14111E),
+    colors: const [Color(0xFF3A0A4A), Color(0xFF6E0F55), Color(0xFFB4321F)],
+    onColor: Colors.white,
     particle: FestivalParticle.sparkle,
     particleColors: const [
       Color(0xFFFFD54F),

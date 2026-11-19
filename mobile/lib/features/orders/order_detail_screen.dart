@@ -34,23 +34,23 @@ class OrderSuccessScreen extends ConsumerWidget {
             const Spacer(),
             Container(width: 120, height: 120, decoration: const BoxDecoration(color: Pal.green, shape: BoxShape.circle), child: const Icon(Icons.check_rounded, size: 72, color: Pal.ink)),
             const SizedBox(height: 28),
-            Text(context.tr('Order placed!'), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900)),
+            Text(context.tr('Order placed!'), style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Consumer(builder: (context, ref, _) {
               // The estimate the customer was given for this order, not whatever the store's estimate is now.
               final eta = mine?.estimatedMinutes ?? ref.watch(selectedStoreProvider).value?.estimatedMinutes;
               if (mine != null && mine.isScheduled) {
-                return Text(context.tr('Order #{id} is being prepared.\nDelivery: {when}', {'id': number, 'when': slotWords(context, mine.deliverySlotStart!, mine.deliverySlotEnd!)}), textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround, height: 1.4));
+                return Text(context.tr('Order #{id} is being prepared.\nDelivery: {when}', {'id': number, 'when': slotWords(context, mine.deliverySlotStart!, mine.deliverySlotEnd!)}), textAlign: TextAlign.center, style: TextStyle(color: context.pal.mutedOnGround, height: 1.4));
               }
               return Text(
                 eta == null ? context.tr('Order #{id} is being prepared.', {'id': number}) : context.tr('Order #{id} is being prepared.\nExpected in about {n} minutes.', {'id': number, 'n': '$eta'}),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Pal.mutedOnGround, height: 1.4),
+                style: TextStyle(color: context.pal.mutedOnGround, height: 1.4),
               );
             }),
             if (mine != null) ...[
               const SizedBox(height: 6),
-              Text(mine.isOnline ? context.tr('Paid {amt} online.', {'amt': rupees(mine.total)}) : context.tr('Pay {amt} in cash on delivery.', {'amt': rupees(mine.total)}), textAlign: TextAlign.center, style: const TextStyle(color: Pal.mutedOnGround, fontWeight: FontWeight.w800)),
+              Text(mine.isOnline ? context.tr('Paid {amt} online.', {'amt': rupees(mine.total)}) : context.tr('Pay {amt} in cash on delivery.', {'amt': rupees(mine.total)}), textAlign: TextAlign.center, style: TextStyle(color: context.pal.mutedOnGround, fontWeight: FontWeight.w800)),
             ],
             const Spacer(),
             PillButton(context.tr('Track order'), arrow: true, onPressed: () {
@@ -198,12 +198,21 @@ class _DetailState extends ConsumerState<_Detail> {
         appBar: appTopBar(context, '${context.tr('Order')} #${order.number}', backFallback: '/orders'),
         body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
           if (arrival != null) ...[
-            Surface(
-              color: Pal.green,
-              child: Row(children: [
-                const Icon(Icons.bolt, color: Pal.ink),
-                const SizedBox(width: 12),
-                Expanded(child: Text(arrival, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900))),
+            // v4: the live card. A small line (stage, shop, items), the arrival time as the big heading, and the four-step bar.
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: p.dark ? p.card : Colors.white, borderRadius: BorderRadius.circular(QC.rCard + 8), border: Border.all(color: p.border)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  [stageLabel(context, order.stage).toUpperCase(), if (order.storeName != null) order.storeName!, context.tr(order.itemCount == 1 ? '{n} item' : '{n} items', {'n': '${order.itemCount}'})].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: p.mutedOnCard, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .6),
+                ),
+                const SizedBox(height: 4),
+                Text(arrival, key: const Key('arrival-heading'), style: QC.display(24, color: p.onCard, height: 1.15)),
+                const SizedBox(height: 12),
+                _StepBar(order.stage),
               ]),
             ),
             const SizedBox(height: 12),
@@ -268,7 +277,7 @@ class _DetailState extends ConsumerState<_Detail> {
             ),
           ],
           if (failing && order.stage.isActive)
-            Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: const TextStyle(color: Pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
+            Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
           const SizedBox(height: 16),
           if (order.deliveryOtp != null) _TrackingLine(order.id),
           if (order.deliveryOtp != null) ...[
@@ -419,6 +428,35 @@ String endedMoneyLine(BuildContext context, Order order) {
     PaymentState.refundFailed => context.tr('We could not refund {amount} automatically. Please contact the store.', {'amount': amount}),
     _ => context.tr('Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.', {'amount': amount}),
   };
+}
+
+/// Four short bars for placed, packed, on the way, delivered: done steps green, the step in progress yellow, the rest grey.
+class _StepBar extends StatelessWidget {
+  const _StepBar(this.stage);
+  final OrderStage stage;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    final at = switch (stage) {
+      OrderStage.placed => 0,
+      OrderStage.packed => 1,
+      OrderStage.onTheWay => 2,
+      OrderStage.delivered => 3,
+      _ => -1,
+    };
+    return Semantics(
+      label: at < 0 ? null : context.tr('Step {n} of 4', {'n': '${at + 1}'}),
+      child: ExcludeSemantics(
+        child: Row(children: [
+          for (var i = 0; i < 4; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(child: Container(height: 5, decoration: BoxDecoration(color: i < at || (i == at && stage == OrderStage.delivered) ? const Color(0xFF14A44D) : (i == at ? Pal.yellow : p.border), borderRadius: BorderRadius.circular(QC.rPill)))),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
 class _Timeline extends StatelessWidget {
