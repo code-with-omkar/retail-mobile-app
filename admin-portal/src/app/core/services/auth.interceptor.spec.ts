@@ -6,6 +6,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { AuthInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 import { ConfigService } from './config.service';
+import { StorageService } from './storage.service';
 
 const API = 'http://api.test/api';
 const unauthorized = { status: 401, statusText: 'Unauthorized' };
@@ -37,6 +38,19 @@ describe('AuthInterceptor', () => {
     const { http, ctl } = setup();
     http.get(`${API}/orders`).subscribe();
     expect(ctl.expectOne(`${API}/orders`).request.headers.get('Authorization')).toBe('Bearer old');
+  });
+
+  it('sends the chosen organization, and nothing when none is chosen', () => {
+    const { http, ctl } = setup();
+    const storage = TestBed.inject(StorageService);
+    storage.removeOrganization();
+    http.get(`${API}/orders`).subscribe();
+    expect(ctl.expectOne(`${API}/orders`).request.headers.has('X-Organization-Id')).toBe(false);
+
+    storage.setOrganization('o2');
+    http.get(`${API}/orders`).subscribe();
+    expect(ctl.expectOne(`${API}/orders`).request.headers.get('X-Organization-Id')).toBe('o2');
+    storage.removeOrganization();
   });
 
   it('adds nothing when there is no token', () => {

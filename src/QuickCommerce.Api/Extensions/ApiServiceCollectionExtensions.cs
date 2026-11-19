@@ -83,6 +83,7 @@ public static class ApiServiceCollectionExtensions
         services.AddSingleton<QuickCommerce.Infrastructure.Media.LocalImageStore>(provider => new QuickCommerce.Infrastructure.Media.LocalImageStore(configuration["Media:RootPath"] ?? Path.Combine(environment.ContentRootPath, "media")));
         services.AddSingleton<IImageStore>(provider => provider.GetRequiredService<QuickCommerce.Infrastructure.Media.LocalImageStore>());
         services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
+        services.AddScoped<IActingOrganization, HttpContextActingOrganization>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options => ConfigureJwt(options, configuration, environment));
         services.AddAuthorization(options =>

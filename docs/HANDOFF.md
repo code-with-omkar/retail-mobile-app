@@ -20,6 +20,13 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P35 Multi-organization switching (built, tested, not committed; no migration)
+- A platform administrator (role ApplicationAdmin only, not the ordinary Admin) can look at another organization: the portal sends header X-Organization-Id on every request; the server (AuthorizationScopeService, CurrentUserContextResolver) then answers for that organization. Anyone else sending the header, or an unknown or closed organization, gets 403.
+- Read-only there: ReadOnlyInOtherOrganizationMiddleware refuses any change (not /api/auth) with 403 and logs every request made in another organization (user, home organization, other organization, method, path).
+- GET api/admin/organizations (platform admin only) lists active organizations with the home and current one. Portal: OrgSwitcher at the top of the shell (only for ApplicationAdmin and only when there is more than one organization), yellow read-only banner, choice kept in browser storage and forgotten at sign-out.
+- Tests: backend 1230 (plus an HTTP test with SQL that creates and removes two organizations), portal 230. Dev DB has one organization only, so walk test-cases Z after adding a second (ask me).
+- Not done: a person who belongs to several organizations (staff or admin with more than one membership) and changing data in another organization.
+
 ## P34 Festival follow-ups (built, tested, not committed; no new migration)
 - Admin can change the card design and picture of an existing offer: PUT api/admin/campaigns/{id}/card ({cardDesign, imageUrl}); administrator only (403), unknown design/foreign picture 400, cancelled 409. Portal: "Change card" on each offer row (design picker with preview, keep or drop the picture).
 - App: products of a running festival-design offer carry a small tag on their picture (DIWALI DEAL, BAPPA SPECIAL, ...) and Home shows a Marathi greeting chip (शुभ दीपावली, ...) under the date-based festival banner. Both come from the active offers; nothing new on the server.

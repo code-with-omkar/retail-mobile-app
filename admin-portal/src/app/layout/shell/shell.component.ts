@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent, NavItem } from '../sidebar/sidebar.component';
+import { OrgSwitcherComponent } from '../org-switcher/org-switcher.component';
 import { ToastContainerComponent } from '../../shared/components/toast-container/toast-container.component';
 import { AuthService } from '../../core/services/auth.service';
 import { Role, StaffCategory } from '../../core/models/domain.model';
@@ -17,6 +18,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
     HeaderComponent,
     SidebarComponent,
     ToastContainerComponent,
+    OrgSwitcherComponent,
   ],
   template: `
     <main class="shell">
@@ -26,6 +28,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       ></app-sidebar>
 
       <section class="content">
+        <app-org-switcher></app-org-switcher>
         <app-header
           [dateLabel]="dateLabel()"
           [isOnline]="isOnline()"

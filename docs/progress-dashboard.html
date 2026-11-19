@@ -120,7 +120,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
 
 <script type="application/json" id="plan-data">
 {
-"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-06","version":1,
+"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-19","version":1,
  "note":"Task status below is the baseline in this file. Changes you make in the browser are saved locally; use Export to share them, and ask Claude to fold an exported file back into this baseline."},
 "layers":{"M":"Mobile (Flutter)","A":"API (.NET)","D":"Database (EF/SQL)","W":"Admin portal (Angular)","I":"Infra / DevOps","Q":"QA / testing","X":"Decision / process"},
 "phases":[
@@ -426,9 +426,15 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"34.2","t":"Portal: Change card on each offer (design picker, preview, keep or drop picture)","l":["W","Q"],"s":"S","d":"224 portal tests.","ac":[],"a":[],"dep":["34.1"],"st":"done"},
  {"id":"34.3","t":"App: festive product tag and Marathi greeting chip from running festival offers","l":["M","Q"],"s":"S","d":"624 app tests.","ac":[],"a":[],"dep":["33.3"],"st":"done"},
  {"id":"34.4","t":"Festive finish: Home colour wash and festival-coloured category tiles","l":["M","Q"],"s":"S","d":"App tests.","ac":[],"a":[],"dep":["34.3"],"st":"done"}
+ ]},
+{"id":"P35","name":"Multi-organization switching","goal":"A platform administrator can look at another organization, read-only.","deps":["P34"],"exit":["Only the platform role can switch","Changes in another organization are refused and logged"],
+ "tasks":[
+ {"id":"35.1","t":"Server: acting-organization header, platform-admin check, read-only middleware with logging, organizations list","l":["A","Q"],"s":"M","d":"Backend 1230 plus HTTP test on a throwaway database.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"35.2","t":"Portal: organization switcher, read-only banner, header on every request","l":["W","Q"],"s":"S","d":"230 portal tests.","ac":[],"a":[],"dep":["35.1"],"st":"done"},
+ {"id":"35.3","t":"Add a second organization to the dev database and walk section Z","l":["I"],"s":"S","d":"Needs a second organization.","ac":[],"a":[],"dep":["35.2"],"st":"todo"}
  ]}
 ],
-"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Multi-organization store switching","Restyle the whole app to the Clean v4 final design"],
+"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Restyle the whole app to the Clean v4 final design"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

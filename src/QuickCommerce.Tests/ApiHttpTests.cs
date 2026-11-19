@@ -329,6 +329,85 @@ public sealed class ApiHttpTests : IClassFixture<ApiHarness>
     }
 
     [Fact]
+    public async Task A_platform_administrator_switches_organization_read_only_and_nobody_else_may()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        var other = new QuickCommerce.Domain.Organization { Name = "HTTP switch " + Guid.NewGuid().ToString("N")[..8] };
+        var inactive = new QuickCommerce.Domain.Organization { Name = "HTTP closed " + Guid.NewGuid().ToString("N")[..8], IsActive = false };
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+            db.Organizations.AddRange(other, inactive);
+            await db.SaveChangesAsync();
+        }
+
+        try
+        {
+            using var admin = await api.ClientAsync(ApiHarness.Admin);
+            using var staff = await api.ClientAsync(ApiHarness.StoreStaff);
+            using var customer = await api.ClientAsync(ApiHarness.Customer);
+
+            // The list: the administrator sees the organizations (the closed one is left out), staff and customers are refused.
+            using var listed = await admin.GetAsync("/api/admin/organizations");
+            Assert.Equal(HttpStatusCode.OK, listed.StatusCode);
+            var data = Data(await listed.Content.ReadAsStringAsync());
+            var home = data.GetProperty("homeOrganizationId").GetGuid();
+            Assert.Equal(home, data.GetProperty("currentOrganizationId").GetGuid());
+            Assert.Contains(data.GetProperty("organizations").EnumerateArray(), item => item.GetProperty("id").GetGuid() == other.Id);
+            Assert.DoesNotContain(data.GetProperty("organizations").EnumerateArray(), item => item.GetProperty("id").GetGuid() == inactive.Id);
+            Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/admin/organizations")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await customer.GetAsync("/api/admin/organizations")).StatusCode);
+
+            // Switched: reading works and now answers for the other organization; the home organization is remembered.
+            admin.DefaultRequestHeaders.Add("X-Organization-Id", other.Id.ToString());
+            using var switched = await admin.GetAsync("/api/admin/organizations");
+            Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
+            var seen = Data(await switched.Content.ReadAsStringAsync());
+            Assert.Equal(other.Id, seen.GetProperty("currentOrganizationId").GetGuid());
+            Assert.Equal(home, seen.GetProperty("homeOrganizationId").GetGuid());
+            Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/admin/campaigns")).StatusCode);
+
+            // Read-only there: a change is refused, nothing is saved.
+            var title = "HTTP readonly " + Guid.NewGuid().ToString("N")[..8];
+            using var refused = await admin.PostAsJsonAsync("/api/admin/campaigns", new { titleEn = title, bodyEn = "Offer" });
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            await using (var scope = api.Services.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+                Assert.False(await db.Campaigns.AnyAsync(item => item.TitleEn == title));
+            }
+
+            // Back home (no header) the same change works.
+            admin.DefaultRequestHeaders.Remove("X-Organization-Id");
+            using var created = await admin.PostAsJsonAsync("/api/admin/campaigns", new { titleEn = title, bodyEn = "Offer" });
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            await using (var scope = api.Services.CreateAsyncScope())
+            {
+                await scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>().Campaigns.Where(item => item.TitleEn == title).ExecuteDeleteAsync();
+            }
+
+            // A closed or unknown organization, and anyone who is not a platform administrator, is refused outright.
+            foreach (var wanted in new[] { inactive.Id, Guid.NewGuid() })
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/organizations");
+                request.Headers.Add("X-Organization-Id", wanted.ToString());
+                request.Headers.Authorization = admin.DefaultRequestHeaders.Authorization;
+                Assert.Equal(HttpStatusCode.Forbidden, (await admin.SendAsync(request)).StatusCode);
+            }
+
+            staff.DefaultRequestHeaders.Add("X-Organization-Id", other.Id.ToString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/orders")).StatusCode);
+        }
+        finally
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+            await db.Organizations.Where(item => item.Id == other.Id || item.Id == inactive.Id).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
     public async Task The_database_itself_refuses_a_card_design_that_is_not_one_of_the_eight()
     {
         if (Skip) { return; }

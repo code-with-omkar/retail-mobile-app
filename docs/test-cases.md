@@ -392,6 +392,19 @@ Needs the AddOfferCardDesign migration applied to the dev database first (ask me
 | Y19 | After the offer ends, or with only plain offers. | Wash and tile colour are back to normal. | ☐ | |
 | Y12 | After the end date passes. | The festival card goes away with its offer. | ☐ | |
 
+## Z. Switching organization (platform administrator)
+
+Needs a second organization in the database (ask me to add a test one). Sign in to the portal as the demo administrator (a platform administrator).
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| Z1 | Portal: look at the top of any screen. | An **Organization** choice lists the organizations; yours is marked "(yours)". With only one organization nothing shows. | ☐ | |
+| Z2 | Pick the other organization. | The portal reloads; a yellow banner says "Read-only: you are looking at ..."; stores, orders and offers are the other organization's. | ☐ | |
+| Z3 | While there, try to create an offer or change a product. | Refused with a message that it is read-only; nothing is saved. | ☐ | |
+| Z4 | Pick your own organization again. | Banner goes; your data is back and changes work. | ☐ | |
+| Z5 | Sign in as store staff or a customer-facing admin (not platform admin). | No Organization choice. | ☐ | |
+| Z6 | Sign out while looking at the other organization, then sign in again. | You are back in your own organization (the choice is forgotten). | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

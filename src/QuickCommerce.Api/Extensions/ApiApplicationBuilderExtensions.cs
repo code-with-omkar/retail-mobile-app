@@ -85,6 +85,7 @@ public static class ApiApplicationBuilderExtensions
         });
         app.UseAuthentication();
         app.UseAuthorization();
+        app.UseMiddleware<ReadOnlyInOtherOrganizationMiddleware>();
         app.MapControllers();
         return app;
     }

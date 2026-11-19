@@ -36,6 +36,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IAuthorizationManagementService, AuthorizationManagementService>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<IAuthorizationScopeService, AuthorizationScopeService>();
+        services.AddScoped<IOrganizationDirectory, EfOrganizationDirectory>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<ISessionIssuer>(provider => (AuthenticationService)provider.GetRequiredService<IAuthenticationService>());
         services.AddScoped<IIdentityStore, EfIdentityStore>();
