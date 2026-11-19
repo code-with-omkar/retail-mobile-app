@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/analytics.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import 'cart_controller.dart';
+import 'coupon_box.dart';
+import 'coupon_controller.dart';
 import 'cart_problems.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
@@ -23,6 +26,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     super.initState();
     // A cart changed on another phone, or prices that moved, show up when the cart opens.
     Future.microtask(() => mounted ? ref.read(cartProvider.notifier).reload() : null);
+    ref.read(analyticsProvider).track(Track.cartOpen);
   }
 
   @override
@@ -52,6 +56,8 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                 ]),
               ),
               const SizedBox(height: 16),
+              const CouponBox(),
+              const SizedBox(height: 16),
               Surface(
                 child: Column(children: [
                   BillRow(context.tr('Item total'), rupees(t.subtotal)),
@@ -59,8 +65,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                     BillRow(context.tr('Delivery fee'), t.delivery == 0 ? context.tr('FREE') : rupees(t.delivery), accent: t.delivery == 0),
                     BillRow(context.tr('Handling fee'), rupees(t.handling)),
                   ],
+                  if (ref.watch(couponProvider).applied) BillRow(context.tr('Coupon ({code})', {'code': ref.watch(couponProvider).code ?? ''}), '−${rupees(ref.watch(couponProvider).discount)}', accent: true),
                   Divider(color: p.border),
-                  BillRow(context.tr('To pay'), rupees(t.total), bold: true),
+                  BillRow(context.tr('To pay'), rupees(t.total - ref.watch(couponProvider).discount), bold: true),
                   if (t.savings > 0) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -75,7 +82,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             ]),
       bottom: t.isEmpty
           ? null
-          : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton('${context.tr('Checkout')} · ${rupees(t.total)}', arrow: true, onPressed: () => context.push('/checkout')))),
+          : SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12), child: PillButton('${context.tr('Checkout')} · ${rupees(t.total - ref.watch(couponProvider).discount)}', arrow: true, onPressed: () => context.push('/checkout')))),
     );
   }
 }

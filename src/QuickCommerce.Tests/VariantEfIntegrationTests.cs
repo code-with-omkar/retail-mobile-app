@@ -13,6 +13,7 @@ namespace QuickCommerce.Tests;
 /// database rules. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING to a connection string for a
 /// DISPOSABLE database. Everything it adds is uniquely named and removed again. Never point it at a database you care about.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class VariantEfIntegrationTests
 {
     private const int Racers = 6;

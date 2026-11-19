@@ -26,6 +26,7 @@ public sealed record CartResponse(
     decimal AmountToFreeDelivery = 0);
 
 /// <param name="UnitPriceSnapshot">The price when the line was added. <paramref name="CurrentUnitPrice"/> is the price now; checkout refuses when they differ.</param>
+/// <param name="OriginalUnitPrice">The normal price, set only while an offer's discount applies to the line (<paramref name="OfferPercent"/> off); the shop charges <paramref name="CurrentUnitPrice"/>.</param>
 /// <param name="Available">How many the store can supply now; null when not known.</param>
 /// <param name="Unavailable">The product or pack is gone, so checkout would refuse.</param>
 public sealed record CartItemResponse(
@@ -38,7 +39,9 @@ public sealed record CartItemResponse(
     string? VariantLabel = null,
     int? Available = null,
     bool Unavailable = false,
-    decimal? CurrentUnitPrice = null);
+    decimal? CurrentUnitPrice = null,
+    decimal? OriginalUnitPrice = null,
+    int OfferPercent = 0);
 
 public static class CartNoteKinds
 {

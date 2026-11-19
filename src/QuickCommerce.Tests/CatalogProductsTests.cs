@@ -130,7 +130,7 @@ public sealed class CatalogProductsTests
 
         Assert.DoesNotContain("Sku", names);
         Assert.DoesNotContain("IsActive", names);
-        Assert.Equal(["CategoryId", "Description", "DiscountPercent", "Id", "ImageUrl", "InStock", "LowStock", "Mrp", "Name", "Price", "Translations", "UnitOfMeasure", "Variants"], names.Order().ToArray());
+        Assert.Equal(["CategoryId", "Description", "DiscountPercent", "Id", "ImageUrl", "InStock", "LowStock", "Mrp", "Name", "OfferPercent", "Price", "Translations", "UnitOfMeasure", "Variants"], names.Order().ToArray());
     }
 
     [Fact]

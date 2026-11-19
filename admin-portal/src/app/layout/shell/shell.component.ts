@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent, NavItem } from '../sidebar/sidebar.component';
+import { OrgSwitcherComponent } from '../org-switcher/org-switcher.component';
 import { ToastContainerComponent } from '../../shared/components/toast-container/toast-container.component';
 import { AuthService } from '../../core/services/auth.service';
 import { Role, StaffCategory } from '../../core/models/domain.model';
@@ -17,6 +18,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
     HeaderComponent,
     SidebarComponent,
     ToastContainerComponent,
+    OrgSwitcherComponent,
   ],
   template: `
     <main class="shell">
@@ -26,6 +28,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       ></app-sidebar>
 
       <section class="content">
+        <app-org-switcher></app-org-switcher>
         <app-header
           [dateLabel]="dateLabel()"
           [isOnline]="isOnline()"
@@ -138,8 +141,17 @@ export class ShellComponent implements OnInit {
   navItems = computed(() => {
     const baseItems: NavItem[] = [
       { label: 'Overview', icon: '◈', route: '/dashboard', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
+      { label: 'Today', icon: '◉', route: '/today', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Catalog', icon: '▦', route: '/products', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Orders', icon: '↗', route: '/orders', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff], requiredPermissions: ['orders:read'] },
+      { label: 'Reports', icon: '◩', route: '/reports', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Behaviour', icon: '◐', route: '/behaviour', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Stock', icon: '▤', route: '/stock', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Placement', icon: '▲', route: '/placement', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Offers', icon: '✦', route: '/campaigns', requiredRoles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+      { label: 'Delivery times', icon: '◔', route: '/delivery-times', requiredRoles: [Role.ApplicationAdmin, Role.Admin] },
+      { label: 'Coupons', icon: '✂', route: '/coupons', requiredRoles: [Role.ApplicationAdmin, Role.Admin] },
+      { label: 'Commission', icon: '%', route: '/commission', requiredRoles: [Role.ApplicationAdmin, Role.Admin] },
       { label: 'Notifications', icon: '♧', route: '/notifications', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff, Role.Customer] },
     ];
 

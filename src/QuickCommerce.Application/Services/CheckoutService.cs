@@ -16,7 +16,8 @@ public sealed partial class CheckoutService(
     IAddressStore? addresses = null,
     IDeliveryEstimator? deliveryEstimator = null,
     PaymentSettings? paymentSettings = null,
-    TimeProvider? timeProvider = null) : ICheckoutService
+    TimeProvider? timeProvider = null,
+    ICommissionStore? commissions = null) : ICheckoutService
 {
     private const int MaxDeliveryAddressLength = 500;
     private readonly PricingSettings pricing = pricingSettings ?? new PricingSettings();
@@ -38,6 +39,12 @@ public sealed partial class CheckoutService(
         if (method is not (PaymentMethods.CashOnDelivery or PaymentMethods.Online))
         {
             return CheckoutOperationResult.Invalid("The payment method must be CashOnDelivery or Online.");
+        }
+
+        var (note, choice, problem) = OrderPreferences.Check(request.Note, request.OutOfStockChoice);
+        if (problem is not null)
+        {
+            return CheckoutOperationResult.Invalid(problem);
         }
 
         if (method == PaymentMethods.Online && !payments.Enabled)
@@ -63,6 +70,12 @@ public sealed partial class CheckoutService(
             return CheckoutOperationResult.Unauthorized("The authenticated user cannot checkout from this store");
         }
 
+        var couponCode = CouponRules.Normalize(request.CouponCode);
+        if (couponCode.Length > 0 && !CouponRules.IsValidCode(couponCode))
+        {
+            return CheckoutOperationResult.Conflict("That code is not valid.", CheckoutReasons.CouponInvalid);
+        }
+
         var delivery = await ResolveDeliveryAsync(customer.Id, request, cancellationToken);
         if (delivery is null)
         {
@@ -77,7 +90,11 @@ public sealed partial class CheckoutService(
 
         // The estimate the customer is given now stays on the order, whatever the store's estimate becomes later.
         int? estimate = deliveryEstimator is null ? null : deliveryEstimator.EstimateMinutes(StoreSelectionService.DistanceKm(delivery.Latitude, delivery.Longitude, store.Latitude, store.Longitude));
-        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null);
+        var commit = new CheckoutCommit(delivery, pricing, idempotencyKey, idempotencyKey is null ? null : HashOf(storeId, delivery, method, note, choice, couponCode, request.DeliverySlotStart), estimate, method, method == PaymentMethods.Online ? clock.GetUtcNow().UtcDateTime.AddMinutes(payments.HoldMinutes) : null, clock.GetUtcNow().UtcDateTime, note, choice,
+            // The percent in force now is written onto the order, so a later change never rewrites it.
+            commissions is null ? null : await CommissionService.EffectiveAsync(commissions, storeId, cancellationToken),
+            couponCode.Length == 0 ? null : couponCode,
+            request.DeliverySlotStart);
         var result = await data.TryCheckoutCartAsync(customer.Id, storeId, commit, cancellationToken);
         return result.Status switch
         {
@@ -87,6 +104,8 @@ public sealed partial class CheckoutService(
             CheckoutCommitStatus.ProductUnavailable => CheckoutOperationResult.Conflict("A cart product is no longer available", CheckoutReasons.ProductUnavailable, result.Issues),
             CheckoutCommitStatus.PriceChanged => CheckoutOperationResult.Conflict("A cart product price has changed", CheckoutReasons.PriceChanged, result.Issues),
             CheckoutCommitStatus.InventoryConflict => CheckoutOperationResult.Conflict("Inventory changed while checkout was in progress", CheckoutReasons.InventoryConflict, result.Issues),
+            CheckoutCommitStatus.SlotRejected => CheckoutOperationResult.Conflict(result.Message ?? "That delivery time cannot be used.", CheckoutReasons.SlotUnavailable),
+            CheckoutCommitStatus.CouponRejected => CheckoutOperationResult.Conflict(result.Message ?? "That code cannot be used.", CheckoutReasons.CouponInvalid),
             CheckoutCommitStatus.KeyReused => CheckoutOperationResult.Conflict("This Idempotency-Key was already used for a different order. Use a new key for a new order.", CheckoutReasons.IdempotencyKeyReused),
             _ => CheckoutOperationResult.Conflict("Checkout could not be completed")
         };
@@ -120,9 +139,9 @@ public sealed partial class CheckoutService(
     }
 
     /// <summary>The same store and place always give the same hash, so a retry matches and a different order does not.</summary>
-    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method)
+    private static string HashOf(Guid storeId, CheckoutDelivery delivery, string method, string? note, string choice, string coupon, DateTime? slot)
     {
         var where = delivery.AddressId is { } id ? id.ToString("N") : $"{delivery.Address}|{delivery.Latitude:F5}|{delivery.Longitude:F5}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}")));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{storeId:N}|{where}|{method}|{note}|{choice}|{coupon}|{slot:O}")));
     }
 }

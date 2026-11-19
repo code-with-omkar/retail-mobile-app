@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/l10n.dart';
 import '../../core/widgets.dart';
+import '../../data/api/api_exception.dart';
 import '../../data/providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_widgets.dart';
@@ -137,4 +138,89 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           PillButton(context.tr(_busy ? 'Please wait…' : 'Save'), arrow: !_busy, onPressed: _busy ? null : _save),
         ],
       );
+}
+
+/// Deleting the account for good. Google Play requires that customers can do this from inside the app.
+class DeleteAccountScreen extends ConsumerStatefulWidget {
+  const DeleteAccountScreen({super.key});
+  @override
+  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+}
+
+class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
+  final _form = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _hide = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    if (_busy || !_form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authProvider.notifier).deleteAccount(password: _password.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Your account was deleted.'))));
+      context.go('/');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = switch (e) {
+              ConflictException() => context.tr('Finish or cancel your open orders first.'),
+              ValidationException() => context.tr('Your password is not correct.'),
+              _ => accountErrorText(context, e),
+            });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPassword = ref.watch(authProvider).user?.hasPassword ?? true;
+    return AuthScaffold(
+      title: context.tr('Delete account'),
+      subtitle: context.tr('This erases your name, phone, email, addresses and notifications for good. Past orders stay with the store without your details.'),
+      children: [
+        Form(
+          key: _form,
+          child: Column(children: [
+            if (hasPassword)
+              AuthField(
+                context.tr('Password'),
+                Icons.lock_outline,
+                controller: _password,
+                enabled: !_busy,
+                obscure: _hide,
+                autofillHints: const [AutofillHints.password],
+                validator: (v) => requiredField(context, v),
+                suffix: passwordToggle(context, _hide, () => setState(() => _hide = !_hide)),
+              ),
+            AuthField(
+              context.tr('Type DELETE to confirm'),
+              Icons.delete_outline,
+              controller: _confirm,
+              enabled: !_busy,
+              capitalization: TextCapitalization.characters,
+              validator: (v) => (v ?? '').trim().toUpperCase() == 'DELETE' ? null : context.tr('Type DELETE to confirm'),
+            ),
+          ]),
+        ),
+        if (_error != null) ErrorBanner(_error!),
+        PillButton(context.tr(_busy ? 'Please wait…' : 'Delete my account'), arrow: false, onPressed: _busy ? null : _delete),
+      ],
+    );
+  }
 }

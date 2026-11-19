@@ -7,9 +7,27 @@ namespace QuickCommerce.Infrastructure.Security;
 
 public sealed class AuthorizationScopeService(
     QuickCommerceDbContext db,
-    ICurrentUser currentUser) : IAuthorizationScopeService
+    ICurrentUser currentUser,
+    IActingOrganization? acting = null) : IAuthorizationScopeService
 {
     public async Task<AuthorizationScope?> ResolveAsync(CancellationToken cancellationToken = default)
+    {
+        var scope = await ResolveOwnAsync(cancellationToken);
+        if (scope is null || acting?.Requested is not { } requested || requested == scope.OrganizationId)
+        {
+            return scope;
+        }
+
+        // Another organization was asked for: only a platform administrator may, and only an active one. Anyone else is refused.
+        if (!scope.IsPlatformAdmin || !await db.Organizations.AsNoTracking().AnyAsync(item => item.Id == requested && item.IsActive, cancellationToken))
+        {
+            return null;
+        }
+
+        return scope with { OrganizationId = requested, StoreIds = new HashSet<Guid>(), ActingFromOrganizationId = scope.OrganizationId };
+    }
+
+    private async Task<AuthorizationScope?> ResolveOwnAsync(CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(currentUser.UserId))
         {

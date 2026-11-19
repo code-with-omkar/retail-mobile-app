@@ -38,7 +38,18 @@ public sealed record OrderResponse(
     string? StorePhone = null,
     int? EstimatedDeliveryMinutes = null,
     PaymentState PaymentStatus = PaymentState.NotRequired,
-    DateTime? PaymentExpiresAt = null);
+    DateTime? PaymentExpiresAt = null,
+    string? DeliveryPartnerName = null,
+    string? DeliveryPartnerPhone = null,
+    string? DeliveryOtp = null,
+    string? Note = null,
+    string? OutOfStockChoice = null,
+    IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null,
+    Interfaces.ReplacementInfo? Replacement = null,
+    string? CouponCode = null,
+    decimal CouponDiscount = 0,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -49,7 +60,13 @@ public sealed record AdminOrderResponse(
     string Store,
     decimal TotalAmount,
     OrderStatus Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? DeliveryPartnerId = null,
+    string? DeliveryPartner = null,
+    string? Note = null,
+    string? OutOfStockChoice = null,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

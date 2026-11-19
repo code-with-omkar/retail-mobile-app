@@ -246,7 +246,7 @@ class _FlakyRepository implements CatalogRepository {
   }
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async {
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async {
     _maybeFail();
     return _seed.stores(latitude: latitude, longitude: longitude);
   }
@@ -288,7 +288,7 @@ class _SlowRepository implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) => _wait(() => _seed.categories(storeId: storeId));
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) => _wait(() => _seed.stores(latitude: latitude, longitude: longitude));
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) => _wait(() => _seed.stores(latitude: latitude, longitude: longitude));
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) => _wait(() => _seed.nearestStore(latitude: latitude, longitude: longitude));

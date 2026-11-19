@@ -40,7 +40,7 @@ class _App {
   final _Auth auth;
 }
 
-Future<_App> _open(WidgetTester tester, {List<Order> orders = const [], bool signedIn = true, Duration delay = Duration.zero, Object? failRead}) async {
+Future<_App> _open(WidgetTester tester, {List<Order> orders = const [], bool signedIn = true, Duration delay = Duration.zero, Object? failRead, void Function(FakeCartRepository cart)? seedCart}) async {
   SharedPreferences.setMockInitialValues({});
   final sp = await SharedPreferences.getInstance();
   tester.view.physicalSize = const Size(390 * 3, 1800 * 3);
@@ -51,6 +51,7 @@ Future<_App> _open(WidgetTester tester, {List<Order> orders = const [], bool sig
     ..delay = delay
     ..failRead = failRead;
   final cart = FakeCartRepository();
+  seedCart?.call(cart);
   final addresses = FakeAddressRepository()..seed('Home', isDefault: true);
   final auth = _Auth(signedIn ? const AuthState(AuthStatus.signedIn, _asha) : const AuthState(AuthStatus.signedOut));
   final products = ProductStore()..putAll(seed.products);
@@ -236,23 +237,124 @@ void main() {
       expect(find.text('Order #ORD-9'), findsOneWidget);
     });
 
-    testWidgets('Reorder adds what can be bought, leaves out what cannot, and says so', (tester) async {
-      final app = await _open(tester, orders: [
-        sampleOrder(lines: const [
-          OrderLine(productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', label: '1 kg', unitPrice: 28, quantity: 2),
-          OrderLine(productId: 'ghost', variantId: 'ghost:1', name: 'Ghost Item', label: '1', unitPrice: 10, quantity: 1),
-        ])
-      ]);
+    final tomato = sampleOrder(lines: const [
+      OrderLine(productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', label: '1 kg', unitPrice: 28, quantity: 2),
+      OrderLine(productId: 'ghost', variantId: 'ghost:1', name: 'Ghost Item', label: '1', unitPrice: 10, quantity: 1),
+    ]);
+
+    void knowTomato(FakeCartRepository cart, {int stock = 100}) => cart.know('tomato:1kg', productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', label: '1 kg', price: 28, stock: stock);
+
+    Future<void> openOrder(WidgetTester tester) async {
       await _goOrders(tester);
       await tester.tap(find.text('#ORD-1001'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Reorder'));
+    }
+
+    testWidgets('Order again puts what the store can supply in the cart of the order\'s store, and lists what it cannot', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: knowTomato);
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+
+      expect(app.cart.calls, contains('merge tomato:1kgx2,ghost:1x1'));
+      expect(app.cart.storeId, 'store-1');
+      expect(app.container.read(cartProvider), {'tomato:1kg': 2});
+      expect(app.container.read(cartNoticeProvider).notes.map((n) => (n.productId, n.kind)), [('ghost', CartNote.unavailable)]);
+      expect(find.text('Your cart'), findsOneWidget);
+    });
+
+    testWidgets('what is already in the cart is added to, not replaced', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: (cart) {
+        knowTomato(cart);
+        cart.storeId = 'store-1';
+        cart.lines.add(FakeServerLine('tomato', 'tomato:1kg', 'Tomato', '1 kg', 1, 28));
+      });
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+
+      expect(app.container.read(cartProvider), {'tomato:1kg': 3});
+      expect(app.cart.calls, isNot(contains('clear')));
+    });
+
+    testWidgets('only what the store has left is added, and the cart says it was reduced', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: (cart) => knowTomato(cart, stock: 1));
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+
+      expect(app.container.read(cartProvider), {'tomato:1kg': 1});
+      expect(app.container.read(cartNoticeProvider).notes.map((n) => (n.productId, n.kind, n.quantity)), contains(('tomato', CartNote.reduced, 1)));
+    });
+
+    testWidgets('a cart from another store is only emptied after the customer agrees', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: (cart) {
+        knowTomato(cart);
+        cart.know('milk:1l', productId: 'milk', variantId: 'milk:1l', name: 'Milk', label: '1 l', price: 34);
+        cart.storeId = 'store-2';
+        cart.lines.add(FakeServerLine('milk', 'milk:1l', 'Milk', '1 l', 2, 34));
+      });
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+      expect(find.text('Start a new cart?'), findsOneWidget);
+
+      await tester.tap(find.text('Keep my cart'));
+      await tester.pumpAndSettle();
+      expect(app.cart.calls.where((c) => c.startsWith('merge')), isEmpty);
+      expect(app.cart.storeId, 'store-2');
+      expect(find.text('Order #ORD-1001'), findsOneWidget);
 
       await tester.ensureVisible(find.text('Reorder'));
       await tester.tap(find.text('Reorder'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Order again'));
+      await tester.pumpAndSettle();
 
+      expect(app.cart.calls, containsAllInOrder(['clear', 'merge tomato:1kgx2,ghost:1x1']));
+      expect(app.cart.storeId, 'store-1');
       expect(app.container.read(cartProvider), {'tomato:1kg': 2});
-      expect(find.text('Your cart'), findsOneWidget);
+    });
+
+    testWidgets('when nothing can be ordered any more the customer is told what and the cart stays empty', (tester) async {
+      final app = await _open(tester, orders: [tomato]);
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+
+      expect(app.container.read(cartProvider), isEmpty);
+      expect(app.container.read(cartNoticeProvider).notes.map((n) => n.kind), [CartNote.unavailable, CartNote.unavailable]);
+    });
+
+    testWidgets('if the server cannot be reached the customer is told and nothing is lost', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: knowTomato);
+      await openOrder(tester);
+      app.cart.failNext = const NetworkException('offline');
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pumpAndSettle();
+
+      expect(app.container.read(cartNoticeProvider).problem, isNotNull);
+      expect(app.container.read(cartProvider), isEmpty);
+    });
+
+    testWidgets('a second tap while it is working does not add twice', (tester) async {
+      final app = await _open(tester, orders: [tomato], seedCart: knowTomato);
+      app.cart.delay = const Duration(milliseconds: 200);
+      await openOrder(tester);
+
+      await tester.tap(find.text('Reorder'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Please wait…'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(app.cart.calls.where((c) => c.startsWith('merge')), hasLength(1));
     });
   });
 

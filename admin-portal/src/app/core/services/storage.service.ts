@@ -8,6 +8,7 @@ export class StorageService {
   private readonly TOKEN_KEY = 'app:token';
   private readonly REFRESH_TOKEN_KEY = 'app:refresh_token';
   private readonly USER_CONTEXT_KEY = 'app:user_context';
+  private readonly ORGANIZATION_KEY = 'app:organization';
 
   setToken(token: string): void {
     if (typeof window !== 'undefined') {
@@ -59,11 +60,29 @@ export class StorageService {
     }
   }
 
+  /** The organization a platform administrator is looking at; null means their own. */
+  setOrganization(id: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.ORGANIZATION_KEY, id);
+    }
+  }
+
+  getOrganization(): string | null {
+    return typeof window !== 'undefined' ? localStorage.getItem(this.ORGANIZATION_KEY) : null;
+  }
+
+  removeOrganization(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(this.ORGANIZATION_KEY);
+    }
+  }
+
   clear(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(this.TOKEN_KEY);
       localStorage.removeItem(this.REFRESH_TOKEN_KEY);
       localStorage.removeItem(this.USER_CONTEXT_KEY);
+      localStorage.removeItem(this.ORGANIZATION_KEY);
     }
   }
 }

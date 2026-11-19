@@ -18,7 +18,7 @@ public sealed class AuthenticationService(
     IPasswordHasher<User> passwordHasher,
     IAuthorizationScopeService authorizationScopeService,
     ICurrentUser currentUser,
-    IConfiguration configuration) : IAuthenticationService
+    IConfiguration configuration) : IAuthenticationService, ISessionIssuer
 {
     private const string GenericFailure = "Invalid username or password.";
 
@@ -54,6 +54,13 @@ public sealed class AuthenticationService(
         user.Credential.LockedUntil = null;
         await db.SaveChangesAsync(cancellationToken);
         return await IssueTokensAsync(user, ipAddress, cancellationToken);
+    }
+
+    /// <summary>Starts a session for someone already proven another way (a text-message code, Google). Inactive accounts get nothing.</summary>
+    public async Task<AuthenticationResult> IssueAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken = default)
+    {
+        var user = await db.Users.SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
+        return user is null || !user.IsActive ? AuthenticationResult.Failure(GenericFailure) : await IssueTokensAsync(user, ipAddress, cancellationToken);
     }
 
     public async Task<AuthenticationResult> RefreshAsync(RefreshRequest request, string? ipAddress, CancellationToken cancellationToken = default)

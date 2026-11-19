@@ -13,7 +13,8 @@ bool festivalMotionAllowed(BuildContext context, WidgetRef ref) => ref.watch(fes
 /// Whether the motion runs right now: allowed, and still within its 30 seconds.
 bool festivalMotionOn(BuildContext context, WidgetRef ref) => festivalMotionAllowed(context, ref) && ref.watch(festivalMotionProvider);
 
-/// The festival greeting under the Home header. Nothing outside festival dates.
+/// The festival greeting under the Home header: a large card with a floating emoji, a slow light sweep and a few twinkles.
+/// Nothing outside festival dates. The motion stops after 30 seconds, with the switch in Profile, or with the phone's reduce-motion setting.
 class FestivalBanner extends ConsumerStatefulWidget {
   const FestivalBanner({super.key});
 
@@ -21,12 +22,17 @@ class FestivalBanner extends ConsumerStatefulWidget {
   ConsumerState<FestivalBanner> createState() => _FestivalBannerState();
 }
 
-class _FestivalBannerState extends ConsumerState<FestivalBanner> with SingleTickerProviderStateMixin {
-  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+class _FestivalBannerState extends ConsumerState<FestivalBanner> with TickerProviderStateMixin {
+  /// Breathing and floating of the emoji (back and forth).
+  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200));
+
+  /// The light sweeping across the card (one way, then again).
+  late final _sweep = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
 
   @override
   void dispose() {
     _pulse.dispose();
+    _sweep.dispose();
     super.dispose();
   }
 
@@ -37,41 +43,114 @@ class _FestivalBannerState extends ConsumerState<FestivalBanner> with SingleTick
     final motion = festivalMotionOn(context, ref);
     if (motion && !_pulse.isAnimating) {
       _pulse.repeat(reverse: true);
+      _sweep.repeat();
     } else if (!motion && _pulse.isAnimating) {
-      // Settle back to normal size rather than freezing mid-breath.
+      // Settle back to rest rather than freezing mid-motion.
       _pulse.animateTo(0, duration: const Duration(milliseconds: 400));
+      _sweep.stop();
+      _sweep.value = 0;
     }
+    final on = festival.onColor;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Semantics(
-      label: context.tr(festival.title),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: festival.colors, begin: Alignment.centerLeft, end: Alignment.centerRight),
-          borderRadius: BorderRadius.circular(QC.rCard),
-          boxShadow: [BoxShadow(color: festival.colors.first.withValues(alpha: .35), blurRadius: 18, offset: const Offset(0, 6))],
+        label: '${context.tr(festival.title)}. ${context.tr(festival.subtitle)}',
+        child: Container(
+          height: 150,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: festival.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(QC.rCard + 4),
+            boxShadow: [BoxShadow(color: festival.colors.first.withValues(alpha: .40), blurRadius: 22, offset: const Offset(0, 8))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(QC.rCard + 4),
+            child: LayoutBuilder(builder: (context, box) {
+              final width = box.maxWidth;
+              return Stack(clipBehavior: Clip.none, children: [
+                // Soft round shapes for depth.
+                Positioned(right: -40, top: -50, child: _Blob(size: 170, color: Colors.white.withValues(alpha: .13))),
+                Positioned(right: 70, bottom: -60, child: _Blob(size: 120, color: Colors.white.withValues(alpha: .09))),
+                // The light sweeping across.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _sweep,
+                      builder: (_, _) {
+                        final x = -140 + (width + 280) * _sweep.value;
+                        return Transform.translate(
+                          offset: Offset(x, 0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Transform.rotate(
+                              angle: -.35,
+                              child: Container(
+                                width: 70,
+                                height: 260,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: [Colors.white.withValues(alpha: 0), Colors.white.withValues(alpha: .22), Colors.white.withValues(alpha: 0)]),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                // A few twinkles.
+                for (final (i, spot) in const [(0.52, 0.18), (0.70, 0.62), (0.40, 0.78), (0.86, 0.14)].indexed)
+                  Positioned(
+                    left: width * spot.$1,
+                    top: 150 * spot.$2,
+                    child: AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (_, _) {
+                        final phase = (_pulse.value + i * .27) % 1.0;
+                        return Opacity(opacity: .25 + .6 * (1 - (phase - .5).abs() * 2), child: Icon(Icons.auto_awesome, size: 10.0 + 4 * (i % 2), color: Colors.white));
+                      },
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 16, 16),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(context.tr(festival.title), maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(color: on, fontWeight: FontWeight.w900, fontSize: 24, height: 1.1)),
+                        const SizedBox(height: 6),
+                        Text(context.tr(festival.subtitle), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: on.withValues(alpha: .92), fontWeight: FontWeight.w700, fontSize: 13.5, height: 1.25)),
+                      ]),
+                    ),
+                    const SizedBox(width: 8),
+                    // The emoji floats, tilts and breathes.
+                    AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (_, child) {
+                        final v = Curves.easeInOut.transform(_pulse.value);
+                        return Transform.translate(
+                          offset: Offset(0, -8 * v),
+                          child: Transform.rotate(angle: (v - .5) * .16, child: Transform.scale(scale: 1 + .10 * v, child: child)),
+                        );
+                      },
+                      child: ExcludeSemantics(child: Text(festival.emoji, style: const TextStyle(fontSize: 74))),
+                    ),
+                  ]),
+                ),
+              ]);
+            }),
+          ),
         ),
-        child: Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(context.tr(festival.title), style: TextStyle(color: festival.onColor, fontWeight: FontWeight.w900, fontSize: 20, height: 1.15)),
-              const SizedBox(height: 4),
-              Text(context.tr(festival.subtitle), style: TextStyle(color: festival.onColor.withValues(alpha: .9), fontWeight: FontWeight.w600, fontSize: 13)),
-            ]),
-          ),
-          const SizedBox(width: 10),
-          // The emoji breathes slowly, like a lamp flickering.
-          AnimatedBuilder(
-            animation: _pulse,
-            builder: (_, child) => Transform.scale(scale: 1 + .12 * _pulse.value, child: child),
-            child: ExcludeSemantics(child: Text(festival.emoji, style: const TextStyle(fontSize: 44))),
-          ),
-        ]),
-      ),
       ),
     );
   }
+}
+
+class _Blob extends StatelessWidget {
+  const _Blob({required this.size, required this.color});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }
 
 /// A few slow falling sparkles, petals or confetti pieces over the whole screen. Never takes a tap, and stops with the switch in Profile

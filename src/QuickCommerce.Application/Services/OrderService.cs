@@ -5,7 +5,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.Services;
 
-public sealed class OrderService(ICommerceStore data, IStoreSelectionService storeSelectionService, IValidator<CreateOrderRequest> validator) : IOrderService
+public sealed class OrderService(ICommerceStore data, IStoreSelectionService storeSelectionService, IValidator<CreateOrderRequest> validator, IOfferDiscountLookup? offers = null, TimeProvider? timeProvider = null) : IOrderService
 {
     public async Task<IReadOnlyList<OrderResponse>> GetOrdersAsync(CancellationToken cancellationToken = default) => (await data.GetOrdersAsync(cancellationToken))
         .OrderByDescending(order => order.CreatedAt)
@@ -54,6 +54,9 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
         }
 
         var lines = new List<OrderItem>();
+        var percents = offers is null
+            ? new Dictionary<Guid, int>()
+            : await offers.GetPercentsAsync(store.Id, resolved.Select(item => item.Product.Id).Distinct().ToArray(), (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
         foreach (var (line, product, variant) in resolved)
         {
             var stock = inventory.FirstOrDefault(item => item.StoreId == store.Id && item.VariantId == variant.Id);
@@ -68,8 +71,8 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
                 VariantId = variant.Id,
                 ProductNameSnapshot = product.Name,
                 VariantLabelSnapshot = variant.Label,
-                UnitPrice = variant.Price,
-                UnitMrpSnapshot = variant.Mrp,
+                UnitPrice = StorePricing.Final(variant.Price, stock.PriceOverride, percents.GetValueOrDefault(product.Id)),
+                UnitMrpSnapshot = StorePricing.MrpSnapshot(StorePricing.Final(variant.Price, stock.PriceOverride, percents.GetValueOrDefault(product.Id)), variant.Price, variant.Mrp),
                 Quantity = line.Quantity
             });
         }
@@ -118,5 +121,7 @@ public sealed class OrderService(ICommerceStore data, IStoreSelectionService sto
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 }

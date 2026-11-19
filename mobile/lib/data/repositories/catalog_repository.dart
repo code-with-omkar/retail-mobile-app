@@ -24,7 +24,7 @@ abstract interface class CatalogRepository {
   Future<NearestStore?> nearestStore({required double latitude, required double longitude});
 
   /// Every store that delivers to a location, nearest first. Empty when none does.
-  Future<List<NearestStore>> stores({required double latitude, required double longitude});
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode});
 
   /// Active products, paged. [categoryId] is a catalog category id from [categories]. With a [storeId], each product
   /// carries that store's stock flags; without one, stock is unknown and products count as in stock. With [carriedOnly]
@@ -42,7 +42,7 @@ class SeedCatalogRepository implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) async => seed.categories;
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async => const [
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => const [
         NearestStore(id: 'seed-store', name: seed.storeName, address: '12 Marine Drive', distanceKm: seed.storeDistanceKm, estimatedMinutes: seed.etaMinutes, serviceRadiusKm: 8),
         NearestStore(id: 'seed-store-2', name: 'Green Basket Express', address: '44 Cedar Avenue', distanceKm: 3.4, estimatedMinutes: 15, serviceRadiusKm: 7),
       ];
@@ -81,10 +81,10 @@ class ApiCatalogRepository implements CatalogRepository {
   }
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) => _api.get(
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) => _api.get(
         '/api/catalog/stores',
-        query: {'latitude': latitude, 'longitude': longitude},
-        parse: (data) => asList(data, NearestStoreDto.fromJson).map((d) => NearestStore(id: d.id, name: d.name, address: d.address, distanceKm: d.distanceKm, estimatedMinutes: d.estimatedMinutes, serviceRadiusKm: d.serviceRadiusKm)).toList(),
+        query: {'latitude': latitude, 'longitude': longitude, 'pincode': ?pincode},
+        parse: (data) => asList(data, NearestStoreDto.fromJson).map((d) => NearestStore(id: d.id, name: d.name, address: d.address, distanceKm: d.distanceKm, estimatedMinutes: d.estimatedMinutes, serviceRadiusKm: d.serviceRadiusKm, sponsored: d.sponsored)).toList(),
       );
 
   @override
@@ -105,14 +105,14 @@ class ApiCatalogRepository implements CatalogRepository {
       query: {'page': page, 'pageSize': pageSize, if (search != null && search.trim().isNotEmpty) 'search': search.trim(), 'categoryId': ?categoryId, 'storeId': ?storeId, if (carriedOnly && storeId != null) 'carriedOnly': true},
       parse: (data) => PagedDto.fromJson(data, CatalogProductDto.fromJson),
     );
-    return ProductPage(items: [for (final d in dto.items) productFromCatalogDto(d, keys[d.categoryId] ?? 'other')], page: dto.page, totalCount: dto.totalCount, hasMore: dto.hasMore);
+    return ProductPage(items: [for (final d in dto.items) productFromCatalogDto(d, keys[d.categoryId] ?? 'other', imageBase: _api.baseUrl)], page: dto.page, totalCount: dto.totalCount, hasMore: dto.hasMore);
   }
 
   @override
   Future<Product> product(String id, {String? storeId}) async {
     final keys = await _categoryKeys();
     final dto = await _api.get('/api/catalog/products/$id', query: {'storeId': ?storeId}, parse: (data) => CatalogProductDto.fromJson(asObject(data)));
-    return productFromCatalogDto(dto, keys[dto.categoryId] ?? 'other');
+    return productFromCatalogDto(dto, keys[dto.categoryId] ?? 'other', imageBase: _api.baseUrl);
   }
 
   Future<Map<String, String>> _categoryKeys() async => {for (final c in await categories()) c.id: categoryKeyFor(c.label)};
@@ -128,7 +128,7 @@ class CachingCatalogRepository implements CatalogRepository {
   Future<List<Category>> categories({String? storeId}) => _inner.categories(storeId: storeId);
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) => _inner.stores(latitude: latitude, longitude: longitude);
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) => _inner.stores(latitude: latitude, longitude: longitude, pincode: pincode);
 
   @override
   Future<NearestStore?> nearestStore({required double latitude, required double longitude}) => _inner.nearestStore(latitude: latitude, longitude: longitude);
@@ -155,7 +155,10 @@ Category categoryFromCatalogDto(CatalogCategoryDto d) => Category(d.id, d.name, 
 const _pastels = [Color(0xFFFFC4E1), Color(0xFFFFEEAA), Color(0xFFB8FFD2), Color(0xFFE0D9FF)];
 Color _pastelFor(String id) => _pastels[id.codeUnits.fold(0, (a, b) => a + b) % _pastels.length];
 
-Product productFromCatalogDto(CatalogProductDto d, String categoryKey) {
+/// A picture the API serves itself comes as a path (/media/...); anything else (a full link) is used as it is.
+String? absoluteImageUrl(String? url, String? base) => url != null && url.startsWith('/') && base != null ? '$base$url' : url;
+
+Product productFromCatalogDto(CatalogProductDto d, String categoryKey, {String? imageBase}) {
   final mr = d.translations['mr'];
   return Product(
     id: d.id,
@@ -169,7 +172,7 @@ Product productFromCatalogDto(CatalogProductDto d, String categoryKey) {
     categoryId: d.categoryId,
     description: d.description,
     descriptionMr: mr?.description ?? d.description,
-    imageUrl: d.imageUrl,
+    imageUrl: absoluteImageUrl(d.imageUrl, imageBase),
     inStock: d.inStock ?? true,
     lowStock: d.lowStock ?? false,
     packs: [for (final v in d.variants) packFromVariantDto(v)],

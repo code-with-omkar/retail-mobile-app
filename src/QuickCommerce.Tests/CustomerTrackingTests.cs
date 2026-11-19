@@ -75,7 +75,7 @@ public sealed class CustomerTrackingTests
         var order = CreateOrder(data, user.Id, store.Id);
         var operations = new OrderOperationsService(data, CreateResolver(data, user), new QuickCommerce.Application.Validators.OrderLifecycleRequestValidator());
 
-        var transition = await operations.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted));
+        var transition = await operations.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Rejected));
 
         Assert.Equal(QuickCommerce.Application.Interfaces.OrderOperationStatus.Succeeded, transition.Status);
         var notification = Assert.Single(data.Notifications);

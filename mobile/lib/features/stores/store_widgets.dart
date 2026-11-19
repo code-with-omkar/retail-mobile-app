@@ -25,17 +25,17 @@ class StoreBar extends ConsumerWidget {
     // No place yet: ask where to deliver before anything else.
     final delivery = ref.watch(deliveryStateProvider);
     if (delivery is DeliveryNone) return const _ChooseLocationCard();
-    if (delivery is DeliveryLoading) return const SkeletonBox(height: 104, radius: QC.rCard);
+    if (delivery is DeliveryLoading) return const SkeletonBox(height: 72, radius: QC.rCard);
     final store = ref.watch(selectedStoreProvider);
     return store.when(
-      loading: () => const SkeletonBox(height: 104, radius: QC.rCard),
+      loading: () => const SkeletonBox(height: 72, radius: QC.rCard),
       error: (_, _) => _Frame(
         onTap: () => ref.invalidate(serviceableStoresProvider),
         child: Row(children: [
           const Icon(Icons.cloud_off_outlined, color: Pal.ink),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(context.tr('Could not load'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 17)),
+            Text(context.tr('Could not load'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 15)),
             Text(context.tr('Retry'), style: const TextStyle(color: Pal.ink, fontSize: 13, decoration: TextDecoration.underline)),
           ])),
         ]),
@@ -49,7 +49,7 @@ class StoreBar extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(context.tr('We do not deliver here yet'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 17, height: 1.15)),
+                    Text(context.tr('We do not deliver here yet'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 15, height: 1.15)),
                     Text(context.tr('Try another address'), style: const TextStyle(color: Pal.ink, fontSize: 13, decoration: TextDecoration.underline)),
                   ]),
                 ),
@@ -62,12 +62,12 @@ class StoreBar extends ConsumerWidget {
                 // On a narrow phone the Change button shrinks to an icon so the store name keeps its room.
                 final narrow = box.maxWidth < 300;
                 return Row(children: [
-                  const _StoreIcon(52),
+                  const _StoreIcon(40),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(context.tr('SHOPPING FROM'), style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.4)),
-                      Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontSize: 18, fontWeight: FontWeight.w900, height: 1.2)),
+                      Text(context.tr('SHOPPING FROM'), style: const TextStyle(color: Pal.ink, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                      Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontSize: 15, fontWeight: FontWeight.w900, height: 1.2)),
                       Text('${kmAway(context, s)} · ${context.tr('arrives in {n} min', {'n': '${s.estimatedMinutes}'})}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Pal.ink, fontSize: 13, fontWeight: FontWeight.w500)),
                     ]),
                   ),
@@ -176,7 +176,7 @@ class _InkButton extends StatelessWidget {
 }
 
 class _Frame extends StatelessWidget {
-  const _Frame({required this.child, required this.onTap, this.label, this.radius = QC.rCard, this.padding = const EdgeInsets.all(16)});
+  const _Frame({required this.child, required this.onTap, this.label, this.radius = QC.rCard, this.padding = const EdgeInsets.all(12)});
   final Widget child;
   final VoidCallback onTap;
   final String? label;
@@ -237,16 +237,16 @@ class StoresRail extends ConsumerWidget {
     final p = context.pal;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(QC.gutter, 18, QC.gutter, 8),
+        padding: const EdgeInsets.fromLTRB(QC.gutter, 14, QC.gutter, 8),
         child: SectionHeader(context.tr('Stores that deliver to you'), action: context.tr('See all {n}', {'n': '${stores.length}'}), onAction: () => context.push('/stores')),
       ),
       SizedBox(
-        height: 84,
+        height: 80,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: QC.gutter),
           itemCount: stores.length,
-          separatorBuilder: (_, _) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
           itemBuilder: (context, i) {
             final store = stores[i];
             final selected = store.id == selectedId;
@@ -258,18 +258,21 @@ class StoresRail extends ConsumerWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: () => chooseStore(context, ref, store),
                 child: Container(
-                  width: 214,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rCard), border: Border.all(color: selected ? Pal.yellow : Colors.transparent, width: 3)),
+                  width: 196,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(QC.rCard), border: Border.all(color: selected ? Pal.yellow : Colors.transparent, width: 2)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                     Row(children: [
-                      Expanded(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 15))),
+                      Expanded(child: Text(store.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 14))),
                       if (selected) const Icon(Icons.check_circle, size: 18, color: Pal.yellow),
                     ]),
                     const SizedBox(height: 4),
                     Row(children: [
                       Flexible(child: Text('${store.distanceKm.toStringAsFixed(1)} km · ${context.tr('{n} min', {'n': '${store.estimatedMinutes}'})}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700))),
-                      if (i == 0) ...[const SizedBox(width: 6), const _Tag()],
+                      if (store.sponsored)
+                        ...[const SizedBox(width: 6), _Tag(context.tr('Sponsored'), Pal.yellow)]
+                      else if (i == (stores.first.sponsored ? 1 : 0))
+                        ...[const SizedBox(width: 6), _Tag(context.tr('Nearest'), Pal.green)],
                     ]),
                   ]),
                 ),
@@ -283,13 +286,15 @@ class StoresRail extends ConsumerWidget {
 }
 
 class _Tag extends StatelessWidget {
-  const _Tag();
+  const _Tag(this.label, this.color);
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(color: Pal.green, borderRadius: BorderRadius.circular(QC.rPill)),
-        child: Text(context.tr('Nearest'), style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w900)),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(QC.rPill)),
+        child: Text(label, style: const TextStyle(color: Pal.ink, fontSize: 11, fontWeight: FontWeight.w900)),
       );
 }
 

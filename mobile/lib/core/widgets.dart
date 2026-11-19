@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import '../data/api/api_exception.dart';
 import '../data/models.dart';
 import '../features/cart/cart_controller.dart';
+import '../features/offers/festival_card.dart';
+import '../features/offers/offers_controller.dart';
 import 'l10n.dart';
 import 'theme.dart';
 
@@ -42,7 +45,7 @@ class LabeledField extends StatelessWidget {
 }
 
 class Surface extends StatelessWidget {
-  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.color, this.radius = QC.rCard});
+  const Surface({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.color, this.radius = QC.rCard});
   final Widget child;
   final EdgeInsets padding;
   final Color? color;
@@ -209,7 +212,7 @@ class ProductVisual extends StatelessWidget {
         final url = product.imageUrl;
         return ColoredBox(
           color: product.color,
-          child: Center(child: url == null ? fallback : Image.network(url, fit: BoxFit.cover, width: double.infinity, height: double.infinity, loadingBuilder: (_, child, progress) => progress == null ? child : fallback, errorBuilder: (_, _, _) => fallback)),
+          child: Center(child: url == null ? fallback : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, width: double.infinity, height: double.infinity, memCacheWidth: (side * MediaQuery.devicePixelRatioOf(context)).round(), placeholder: (_, _) => fallback, errorWidget: (_, _, _) => fallback)),
         );
       });
 }
@@ -240,6 +243,42 @@ class DiscountSticker extends StatelessWidget {
       );
 }
 
+/// A corner ribbon for a discounted item, across the top-left corner of whatever it is placed over (give it a clipped parent).
+class DiscountRibbon extends StatelessWidget {
+  const DiscountRibbon(this.pct, {super.key, this.size = 58, this.fontSize = 9});
+  final int pct;
+  final double size, fontSize;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: context.tr('{n}% off', {'n': '$pct'}),
+        child: ExcludeSemantics(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: ClipRect(
+              child: Stack(children: [
+                Positioned(
+                  left: -size * 0.34,
+                  top: size * 0.2,
+                  child: Transform.rotate(
+                    angle: -math.pi / 4,
+                    child: Container(
+                      width: size * 1.5,
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      alignment: Alignment.center,
+                      color: Pal.pink,
+                      child: Text(context.tr('{n}% off', {'n': '$pct'}).toUpperCase(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: fontSize, letterSpacing: .3)),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
 class PriceText extends StatelessWidget {
   const PriceText(this.price, {super.key, this.mrp, this.size = 18, this.onCard = true});
   final num price;
@@ -261,12 +300,13 @@ class PriceText extends StatelessWidget {
   }
 }
 
-class ProductCard extends StatelessWidget {
+class ProductCard extends ConsumerWidget {
   const ProductCard(this.product, {super.key});
   final Product product;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final festive = ref.watch(festivalProductThemesProvider)[product.id];
     final p = context.pal;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -275,12 +315,13 @@ class ProductCard extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
-            height: 80,
+            height: 72,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(12),
               child: Stack(fit: StackFit.expand, children: [
                 Opacity(opacity: product.inStock ? 1 : .45, child: ProductVisual(product)),
-                if (product.discountPct > 0) Positioned(top: 6, left: 6, child: DiscountSticker(product.discountPct)),
+                if (product.discountPct > 0) Positioned(top: 0, left: 0, child: DiscountRibbon(product.discountPct)),
+                if (festive != null) Positioned(bottom: 4, left: 4, child: FestivalProductTag(festive)),
               ]),
             ),
           ),
@@ -293,13 +334,13 @@ class ProductCard extends StatelessWidget {
               ]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: p.onCard, fontSize: 14),
+              style: TextStyle(color: p.onCard, fontSize: 13),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(left: 6, top: 2),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price))),
+              Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: PriceText(product.price, mrp: product.mrp, size: 16))),
               QuantityControl(product, size: 30),
             ]),
           ),
@@ -318,7 +359,7 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Flexible(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Pal.onGround))),
-        if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(minimumSize: const Size(48, 36), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: Text(action!)),
+        if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(minimumSize: const Size(QC.minTap, QC.minTap), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: Text(action!)),
       ]);
 }
 

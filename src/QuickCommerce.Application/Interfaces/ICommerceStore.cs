@@ -43,6 +43,7 @@ public interface ICommerceStore
     Task<IReadOnlyList<Notification>> GetNotificationsAsync(Guid customerId, bool unreadOnly, CancellationToken cancellationToken = default);
     Task<bool> SetNotificationReadAsync(Guid notificationId, Guid customerId, bool isRead, CancellationToken cancellationToken = default);
     Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default);
+    Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default);
     /// <summary>Marks every unread notification of the customer as read. Returns how many changed.</summary>
     Task<int> MarkAllNotificationsReadAsync(Guid customerId, CancellationToken cancellationToken = default);
     Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default);

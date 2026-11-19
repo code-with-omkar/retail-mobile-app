@@ -185,10 +185,13 @@ class PagedDto<T> {
 
 /// `GET /api/catalog/stores/nearest` and each item of `GET /api/catalog/stores` (which also carries the address).
 class NearestStoreDto {
-  const NearestStoreDto({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, required this.serviceRadiusKm, this.address = ''});
+  const NearestStoreDto({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, required this.serviceRadiusKm, this.address = '', this.sponsored = false});
   final String id, name, address;
   final double distanceKm, serviceRadiusKm;
   final int estimatedMinutes;
+
+  /// The store that paid for first place in this pincode this week.
+  final bool sponsored;
 
   factory NearestStoreDto.fromJson(Map<String, dynamic> j) => NearestStoreDto(
         id: _req<String>(j, 'id'),
@@ -197,5 +200,6 @@ class NearestStoreDto {
         distanceKm: _num(j, 'distanceKm'),
         estimatedMinutes: _req<int>(j, 'estimatedMinutes'),
         serviceRadiusKm: _num(j, 'serviceRadiusKm'),
+        sponsored: j['sponsored'] == true,
       );
 }

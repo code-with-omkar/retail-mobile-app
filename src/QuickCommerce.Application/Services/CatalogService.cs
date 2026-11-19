@@ -6,7 +6,7 @@ using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.Services;
 
-public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null) : ICatalogService
+public sealed class CatalogService(ICommerceStore data, IStoreSelectionService storeSelectionService, ICacheService cache, IDeliveryEstimator? deliveryEstimator = null, IPlacementLookup? placement = null, TimeProvider? timeProvider = null, IOfferDiscountLookup? offers = null) : ICatalogService
 {
     private readonly IDeliveryEstimator estimator = deliveryEstimator ?? new DeliveryEstimator(new DeliverySettings());
     private static readonly TimeSpan CategoriesTtl = TimeSpan.FromMinutes(15);
@@ -162,6 +162,26 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
             .ThenBy(entry => entry.Store.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => new ServiceableStoreResponse(entry.Store.Id, entry.Store.Name, entry.Store.Address, Math.Round(entry.Distance, 1), estimator.EstimateMinutes(entry.Distance), entry.Store.ServiceRadiusKm))
             .ToArray();
+        // Paid placement: the store that won first place in this pincode this week goes first, marked sponsored, but only if it already
+        // delivers here. Without a pincode, or without a winner, the order stays nearest first.
+        if (placement is not null && PlacementWeeks.IsPincode(query.Pincode) && stores.Length > 1)
+        {
+            var leader = await placement.GetLeadingStoreAsync(query.Pincode!, (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+            var at = Array.FindIndex(stores, store => store.Id == leader);
+            if (leader is not null && at >= 0)
+            {
+                stores = [stores[at] with { Sponsored = true }, .. stores.Where((_, index) => index != at)];
+            }
+        }
+        else if (placement is not null && PlacementWeeks.IsPincode(query.Pincode) && stores.Length == 1)
+        {
+            var leader = await placement.GetLeadingStoreAsync(query.Pincode!, (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+            if (leader == stores[0].Id)
+            {
+                stores = [stores[0] with { Sponsored = true }];
+            }
+        }
+
         return ServiceableStoreListResult.Succeeded(stores);
     }
 
@@ -198,7 +218,42 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
 
         var variantIds = items.SelectMany(item => item.Variants ?? []).Select(variant => variant.Id).ToArray();
         var stock = (await data.GetStoreVariantInventoryAsync(storeId, variantIds, cancellationToken)).ToDictionary(row => row.VariantId);
-        return items.Select(item => ApplyStock(item, stock)).ToArray();
+        var withStock = items.Select(item => ApplyStock(item, stock)).ToArray();
+        if (offers is null)
+        {
+            return withStock;
+        }
+
+        // Offers are added fresh on every request too (like stock): they start and end by the clock, and the cached page never holds them.
+        var percents = await offers.GetPercentsAsync(storeId, withStock.Select(item => item.Id).ToArray(), (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime, cancellationToken);
+        return withStock.Select(item => ApplyOffer(item, percents.GetValueOrDefault(item.Id))).ToArray();
+    }
+
+    /// <summary>
+    /// Percent off every size of the product: the price drops, the MRP stays what it was (the normal price when there was no MRP), so the app
+    /// shows the old figure struck through and the saving. The same rule prices the cart and checkout.
+    /// </summary>
+    private static CatalogProductResponse ApplyOffer(CatalogProductResponse product, int percent)
+    {
+        if (percent <= 0)
+        {
+            return product;
+        }
+
+        var variants = (product.Variants ?? []).Select(variant =>
+        {
+            var price = OfferPricing.Apply(variant.Price, percent);
+            return variant with { Price = price, DiscountPercent = CatalogPricing.DiscountPercent(price, variant.Mrp), OfferPercent = percent };
+        }).ToArray();
+        var defaultVariant = variants.FirstOrDefault(variant => variant.IsDefault);
+        var productPrice = defaultVariant?.Price ?? OfferPricing.Apply(product.Price, percent);
+        return product with
+        {
+            Price = productPrice,
+            DiscountPercent = CatalogPricing.DiscountPercent(productPrice, product.Mrp),
+            Variants = product.Variants is null ? null : variants,
+            OfferPercent = percent
+        };
     }
 
     // A store with no stock row for a variant does not carry it. Only flags leave the API, never quantities.
@@ -209,10 +264,22 @@ public sealed class CatalogService(ICommerceStore data, IStoreSelectionService s
         {
             stock.TryGetValue(variant.Id, out var row);
             var inStock = row is { AvailableQuantity: > 0 };
-            return variant with { InStock = inStock, LowStock = inStock && row!.AvailableQuantity <= row.ReorderThreshold };
+            // The store's own price replaces the shared one; the old figure (MRP or shared price) stays struck through when this is lower.
+            var storePrice = row?.PriceOverride ?? variant.Price;
+            var shown = variant with
+            {
+                Price = storePrice,
+                Mrp = storePrice > variant.Mrp ? storePrice : variant.Mrp,
+                DiscountPercent = CatalogPricing.DiscountPercent(storePrice, variant.Mrp),
+                InStock = inStock,
+                LowStock = inStock && row!.AvailableQuantity <= row.ReorderThreshold
+            };
+            return shown;
         }).ToArray();
         var defaultVariant = variants.FirstOrDefault(variant => variant.IsDefault);
-        return product with { Variants = variants, InStock = defaultVariant?.InStock ?? false, LowStock = defaultVariant?.LowStock ?? false };
+        return defaultVariant is null
+            ? product with { Variants = variants, InStock = false, LowStock = false }
+            : product with { Variants = variants, InStock = defaultVariant.InStock ?? false, LowStock = defaultVariant.LowStock ?? false, Price = defaultVariant.Price, Mrp = defaultVariant.Mrp, DiscountPercent = defaultVariant.DiscountPercent };
     }
 
     public async Task<IReadOnlyList<CatalogCategoryResponse>> GetCatalogCategoriesAsync(CancellationToken cancellationToken = default)

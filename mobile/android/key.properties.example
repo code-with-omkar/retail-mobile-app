@@ -1,0 +1,7 @@
+# Copy to key.properties (it is ignored by git) and fill in. Create the upload key once with:
+#   keytool -genkey -v -keystore %USERPROFILE%quickcart-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# Keep the .jks file and its passwords somewhere safe and OUTSIDE the repository: losing it means a new key request to Google Play.
+storeFile=C:/Users/you/quickcart-upload.jks
+storePassword=
+keyAlias=upload
+keyPassword=

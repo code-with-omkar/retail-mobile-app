@@ -30,7 +30,7 @@ class Pal extends ThemeExtension<Pal> {
   static const pink = Color(0xFFFB1A8E);
   static const green = Color(0xFF02F34C);
   static const onGround = Colors.white;
-  static const mutedOnGround = Color(0xFFD8CCFF);
+  static const mutedOnGround = Color(0xFFE9E4FF);
 
   final bool dark;
   final List<Color> gradient;
@@ -41,7 +41,7 @@ class Pal extends ThemeExtension<Pal> {
 
   static const light = Pal(
     dark: false,
-    gradient: [Color(0xFF2A1BFF), Color(0xFF6A11E8), Color(0xFFB00699)],
+    gradient: [Color(0xFF2A1BFF), Color(0xFF6A11E8), Color(0xFFA80695)],
     card: Color(0xFFE9E4FF),
     onCard: ink,
     mutedOnCard: Color(0xFF5B5575),
@@ -87,8 +87,8 @@ extension PalContext on BuildContext {
 }
 
 class QC {
-  static const rCard = 28.0, rField = 20.0, rPill = 999.0;
-  static const gutter = 20.0;
+  static const rCard = 16.0, rField = 14.0, rPill = 999.0;
+  static const gutter = 16.0;
   static const minTap = 48.0;
 
   static ThemeData theme(Brightness b) {

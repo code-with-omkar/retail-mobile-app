@@ -47,6 +47,10 @@ dependencies:
   url_launcher: ^6.3.3
   razorpay_flutter: ^1.4.7
   google_fonts: ^6.2.1
+  google_sign_in: ^7.2.0
+  google_maps_flutter: ^2.19.0
+  cached_network_image: ^4.0.6
+  sentry_flutter: ^10.5.0
 
 dev_dependencies:
   flutter_test:

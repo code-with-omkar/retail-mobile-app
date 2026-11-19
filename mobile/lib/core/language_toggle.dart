@@ -21,7 +21,7 @@ class LanguageToggle extends ConsumerWidget {
           behavior: HitTestBehavior.opaque,
           onTap: () => ref.read(localeProvider.notifier).set(Locale(code)),
           child: Container(
-            height: 44,
+            height: QC.minTap,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             alignment: Alignment.center,
             decoration: BoxDecoration(color: on ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill)),

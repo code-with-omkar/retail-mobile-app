@@ -183,12 +183,24 @@ class FakeOrderRepository implements OrderRepository {
   Duration delay = Duration.zero;
   var _number = 2000;
 
+  /// The note and out-of-stock choice sent with each attempt, in the same order as [attempts].
+  final notes = <({String? note, String choice})>[];
+
+  /// The delivery window start sent with each attempt (null for as soon as possible), in the same order as [attempts].
+  final slots = <DateTime?>[];
+
+  /// The coupon code sent with each attempt (null when none), in the same order as [attempts].
+  final coupons = <String?>[];
+
   /// Keys already used: the same key returns the same order.
   final _byKey = <String, Order>{};
 
   @override
-  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false}) async {
+  Future<Order> place({required String storeId, required String idempotencyKey, String? addressId, DeliveryPlace? place, bool online = false, String? note, String outOfStockChoice = 'CallMe', String? couponCode, DateTime? deliverySlotStart}) async {
+    coupons.add(couponCode);
+    slots.add(deliverySlotStart);
     attempts.add((storeId: storeId, key: idempotencyKey, addressId: addressId, place: place, online: online));
+    notes.add((note: note, choice: outOfStockChoice));
     if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (_byKey[idempotencyKey] case final known?) return known;
     if (failures.isNotEmpty) throw failures.removeAt(0);
@@ -266,6 +278,10 @@ Order sampleOrder({
   String? storePhone = '02249000001',
   int? estimatedMinutes,
   DateTime? placedAt,
+  String? deliveryPartnerName,
+  String? deliveryPartnerPhone,
+  String? deliveryOtp,
+  String payment = 'CashOnDelivery',
 }) {
   final ls = lines ?? const [OrderLine(productId: 'milk', variantId: 'milk:1l', name: 'Farm Milk', label: '1 l', unitPrice: 34, quantity: 2), OrderLine(productId: 'rice', variantId: 'rice:5kg', name: 'Basmati Rice', label: '5 kg', unitPrice: 89, quantity: 1)];
   final subtotal = ls.fold<double>(0, (s, l) => s + l.total);
@@ -281,12 +297,15 @@ Order sampleOrder({
     placedAt: placedAt ?? DateTime(2026, 10, 2, 18, 40),
     stage: stage,
     address: 'Flat 4, 12 Marine Drive, Mumbai',
-    payment: 'CashOnDelivery',
+    payment: payment,
     receiverName: receiverName,
     receiverPhone: receiverName == null ? null : '9876543210',
     storeName: storeName,
     storePhone: storePhone,
     estimatedMinutes: estimatedMinutes,
+    deliveryPartnerName: deliveryPartnerName,
+    deliveryPartnerPhone: deliveryPartnerPhone,
+    deliveryOtp: deliveryOtp,
   );
 }
 
@@ -309,8 +328,26 @@ class FakeNotificationRepository implements NotificationRepository {
     }
   }
 
+  var offers = true;
+  String? lastLanguage;
+
   @override
-  Future<List<AppNotification>> list() async {
+  Future<bool> offersEnabled() async {
+    calls.add('offers');
+    _maybeFail();
+    return offers;
+  }
+
+  @override
+  Future<void> setOffers(bool enabled) async {
+    calls.add('setOffers $enabled');
+    _maybeFail();
+    offers = enabled;
+  }
+
+  @override
+  Future<List<AppNotification>> list({String? language}) async {
+    lastLanguage = language;
     calls.add('list');
     _maybeFail();
     return List.of(items)..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first, like the real repository

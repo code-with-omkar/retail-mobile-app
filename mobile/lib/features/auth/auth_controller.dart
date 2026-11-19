@@ -42,8 +42,17 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> login(String email, String password) async => _set(await ref.read(authRepositoryProvider).login(email: email, password: password));
 
+  Future<void> loginWithOtp(String phone, String code) async => _set(await ref.read(authRepositoryProvider).verifyOtp(phone: phone, code: code));
+
+  Future<void> loginWithGoogle(String idToken) async => _set(await ref.read(authRepositoryProvider).googleSignIn(idToken));
+
   Future<void> register({required String fullName, required String email, required String password, String? phoneNumber}) async =>
       _set(await ref.read(authRepositoryProvider).register(fullName: fullName, email: email, password: password, phoneNumber: phoneNumber));
+
+  Future<void> deleteAccount({String? password}) async {
+    await ref.read(authRepositoryProvider).deleteAccount(password: password);
+    state = const AuthState(AuthStatus.signedOut);
+  }
 
   /// A profile edit made on this device.
   void profileChanged(CustomerProfile user) => state = AuthState(AuthStatus.signedIn, user);

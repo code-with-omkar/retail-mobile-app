@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/analytics.dart';
 import 'core/l10n.dart';
 import 'core/prefs.dart';
 import 'core/theme.dart';
@@ -12,14 +13,18 @@ import 'features/address/address_editor_screen.dart';
 import 'features/address/address_list_screen.dart';
 import 'features/address/delivery_actions.dart';
 import 'features/auth/auth_controller.dart';
+import 'features/favourites/favourites_screen.dart';
 import 'features/auth/auth_screens.dart';
 import 'features/auth/auth_widgets.dart';
+import 'features/auth/otp_screens.dart';
+import 'features/auth/phone_screens.dart';
 import 'features/cart/cart_screen.dart';
 import 'features/checkout/checkout_screen.dart';
 import 'features/dev/api_diagnostics_screen.dart';
 import 'features/home/categories_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/notifications/notifications_screen.dart';
+import 'features/offers/offer_screen.dart';
 import 'features/orders/order_detail_screen.dart';
 import 'features/orders/orders_screen.dart';
 import 'features/payment/pay_screen.dart';
@@ -27,6 +32,7 @@ import 'features/product/product_screen.dart';
 import 'features/profile/account_screens.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/shell/app_shell.dart';
+import 'data/providers.dart';
 import 'features/stores/stores_screen.dart';
 
 /// Screens that need a signed-in customer. The API enforces this too; this only saves a guest from a dead end.
@@ -59,15 +65,23 @@ GoRouter createRouter({AuthState Function()? auth, Listenable? refresh}) => GoRo
         GoRoute(path: '/category/:id', builder: (_, s) => CategoryProductsScreen(s.pathParameters['id']!)),
         GoRoute(path: '/product/:id', builder: (_, s) => ProductScreen(s.pathParameters['id']!)),
         GoRoute(path: '/welcome', builder: (_, s) => WelcomeScreen(next: s.uri.queryParameters['next'])),
+        GoRoute(path: '/phone', builder: (_, s) => PhoneScreen(next: s.uri.queryParameters['next'], verify: s.uri.queryParameters['verify'] == '1')),
+        GoRoute(
+          path: '/otp',
+          builder: (_, s) => OtpScreen(s.uri.queryParameters['phone'] ?? '', verify: s.uri.queryParameters['verify'] == '1', next: s.uri.queryParameters['next'], resendSeconds: int.tryParse(s.uri.queryParameters['wait'] ?? '') ?? 30),
+        ),
         GoRoute(path: '/login', builder: (_, s) => LoginScreen(next: s.uri.queryParameters['next'])),
         GoRoute(path: '/register', builder: (_, s) => RegisterScreen(next: s.uri.queryParameters['next'])),
         GoRoute(path: '/forgot', builder: (_, _) => const ForgotPasswordScreen()),
         GoRoute(path: '/reset', builder: (_, s) => ResetPasswordScreen(s.uri.queryParameters['email'] ?? '')),
         GoRoute(path: '/account/profile', builder: (_, _) => const EditProfileScreen()),
         GoRoute(path: '/account/password', builder: (_, _) => const ChangePasswordScreen()),
+        GoRoute(path: '/account/delete', builder: (_, _) => const DeleteAccountScreen()),
         GoRoute(path: '/address', redirect: (_, _) => '/addresses'),
         GoRoute(path: '/addresses', builder: (_, _) => const AddressListScreen()),
+        GoRoute(path: '/favourites', builder: (_, _) => const FavouritesScreen()),
         GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+        GoRoute(path: '/offer/:id', builder: (_, s) => OfferScreen(s.pathParameters['id']!)),
         GoRoute(path: '/addresses/new', builder: (_, s) => AddressEditorScreen(args: s.extra as AddressEditorArgs?)),
         GoRoute(path: '/addresses/:id/edit', builder: (_, s) => _EditAddressRoute(s.pathParameters['id']!, s.extra as AddressEditorArgs?)),
         GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
@@ -100,20 +114,29 @@ class QuickCartApp extends ConsumerStatefulWidget {
   ConsumerState<QuickCartApp> createState() => _QuickCartAppState();
 }
 
-class _QuickCartAppState extends ConsumerState<QuickCartApp> {
+class _QuickCartAppState extends ConsumerState<QuickCartApp> with WidgetsBindingObserver {
   final _signInChanged = ValueNotifier<int>(0);
   late final _router = createRouter(auth: () => ref.read(authProvider), refresh: _signInChanged);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ref.read(analyticsProvider).track(Track.appOpen);
     ref.listenManual(authProvider, (prev, next) {
       if (prev?.status != next.status) _signInChanged.value++;
     });
   }
 
+  // Steps still waiting are sent as the app goes to the background, so they are not lost if it is closed there.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) ref.read(analyticsProvider).flush();
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _signInChanged.dispose();
     super.dispose();
   }

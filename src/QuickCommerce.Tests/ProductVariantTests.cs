@@ -459,7 +459,7 @@ public sealed class ProductVariantTests
     public void Customer_variant_responses_never_carry_a_quantity()
     {
         var names = typeof(CatalogVariantResponse).GetProperties().Select(property => property.Name).Order().ToArray();
-        Assert.Equal(["DiscountPercent", "Id", "InStock", "IsDefault", "Label", "LowStock", "Mrp", "Price"], names);
+        Assert.Equal(["DiscountPercent", "Id", "InStock", "IsDefault", "Label", "LowStock", "Mrp", "OfferPercent", "Price"], names);
     }
 
     private sealed class NoCache : ICacheService
