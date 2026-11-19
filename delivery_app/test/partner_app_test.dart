@@ -279,6 +279,44 @@ void main() {
       expect(api.calls.last, 'deliver o1 4821 0.0');
     });
 
+    testWidgets('a short code or a missing cash amount is caught on the phone, with no request to the server', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery')]);
+      await open(tester, api);
+      await tester.tap(find.text('#KH-261012-0001'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('otp')), '48');
+      await tester.tap(find.byKey(const Key('deliver')));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter the 4-digit code from the customer.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('otp')), '4821');
+      await tester.enterText(find.byKey(const Key('cash')), '');
+      await tester.tap(find.byKey(const Key('deliver')));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter the cash you collected.'), findsOneWidget);
+      expect(api.calls.where((call) => call.startsWith('deliver')), isEmpty);
+    });
+
+    testWidgets('the cash field warns when the amount is not the amount due', (tester) async {
+      await open(tester, FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery')]));
+      await tester.tap(find.text('#KH-261012-0001'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('to collect.'), findsNothing); // starts at the amount due
+
+      await tester.enterText(find.byKey(const Key('cash')), '200');
+      await tester.pump();
+      expect(find.text('Less than the ₹250 to collect.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('cash')), '300');
+      await tester.pump();
+      expect(find.text('More than the ₹250 to collect.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('cash')), '250');
+      await tester.pump();
+      expect(find.textContaining('to collect.'), findsNothing);
+    });
+
     testWidgets('the code field takes only digits, at most four', (tester) async {
       await open(tester, FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery')]));
       await tester.tap(find.text('#KH-261012-0001'));

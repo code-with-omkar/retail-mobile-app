@@ -405,6 +405,19 @@ Needs a second organization in the database (ask me to add a test one). Sign in 
 | Z5 | Sign in as store staff or a customer-facing admin (not platform admin). | No Organization choice. | ☐ | |
 | Z6 | Sign out while looking at the other organization, then sign in again. | You are back in your own organization (the choice is forgotten). | ☐ | |
 
+## AA. Crash reporting, refund wording and partner checks
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| AA1 | Run the apps and the API as usual (no Sentry key). | Everything works; nothing is sent anywhere. | ☐ | |
+| AA2 | Cancel a cash order (before the store accepts). | Order screen: "This order was cancelled." and under it "You were not charged for this order." | ☐ | |
+| AA3 | Cancel a paid online order. | Under the banner: your amount refund is on its way, 5 to 7 working days; in Marathi the same in Marathi. | ☐ | |
+| AA4 | Store declines an online order that was paid. | Banner "The store declined this order." with the refund line. | ☐ | |
+| AA5 | Partner app: open an order that is out for delivery, type a 2-digit code and press Delivered. | Message "Enter the 4-digit code from the customer." and nothing is sent. | ☐ | |
+| AA6 | Partner app: clear the cash box and press Delivered. | "Enter the cash you collected." | ☐ | |
+| AA7 | Partner app: type less or more cash than due. | A red note under the box says it is less or more than the amount to collect. | ☐ | |
+| AA8 | (Only once you have a Sentry account) set Sentry:Dsn for the API, window.__SENTRY_DSN__ for the portal and --dart-define=SENTRY_DSN for the apps, cause a test crash. | The crash shows in Sentry with no user, no phone number, no request details. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.

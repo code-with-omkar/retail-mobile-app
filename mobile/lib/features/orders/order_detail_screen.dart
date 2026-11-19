@@ -214,7 +214,15 @@ class _DetailState extends ConsumerState<_Detail> {
               child: Row(children: [
                 Icon(order.stage == OrderStage.cancelled ? Icons.cancel_outlined : Icons.block, color: Colors.white),
                 const SizedBox(width: 12),
-                Expanded(child: Text(order.stage == OrderStage.cancelled ? context.tr('This order was cancelled.') : context.tr('The store declined this order.'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(order.stage == OrderStage.cancelled ? context.tr('This order was cancelled.') : context.tr('The store declined this order.'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(endedMoneyLine(context, order), key: const Key('ended-money-line'), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3)),
+                    ),
+                  ]),
+                ),
               ]),
             ),
             const SizedBox(height: 12),
@@ -398,6 +406,19 @@ class _DetailState extends ConsumerState<_Detail> {
       ),
     );
   }
+}
+
+/// What happened to the customer's money when an order was cancelled or declined: nothing charged, a refund on its way (with how long it
+/// takes), or a refund done. A refund that could not be made is explained in the payment card below.
+String endedMoneyLine(BuildContext context, Order order) {
+  final paidOnline = order.isOnline && {PaymentState.paid, PaymentState.refunding, PaymentState.refunded, PaymentState.refundFailed}.contains(order.paymentState);
+  if (!paidOnline) return context.tr('You were not charged for this order.');
+  final amount = rupees(order.total);
+  return switch (order.paymentState) {
+    PaymentState.refunded => context.tr('Your {amount} was refunded to your original payment method.', {'amount': amount}),
+    PaymentState.refundFailed => context.tr('We could not refund {amount} automatically. Please contact the store.', {'amount': amount}),
+    _ => context.tr('Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.', {'amount': amount}),
+  };
 }
 
 class _Timeline extends StatelessWidget {

@@ -299,6 +299,28 @@ class _DetailScreenState extends State<DetailScreen> {
     }
   }
 
+  /// Checks what the partner typed before asking the server, so a slip costs no round trip: a full 4-digit code, and a cash amount when cash is due.
+  Future<void> _deliver() async {
+    if (_otp.text.length != 4) {
+      setState(() => _error = 'Enter the 4-digit code from the customer.');
+      return;
+    }
+    final cash = d.cashToCollect > 0 ? double.tryParse(_cash.text.trim()) : 0.0;
+    if (cash == null || cash < 0) {
+      setState(() => _error = 'Enter the cash you collected.');
+      return;
+    }
+    await _run(() => widget.api.deliver(d.orderId, otp: _otp.text, cash: cash));
+  }
+
+  /// Under the cash field: says when the amount typed is not the amount due, before the partner confirms.
+  String? get _cashNote {
+    if (d.cashToCollect <= 0) return null;
+    final typed = double.tryParse(_cash.text.trim());
+    if (typed == null || (typed - d.cashToCollect).abs() < 0.005) return null;
+    return typed < d.cashToCollect ? 'Less than the ${rupees(d.cashToCollect)} to collect.' : 'More than the ${rupees(d.cashToCollect)} to collect.';
+  }
+
   Future<void> _call(String? phone) async {
     if (phone == null) return;
     if (!await widget.open(Uri(scheme: 'tel', path: phone)) && mounted) {
@@ -345,11 +367,11 @@ class _DetailScreenState extends State<DetailScreen> {
             if (d.cashToCollect > 0)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: TextField(key: const Key('cash'), controller: _cash, decoration: const InputDecoration(labelText: 'Cash collected (₹)'), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                child: TextField(key: const Key('cash'), controller: _cash, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: 'Cash collected (₹)', helperText: _cashNote, helperStyle: const TextStyle(color: Color(0xFFB00060), fontWeight: FontWeight.w700)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
               ),
             FilledButton(
               key: const Key('deliver'),
-              onPressed: _busy ? null : () => _run(() => widget.api.deliver(d.orderId, otp: _otp.text, cash: d.cashToCollect > 0 ? double.tryParse(_cash.text) ?? -1 : 0)),
+              onPressed: _busy ? null : _deliver,
               child: Text(_busy ? 'Please wait…' : 'Delivered'),
             ),
           ],

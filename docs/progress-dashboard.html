@@ -432,9 +432,16 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"35.1","t":"Server: acting-organization header, platform-admin check, read-only middleware with logging, organizations list","l":["A","Q"],"s":"M","d":"Backend 1230 plus HTTP test on a throwaway database.","ac":[],"a":[],"dep":[],"st":"done"},
  {"id":"35.2","t":"Portal: organization switcher, read-only banner, header on every request","l":["W","Q"],"s":"S","d":"230 portal tests.","ac":[],"a":[],"dep":["35.1"],"st":"done"},
  {"id":"35.3","t":"Add a second organization to the dev database and walk section Z","l":["I"],"s":"S","d":"Needs a second organization.","ac":[],"a":[],"dep":["35.2"],"st":"todo"}
+ ]},
+{"id":"P36","name":"Crash reporting and order polish","goal":"Crashes are visible without sending personal data; cancel and refund wording and partner checks are clearer.","deps":["P35"],"exit":["Crash reporting is off until a key is set and sends nothing personal","Cancelled orders say what happened to the money","Partner app checks the code and cash before asking the server"],
+ "tasks":[
+ {"id":"36.1","t":"Crash reporting (Sentry) in the API, portal, customer app and partner app with scrubbing and an off switch","l":["A","W","M","Q"],"s":"M","d":"Scrub tests in all four.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.2","t":"Customer app: money line on cancelled and declined orders (Marathi too)","l":["M","Q"],"s":"S","d":"Widget tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.3","t":"Partner app: code and cash checks on the phone, cash difference note","l":["M","Q"],"s":"S","d":"27 partner app tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.4","t":"Create a Sentry account, add the keys, verify a test crash from each place, build both apps once with sentry_flutter","l":["I"],"s":"S","d":"Needs your account.","ac":[],"a":[],"dep":["36.1"],"st":"todo"}
  ]}
 ],
-"backlog":["Push notifications (needs a Firebase project)","Crash reporting (needs an account)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Restyle the whole app to the Clean v4 final design"],
+"backlog":["Push notifications (needs a Firebase project)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Restyle the whole app to the Clean v4 final design"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

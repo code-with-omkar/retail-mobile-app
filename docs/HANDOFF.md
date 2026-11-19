@@ -20,6 +20,13 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P36 Crash reporting and order polish (built, tested, not committed; no migration)
+- Crash reporting with Sentry, off until a key is set, and scrubbed so no person, request body, headers, cookies, query string or tap trail is sent. API: Sentry:Dsn (Hosting/CrashReporting.cs). Portal: window.__SENTRY_DSN__ (core/crash-reporting.ts). Both apps: --dart-define=SENTRY_DSN=... (core/crash_reporting.dart, delivery_app/lib/crash_reporting.dart). Not verified: an Android release/debug build with the sentry_flutter native parts (build the apps once before relying on it), and nothing was sent to a real Sentry project (no account yet).
+- Customer app: a cancelled or declined order says what happened to the money (not charged / refund of the amount on its way, 5 to 7 working days / refunded / could not refund), in Marathi too (endedMoneyLine).
+- Partner app: Delivered checks a 4-digit code and a cash amount on the phone before asking the server, and a red note shows when the cash typed is less or more than due.
+- Tests: backend 1235, portal 232, partner app 27, customer app see dashboard. Walk test-cases AA.
+- Not done from the same request: push notifications (needs a Firebase project and google-services.json first; the server side, device registry and sender can be built before that) and the Clean v4 restyle (large; not started). Order tracking screen: already has the timeline, ETA, partner distance and the new money line; I found no further gap without a list from you.
+
 ## P35 Multi-organization switching (built, tested, not committed; no migration)
 - A platform administrator (role ApplicationAdmin only, not the ordinary Admin) can look at another organization: the portal sends header X-Organization-Id on every request; the server (AuthorizationScopeService, CurrentUserContextResolver) then answers for that organization. Anyone else sending the header, or an unknown or closed organization, gets 403.
 - Read-only there: ReadOnlyInOtherOrganizationMiddleware refuses any change (not /api/auth) with 403 and logs every request made in another organization (user, home organization, other organization, method, path).

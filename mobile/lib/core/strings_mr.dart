@@ -565,7 +565,10 @@ const marathi = <String, String>{
   '{item} removed (was {n})': '{item} काढली (आधी {n})',
   '{item}: {from} to {to}': '{item}: {from} वरून {to}',
   'Refund of {amount} done': '{amount} चा परतावा पूर्ण झाला',
+  'You were not charged for this order.': 'या ऑर्डरसाठी तुमच्याकडून कोणतेही पैसे घेतले नाहीत.',
+  'Your {amount} was refunded to your original payment method.': 'तुमचे {amount} तुमच्या मूळ पेमेंट पद्धतीकडे परत केले.',
   'We could not refund {amount} automatically. Please contact the store.': '{amount} आपोआप परत करता आले नाहीत. कृपया दुकानाशी संपर्क साधा.',
+  'Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.': 'तुमचा {amount} चा परतावा येत आहे. तो तुमच्या खात्यात दिसायला ५ ते ७ कामकाजाचे दिवस लागू शकतात.',
   'Refund of {amount} is on its way to your original payment method': '{amount} चा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे',
 
   // Replacement products
