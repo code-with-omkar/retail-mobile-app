@@ -115,7 +115,7 @@ class ApiCatalogRepository implements CatalogRepository {
     return productFromCatalogDto(dto, keys[dto.categoryId] ?? 'other', imageBase: _api.baseUrl);
   }
 
-  Future<Map<String, String>> _categoryKeys() async => {for (final c in await categories()) c.id: categoryKeyFor(c.label)};
+  Future<Map<String, String>> _categoryKeys() async => categoryKeysOf(await categories());
 }
 
 /// Registers every product it returns in the [ProductStore] so the cart can find them later.

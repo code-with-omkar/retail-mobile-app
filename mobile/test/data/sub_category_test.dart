@@ -25,6 +25,22 @@ void main() {
     expect(top.parentId, isNull);
   });
 
+  test('a sub-category with no group of its own takes its main category picture, and one with its own group keeps it', () {
+    const all = [
+      Category('g', 'Groceries', LucideIcons.shoppingBasket),
+      Category('dal', 'Dal', LucideIcons.layoutGrid, parentId: 'g'),
+      Category('dairy', 'Dairy', LucideIcons.cupSoda),
+      Category('curd', 'Curd', LucideIcons.layoutGrid, parentId: 'dairy'),
+      Category('milk', 'Milk', LucideIcons.cupSoda, parentId: 'g'),
+      Category('misc', 'Misc', LucideIcons.layoutGrid),
+    ];
+    final keys = categoryKeysOf(all);
+    expect(keys['dal'], 'pantry');
+    expect(keys['curd'], 'dairy');
+    expect(keys['milk'], 'dairy', reason: 'its own name matches the dairy group');
+    expect(keys['misc'], 'other');
+  });
+
   testWidgets('the chips are All plus each sub-category, the chosen one is marked, and a tap picks it', (tester) async {
     const subs = [Category('c2', 'Milk', LucideIcons.cupSoda, parentId: 'c1'), Category('c3', 'Curd', LucideIcons.cupSoda, parentId: 'c1')];
     final picked = <String?>[];

@@ -337,25 +337,25 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(order.storeName ?? '#${order.number}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800, fontSize: 15)),
+                        Row(
+                          children: [
+                            Expanded(child: Text(order.storeName ?? '#${order.number}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800, fontSize: 15))),
+                            Icon(LucideIcons.chevronRight, size: 18, color: p.mutedOnCard),
+                          ],
+                        ),
                         const SizedBox(height: 2),
-                        Text(order.storeName != null ? '#${order.number}' : formatDate(order.placedAt), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                        Row(
+                          children: [
+                            if (order.storeName != null) Text('#${order.number}', maxLines: 1, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
+                            const Spacer(),
+                            Icon(look.icon, size: 15, color: look.accent),
+                            const SizedBox(width: 4),
+                            Flexible(child: Text(stageLabel(context, order.stage), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.accent, fontWeight: FontWeight.w800, fontSize: 12))),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 140),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(look.icon, size: 16, color: look.accent),
-                        const SizedBox(width: 4),
-                        Flexible(child: Text(stageLabel(context, order.stage), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.accent, fontWeight: FontWeight.w800, fontSize: 12))),
-                      ],
-                    ),
-                  ),
-                  Icon(LucideIcons.chevronRight, size: 18, color: p.mutedOnCard),
                 ],
               ),
               const SizedBox(height: 12),

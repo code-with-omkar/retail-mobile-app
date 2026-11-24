@@ -52,7 +52,7 @@ final boughtBeforeProvider = FutureProvider.autoDispose<List<Product>>((ref) asy
   if (storeId == null) return const [];
   try {
     final catalog = ref.watch(catalogRepositoryProvider);
-    final keys = {for (final c in await catalog.categories()) c.id: categoryKeyFor(c.label)};
+    final keys = categoryKeysOf(await catalog.categories());
     final base = ref.watch(apiClientProvider).baseUrl;
     final products = [for (final d in await ref.watch(offersRepositoryProvider).boughtBefore(storeId)) productFromCatalogDto(d, keys[d.categoryId] ?? 'other', imageBase: base)];
     ref.read(productStoreProvider).putAll(products); // so the cart can find them

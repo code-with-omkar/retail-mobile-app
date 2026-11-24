@@ -29,6 +29,19 @@ String categoryKeyFor(String name) {
   return 'other';
 }
 
+/// The visual group key of every category by id. A sub-category that matches no group of its own (Dal) takes its main category's (Groceries),
+/// so its products keep that category's picture.
+Map<String, String> categoryKeysOf(List<Category> all) {
+  final byId = {for (final c in all) c.id: c};
+  String keyOf(Category c) {
+    final own = categoryKeyFor(c.label);
+    final parent = c.parentId == null ? null : byId[c.parentId];
+    return own == 'other' && parent != null ? categoryKeyFor(parent.label) : own;
+  }
+
+  return {for (final c in all) c.id: keyOf(c)};
+}
+
 IconData iconForCategoryKey(String key) => switch (key) {
   'vegetables' => LucideIcons.leaf,
   'fruits' => Icons.apple,
