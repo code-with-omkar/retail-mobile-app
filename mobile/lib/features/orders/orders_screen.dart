@@ -346,11 +346,12 @@ class _OrderCardState extends ConsumerState<_OrderCard> {
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            if (order.storeName != null) Text('#${order.number}', maxLines: 1, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                            const Spacer(),
+                            // The number gives way (…) before the state does, so "Order placed" is always read in full.
+                            Expanded(child: order.storeName != null ? Text('#${order.number}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.mutedOnCard, fontSize: 12)) : const SizedBox.shrink()),
+                            const SizedBox(width: 8),
                             Icon(look.icon, size: 15, color: look.accent),
                             const SizedBox(width: 4),
-                            Flexible(child: Text(stageLabel(context, order.stage), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.accent, fontWeight: FontWeight.w800, fontSize: 12))),
+                            Text(stageLabel(context, order.stage), maxLines: 1, style: TextStyle(color: look.accent, fontWeight: FontWeight.w800, fontSize: 12)),
                           ],
                         ),
                       ],
