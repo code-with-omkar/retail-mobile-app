@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -326,7 +327,7 @@ void main() {
       expect(find.text('Default'), findsOneWidget);
       expect(find.text('Flat 4, 12 Marine Drive, Mumbai'), findsOneWidget);
       expect(find.text('Asha Patil · 9876543210'), findsNWidgets(3));
-      expect(find.byIcon(Icons.check_circle), findsOneWidget, reason: 'the address being delivered to');
+      expect(find.byIcon(LucideIcons.circleCheck), findsOneWidget, reason: 'the address being delivered to');
       expect(find.text('We do not deliver here yet'), findsOneWidget, reason: 'only the Delhi address, as a badge');
     });
 

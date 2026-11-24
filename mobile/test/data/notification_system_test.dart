@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -125,16 +126,16 @@ void main() {
 
   group('icons', () {
     test('each kind of notification has its own icon', () {
-      expect(notificationIcon(_note('Offer', 'Offer')), Icons.local_offer_outlined);
-      expect(notificationIcon(_note('OrderAccepted', 'Order')), Icons.storefront_outlined);
-      expect(notificationIcon(_note('OrderPacking', 'Order')), Icons.inventory_2_outlined);
-      expect(notificationIcon(_note('OutForDelivery', 'Order')), Icons.delivery_dining_outlined);
-      expect(notificationIcon(_note('OrderDelivered', 'Order')), Icons.check_circle_outline);
-      expect(notificationIcon(_note('OrderRejected', 'Order')), Icons.block);
-      expect(notificationIcon(_note('OrderCancelled', 'Order')), Icons.cancel_outlined);
-      expect(notificationIcon(_note('PaymentReceived', 'Payment')), Icons.account_balance_wallet_outlined);
-      expect(notificationIcon(_note('OrderStatusChanged', 'Order', title: 'Order cancelled')), Icons.cancel_outlined);
-      expect(notificationIcon(_note('Anything', 'System')), Icons.receipt_long_outlined);
+      expect(notificationIcon(_note('Offer', 'Offer')), LucideIcons.tag);
+      expect(notificationIcon(_note('OrderAccepted', 'Order')), LucideIcons.store);
+      expect(notificationIcon(_note('OrderPacking', 'Order')), LucideIcons.package);
+      expect(notificationIcon(_note('OutForDelivery', 'Order')), LucideIcons.bike);
+      expect(notificationIcon(_note('OrderDelivered', 'Order')), LucideIcons.circleCheck);
+      expect(notificationIcon(_note('OrderRejected', 'Order')), LucideIcons.ban);
+      expect(notificationIcon(_note('OrderCancelled', 'Order')), LucideIcons.circleX);
+      expect(notificationIcon(_note('PaymentReceived', 'Payment')), LucideIcons.wallet);
+      expect(notificationIcon(_note('OrderStatusChanged', 'Order', title: 'Order cancelled')), LucideIcons.circleX);
+      expect(notificationIcon(_note('Anything', 'System')), LucideIcons.receiptText);
     });
   });
 
@@ -146,7 +147,7 @@ void main() {
       expect(find.text('Order and payment updates are always sent.'), findsOneWidget);
       expect(find.text('Festival sale'), findsOneWidget);
       expect(find.text('Offer'), findsOneWidget);
-      expect(find.byIcon(Icons.local_offer_outlined), findsOneWidget);
+      expect(find.byIcon(LucideIcons.tag), findsOneWidget);
     });
 
     testWidgets('an offer names the store it is from', (tester) async {

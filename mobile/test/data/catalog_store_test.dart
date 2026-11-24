@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -297,7 +298,7 @@ class _FakeRepo implements CatalogRepository {
   final carriedOnlySeen = <bool>[];
 
   @override
-  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
+  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', LucideIcons.leaf)];
 
   @override
   Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => [?store];

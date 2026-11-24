@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,7 +36,7 @@ class _CouponBoxState extends ConsumerState<CouponBox> {
     if (s.applied) {
       return Surface(
         child: Row(children: [
-          const Icon(Icons.local_offer_outlined, color: Pal.green),
+          const Icon(LucideIcons.tag, color: Pal.green),
           const SizedBox(width: 10),
           Expanded(
             child: Text(context.tr('{code} applied', {'code': s.code ?? ''}), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w800, fontSize: 15)),

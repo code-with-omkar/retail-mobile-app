@@ -142,10 +142,10 @@ describe('CampaignsComponent', () => {
     expect(c.error()).toBe('Give the fee as a number of rupees, 0 or more.');
   });
 
-  it('only an administrator sees the card design choice, with Plain and the eight festivals', () => {
+  it('only an administrator sees the card design choice, with Plain, the eight festivals and the six everyday designs', () => {
     const admin = open(Role.Admin, apiWith({ get: baseGet() })).f.nativeElement as HTMLElement;
     const names = Array.from(admin.querySelectorAll('.design-tile')).map(b => b.textContent?.trim());
-    expect(names).toEqual(['Plain', 'Diwali', 'Ganeshotsav', 'Navratri', 'Holi', 'Sankranti', 'Gudi Padwa', 'Eid', 'Christmas']);
+    expect(names).toEqual(['Plain', 'Diwali', 'Ganeshotsav', 'Navratri', 'Holi', 'Sankranti', 'Gudi Padwa', 'Eid', 'Christmas', 'Fresh picks', 'Weekend sale', 'Big saver', 'Combo deal', 'Free delivery', 'New in store']);
 
     TestBed.resetTestingModule();
     expect((open(Role.StoreStaff, apiWith({ get: baseGet() })).f.nativeElement as HTMLElement).querySelector('.design-tile')).toBeNull();

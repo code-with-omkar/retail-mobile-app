@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -92,7 +93,7 @@ class _MapPickerScreenState extends ConsumerState<MapPickerScreen> {
       body: Stack(children: [
         Positioned.fill(child: ref.watch(mapViewBuilderProvider)(context, widget.start, _moved)),
         // The pin stays in the middle; its tip is on the spot.
-        const IgnorePointer(child: Center(child: Padding(padding: EdgeInsets.only(bottom: 40), child: Icon(Icons.location_on, size: 48, color: Pal.pink)))),
+        const IgnorePointer(child: Center(child: Padding(padding: EdgeInsets.only(bottom: 40), child: Icon(LucideIcons.mapPin, size: 48, color: Pal.pink)))),
         Positioned(
           left: QC.gutter,
           right: QC.gutter,

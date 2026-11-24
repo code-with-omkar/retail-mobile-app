@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,7 +86,97 @@ void main() {
       expect(find.text('#ORD-1002'), findsOneWidget);
       expect(find.text('Delivered'), findsOneWidget);
       expect(find.text('Packed'), findsOneWidget);
-      expect(find.text('3 items · ₹162'), findsNWidgets(2), reason: '2 x 34 + 89 is 157, plus handling 5');
+      expect(find.text('3 items'), findsNWidgets(2), reason: '2 x 34 + 89 is 157, plus handling 5');
+      expect(find.text('₹162'), findsWidgets);
+    });
+
+    testWidgets('a card lists the items and the date, and says how many more when there are over three', (tester) async {
+      const many = [
+        OrderLine(productId: 'a', variantId: 'a:1', name: 'Rice', label: '1', unitPrice: 10, quantity: 2),
+        OrderLine(productId: 'b', variantId: 'b:1', name: 'Salt', label: '1', unitPrice: 10, quantity: 1),
+        OrderLine(productId: 'c', variantId: 'c:1', name: 'Sugar', label: '1', unitPrice: 10, quantity: 1),
+        OrderLine(productId: 'd', variantId: 'd:1', name: 'Tea', label: '1', unitPrice: 10, quantity: 1),
+        OrderLine(productId: 'e', variantId: 'e:1', name: 'Oil', label: '1', unitPrice: 10, quantity: 1),
+      ];
+      await _open(tester, orders: [sampleOrder(lines: many)]);
+
+      await _goOrders(tester);
+
+      expect(find.text('2 × Rice, 1 × Salt, 1 × Sugar, +2 more'), findsOneWidget);
+    });
+
+    testWidgets('an order on its way offers Track order, a finished one offers Reorder, and neither shows the other', (tester) async {
+      await _open(tester, orders: [sampleOrder(number: 'ORD-1', stage: OrderStage.onTheWay), sampleOrder(number: 'ORD-2', stage: OrderStage.delivered), sampleOrder(number: 'ORD-3', stage: OrderStage.cancelled)]);
+
+      await _goOrders(tester);
+
+      expect(find.byKey(const Key('track-order')), findsOneWidget);
+      expect(find.byKey(const Key('reorder-order')), findsNWidgets(2));
+    });
+
+    testWidgets('Reorder on a card puts the items in the cart and opens it', (tester) async {
+      final tomato = sampleOrder(lines: const [OrderLine(productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', label: '1 kg', unitPrice: 28, quantity: 2)]);
+      final app = await _open(tester, orders: [tomato], seedCart: (cart) => cart.know('tomato:1kg', productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', label: '1 kg', price: 28, stock: 100));
+
+      await _goOrders(tester);
+      await tester.tap(find.byKey(const Key('reorder-order')));
+      await tester.pumpAndSettle();
+
+      expect(app.container.read(cartProvider), {'tomato:1kg': 2});
+      expect(find.text('Your cart'), findsOneWidget);
+    });
+
+    testWidgets('the card shows the shop first, then the order number, and the shop\'s average rating with how many ratings it rests on', (tester) async {
+      await _open(tester, orders: [sampleOrder(storeRating: 4.6, storeRatingCount: 18)]);
+
+      await _goOrders(tester);
+
+      expect(find.text('Harbor Point Dark Store'), findsOneWidget);
+      expect(find.text('#ORD-1001'), findsOneWidget);
+      expect(find.text('4.6'), findsOneWidget);
+      expect(find.text(' (18)'), findsOneWidget);
+    });
+
+    testWidgets('a delivered order shows the stars the customer gave (shop and delivery), and no Rate button', (tester) async {
+      await _open(tester, orders: [sampleOrder(storeRating: 4.6, storeRatingCount: 18, myStoreStars: 5, myDeliveryStars: 4)]);
+
+      await _goOrders(tester);
+
+      expect(find.text('You rated'), findsOneWidget);
+      expect(find.byKey(const Key('my-store-stars')), findsOneWidget);
+      expect(find.byKey(const Key('my-delivery-stars')), findsOneWidget);
+      expect(find.byKey(const Key('rate-order')), findsNothing);
+      expect(find.byIcon(Icons.star_rounded), findsNWidgets(1 + 5 + 4), reason: 'one shop star, five and four given (the empty ones are outlines)');
+    });
+
+    testWidgets('a delivered order that was not rated offers a yellow Rate this order button; one still on its way does not', (tester) async {
+      await _open(tester, orders: [sampleOrder(number: 'DONE-1'), sampleOrder(number: 'ON-1', stage: OrderStage.onTheWay)]);
+
+      await _goOrders(tester);
+
+      expect(find.text('Rate this order'), findsOneWidget);
+      expect(find.byKey(const Key('rate-order')), findsOneWidget);
+      expect(find.text('Out for delivery'), findsOneWidget);
+    });
+
+    testWidgets('an order without any rating data just has no rating row, and a cancelled one is not offered a rating', (tester) async {
+      await _open(tester, orders: [sampleOrder(stage: OrderStage.cancelled)]);
+
+      await _goOrders(tester);
+
+      expect(find.byKey(const Key('shop-rating')), findsNothing);
+      expect(find.text('Rate this order'), findsNothing);
+      expect(find.text('Cancelled'), findsOneWidget);
+    });
+
+    testWidgets('tapping the Rate button opens the order, where the rating form is', (tester) async {
+      await _open(tester, orders: [sampleOrder()]);
+
+      await _goOrders(tester);
+      await tester.tap(find.byKey(const Key('rate-order')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Order #ORD-1001'), findsOneWidget);
     });
 
     testWidgets('a declined order says so', (tester) async {
@@ -220,7 +311,7 @@ void main() {
       for (final step in ['Order placed', 'Packed', 'Out for delivery', 'Delivered']) {
         expect(find.text(step), findsWidgets);
       }
-      expect(find.byIcon(Icons.check), findsNWidgets(4));
+      expect(find.byIcon(LucideIcons.check), findsNWidgets(4));
     });
 
     testWidgets('an order that cannot be read shows a retry, not a blank screen', (tester) async {
@@ -363,7 +454,7 @@ void main() {
       await _open(tester, orders: [sampleOrder(number: 'ORD-1005', deliveryFee: 0)]);
 
       expect(find.text('Buy again'), findsOneWidget);
-      expect(find.text('3 items · ₹162'), findsOneWidget);
+      expect(find.text('3 items · ₹162'), findsOneWidget); // the Buy again tile on Home keeps its one-line wording
       await tester.tap(find.text('Buy again'));
       await tester.pumpAndSettle();
 

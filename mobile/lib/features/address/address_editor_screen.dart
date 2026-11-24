@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -210,7 +211,7 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
         child: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag, children: [
           AuthField(
             context.tr('Address'),
-            Icons.place_outlined,
+            LucideIcons.mapPin,
             controller: _line,
             enabled: !_busy,
             maxLines: 3,
@@ -239,9 +240,9 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
               title: Text(context.tr('Enter coordinates yourself'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 14, fontWeight: FontWeight.w700)),
               children: [
                 Row(children: [
-                  Expanded(child: AuthField(context.tr('Latitude'), Icons.swap_vert, controller: _latText, keyboard: const TextInputType.numberWithOptions(decimal: true, signed: true))),
+                  Expanded(child: AuthField(context.tr('Latitude'), LucideIcons.arrowUpDown, controller: _latText, keyboard: const TextInputType.numberWithOptions(decimal: true, signed: true))),
                   const SizedBox(width: 10),
-                  Expanded(child: AuthField(context.tr('Longitude'), Icons.swap_horiz, controller: _lngText, keyboard: const TextInputType.numberWithOptions(decimal: true, signed: true))),
+                  Expanded(child: AuthField(context.tr('Longitude'), LucideIcons.arrowLeftRight, controller: _lngText, keyboard: const TextInputType.numberWithOptions(decimal: true, signed: true))),
                 ]),
                 SoftPillButton(context.tr('Use these coordinates'), height: 48, onPressed: _useCoordinates),
                 const SizedBox(height: 8),
@@ -250,12 +251,12 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
           ),
           if (signedIn) ...[
             const SizedBox(height: 8),
-            AuthField(context.tr('Flat / house no. / building'), Icons.apartment_outlined, controller: _flat, enabled: !_busy, textInputAction: TextInputAction.next),
-            AuthField(context.tr('Landmark (optional)'), Icons.flag_outlined, controller: _landmark, enabled: !_busy, textInputAction: TextInputAction.next),
-            AuthField(context.tr('Receiver name'), Icons.person_outline, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, autofillHints: const [AutofillHints.name], textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
+            AuthField(context.tr('Flat / house no. / building'), LucideIcons.building2, controller: _flat, enabled: !_busy, textInputAction: TextInputAction.next),
+            AuthField(context.tr('Landmark (optional)'), LucideIcons.flag, controller: _landmark, enabled: !_busy, textInputAction: TextInputAction.next),
+            AuthField(context.tr('Receiver name'), LucideIcons.user, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, autofillHints: const [AutofillHints.name], textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
             AuthField(
               context.tr('Receiver phone'),
-              Icons.phone_outlined,
+              LucideIcons.phone,
               controller: _phone,
               enabled: !_busy,
               keyboard: TextInputType.phone,
@@ -281,7 +282,7 @@ class _AddressEditorScreenState extends ConsumerState<AddressEditorScreen> {
             ]),
             if (_label == 'Other') ...[
               const SizedBox(height: 12),
-              AuthField(context.tr('Name this address'), Icons.label_outline, controller: _otherLabel, enabled: !_busy, validator: (v) => requiredField(context, v)),
+              AuthField(context.tr('Name this address'), LucideIcons.tag, controller: _otherLabel, enabled: !_busy, validator: (v) => requiredField(context, v)),
             ],
             const SizedBox(height: 16),
           ] else
@@ -324,7 +325,7 @@ class _LocationStatus extends StatelessWidget {
           color: service == null ? null : (service!.serviceable ? Pal.green : Pal.pink),
           padding: const EdgeInsets.all(14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(service == null ? Icons.location_on_outlined : (service!.serviceable ? Icons.check_circle_outline : Icons.location_off_outlined), color: service == null ? p.onCard : (service!.serviceable ? Pal.ink : Colors.white)),
+            Icon(service == null ? LucideIcons.mapPin : (service!.serviceable ? LucideIcons.circleCheck : LucideIcons.mapPinOff), color: service == null ? p.onCard : (service!.serviceable ? Pal.ink : Colors.white)),
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

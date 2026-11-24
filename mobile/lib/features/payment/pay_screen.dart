@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -220,7 +221,7 @@ class _PayScreenState extends ConsumerState<PayScreen> {
             Surface(
               color: Pal.pink,
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.cancel_outlined, color: Colors.white),
+                const Icon(LucideIcons.circleX, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -250,7 +251,7 @@ class _PayScreenState extends ConsumerState<PayScreen> {
             Surface(
               color: timeUp ? Pal.pink : Pal.green,
               child: Row(children: [
-                Icon(timeUp ? Icons.timer_off_outlined : Icons.timer_outlined, color: timeUp ? Colors.white : Pal.ink),
+                Icon(timeUp ? LucideIcons.timerOff : LucideIcons.timer, color: timeUp ? Colors.white : Pal.ink),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -265,7 +266,7 @@ class _PayScreenState extends ConsumerState<PayScreen> {
               Surface(
                 color: _note == _Note.confirming ? Pal.yellow : Pal.pink,
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(_note == _Note.confirming ? Icons.hourglass_top : Icons.error_outline, color: _note == _Note.confirming ? Pal.ink : Colors.white),
+                  Icon(_note == _Note.confirming ? LucideIcons.hourglass : LucideIcons.circleAlert, color: _note == _Note.confirming ? Pal.ink : Colors.white),
                   const SizedBox(width: 12),
                   Expanded(child: Text(_noteText(context), style: TextStyle(color: _note == _Note.confirming ? Pal.ink : Colors.white, fontWeight: FontWeight.w800, height: 1.3))),
                 ]),

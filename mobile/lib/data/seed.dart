@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'models.dart';
 
@@ -8,11 +9,11 @@ const _mint = Color(0xFFB8FFD2);
 const _lavender = Color(0xFFE0D9FF);
 
 const categories = <Category>[
-  Category('vegetables', 'Veggies', Icons.eco_outlined),
+  Category('vegetables', 'Veggies', LucideIcons.leaf),
   Category('fruits', 'Fruits', Icons.apple),
-  Category('dairy', 'Dairy', Icons.local_drink_outlined),
-  Category('pantry', 'Grocery', Icons.shopping_basket_outlined),
-  Category('snacks', 'Snacks', Icons.cookie_outlined),
+  Category('dairy', 'Dairy', LucideIcons.cupSoda),
+  Category('pantry', 'Grocery', LucideIcons.shoppingBasket),
+  Category('snacks', 'Snacks', LucideIcons.cookie),
 ];
 
 // Pack sizes of the loose-weight seed products, shaped like the API's variants.

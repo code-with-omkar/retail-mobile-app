@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,7 +64,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Flexible(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Container(width: 52, height: 52, decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.shopping_basket_outlined, color: Pal.ink)),
+                      Container(width: 52, height: 52, decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(18)), child: const Icon(LucideIcons.shoppingBasket, color: Pal.ink)),
                       const SizedBox(width: 10),
                       Flexible(child: Text('QuickCart', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900))),
                     ])),
@@ -75,16 +76,16 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rCard)),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Icon(Icons.storefront_outlined, size: 32, color: Pal.ink),
+                      const Icon(LucideIcons.store, size: 32, color: Pal.ink),
                       const SizedBox(height: 20),
                       Text(context.tr('Your trusted neighbourhood shop, now digital'), style: const TextStyle(color: Pal.ink, fontSize: 22, fontWeight: FontWeight.w900, height: 1.2)),
                     ]),
                   ),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(child: _FeatureTile(p.tiles[0], Icons.timer_outlined, context.tr('{n} min delivery', {'n': '$etaMinutes'}))),
+                    Expanded(child: _FeatureTile(p.tiles[0], LucideIcons.timer, context.tr('{n} min delivery', {'n': '$etaMinutes'}))),
                     const SizedBox(width: 12),
-                    Expanded(child: _FeatureTile(p.tiles[1], Icons.eco_outlined, context.tr('Fresh & reliable'))),
+                    Expanded(child: _FeatureTile(p.tiles[1], LucideIcons.leaf, context.tr('Fresh & reliable'))),
                   ]),
                   const SizedBox(height: 24),
                   Text(context.tr('Your local shop,\nnow in your hand.'), style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
@@ -189,10 +190,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with _Submitting {
             key: _form,
             child: AutofillGroup(
               child: Column(children: [
-                AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.username, AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
+                AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.username, AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
                 AuthField(
                   context.tr('Password'),
-                  Icons.lock_outline,
+                  LucideIcons.lock,
                   controller: _password,
                   enabled: !busy,
                   obscure: _hide,
@@ -255,12 +256,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with _Submittin
             key: _form,
             child: AutofillGroup(
               child: Column(children: [
-                AuthField(context.tr('Full name'), Icons.person_outline, controller: _name, enabled: !busy, autofillHints: const [AutofillHints.name], capitalization: TextCapitalization.words, textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
-                AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
-                AuthField(context.tr('Mobile number (optional)'), Icons.phone_outlined, controller: _phone, enabled: !busy, keyboard: TextInputType.phone, autofillHints: const [AutofillHints.telephoneNumber], formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], textInputAction: TextInputAction.next, validator: (v) => optionalPhoneField(context, v)),
+                AuthField(context.tr('Full name'), LucideIcons.user, controller: _name, enabled: !busy, autofillHints: const [AutofillHints.name], capitalization: TextCapitalization.words, textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
+                AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
+                AuthField(context.tr('Mobile number (optional)'), LucideIcons.phone, controller: _phone, enabled: !busy, keyboard: TextInputType.phone, autofillHints: const [AutofillHints.telephoneNumber], formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], textInputAction: TextInputAction.next, validator: (v) => optionalPhoneField(context, v)),
                 AuthField(
                   context.tr('Password'),
-                  Icons.lock_outline,
+                  LucideIcons.lock,
                   controller: _password,
                   enabled: !busy,
                   obscure: _hide,
@@ -318,7 +319,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> wit
         title: context.tr('Reset password'),
         subtitle: context.tr('Enter your email and we will send you a reset code.'),
         children: [
-          Form(key: _form, child: AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], validator: (v) => emailField(context, v))),
+          Form(key: _form, child: AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], validator: (v) => emailField(context, v))),
           if (error != null) ErrorBanner(error!),
           PillButton(context.tr(busy ? 'Please wait…' : 'Send reset code'), arrow: !busy, onPressed: busy ? null : _send),
         ],
@@ -365,7 +366,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> with 
             child: Column(children: [
               AuthField(
                 context.tr('Reset code'),
-                Icons.pin_outlined,
+                LucideIcons.mapPin,
                 controller: _code,
                 enabled: !busy,
                 capitalization: TextCapitalization.characters,
@@ -374,7 +375,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> with 
               ),
               AuthField(
                 context.tr('New password'),
-                Icons.lock_outline,
+                LucideIcons.lock,
                 controller: _password,
                 enabled: !busy,
                 obscure: _hide,

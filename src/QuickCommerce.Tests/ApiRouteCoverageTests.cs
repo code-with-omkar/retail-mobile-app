@@ -15,11 +15,11 @@ public sealed class ApiRouteCoverageTests : IClassFixture<ApiHarness>
 
     public ApiRouteCoverageTests(ApiHarness api) => this.api = api;
 
-    /// <summary>What a person needs no sign-in for: signing in or up, the public catalogue, health and the payment provider's webhook.</summary>
+    /// <summary>What a person needs no sign-in for: signing in or up, the public catalogue, ads for guests, health and the payment provider's webhook.</summary>
     private static readonly string[] OpenPrefixes =
     [
         "api/auth", "api/signin", "api/account/register", "api/account/password", "api/catalog", "api/categories", "api/products", "api/stores/nearest", "api/health", "health", "media",
-        "api/analytics", "api/payments/options", "api/payments/razorpay/webhook", "api/config", "api/offers", "openapi",
+        "api/analytics", "api/ads", "api/payments/options", "api/payments/razorpay/webhook", "api/config", "api/offers", "openapi",
     ];
 
     private IEnumerable<(string Route, string Methods, bool Open)> Routes()

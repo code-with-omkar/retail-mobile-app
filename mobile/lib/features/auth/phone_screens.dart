@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -83,7 +84,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
             key: _form,
             child: AuthField(
               context.tr('Mobile number'),
-              Icons.phone_outlined,
+              LucideIcons.phone,
               controller: _phone,
               enabled: !_busy,
               keyboard: TextInputType.phone,

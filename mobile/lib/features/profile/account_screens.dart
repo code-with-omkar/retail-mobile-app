@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,9 +62,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         Form(
           key: _form,
           child: Column(children: [
-            AuthField(context.tr('Full name'), Icons.person_outline, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, validator: (v) => requiredField(context, v)),
-            AuthField(context.tr('Mobile number (optional)'), Icons.phone_outlined, controller: _phone, enabled: !_busy, keyboard: TextInputType.phone, formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], validator: (v) => optionalPhoneField(context, v)),
-            AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: false),
+            AuthField(context.tr('Full name'), LucideIcons.user, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, validator: (v) => requiredField(context, v)),
+            AuthField(context.tr('Mobile number (optional)'), LucideIcons.phone, controller: _phone, enabled: !_busy, keyboard: TextInputType.phone, formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], validator: (v) => optionalPhoneField(context, v)),
+            AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: false),
           ]),
         ),
         if (_error != null) ErrorBanner(_error!),
@@ -121,10 +122,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           Form(
             key: _form,
             child: Column(children: [
-              AuthField(context.tr('Current password'), Icons.lock_outline, controller: _current, enabled: !_busy, obscure: _hide, autofillHints: const [AutofillHints.password], validator: (v) => requiredField(context, v)),
+              AuthField(context.tr('Current password'), LucideIcons.lock, controller: _current, enabled: !_busy, obscure: _hide, autofillHints: const [AutofillHints.password], validator: (v) => requiredField(context, v)),
               AuthField(
                 context.tr('New password'),
-                Icons.lock_reset_outlined,
+                LucideIcons.lockKeyhole,
                 controller: _next,
                 enabled: !_busy,
                 obscure: _hide,
@@ -200,7 +201,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
             if (hasPassword)
               AuthField(
                 context.tr('Password'),
-                Icons.lock_outline,
+                LucideIcons.lock,
                 controller: _password,
                 enabled: !_busy,
                 obscure: _hide,
@@ -210,7 +211,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
               ),
             AuthField(
               context.tr('Type DELETE to confirm'),
-              Icons.delete_outline,
+              LucideIcons.trash2,
               controller: _confirm,
               enabled: !_busy,
               capitalization: TextCapitalization.characters,

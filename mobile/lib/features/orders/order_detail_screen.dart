@@ -1,4 +1,9 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../../data/repositories/ads_repository.dart';
+import '../ads/ad_banner.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,7 +15,6 @@ import '../../data/api/api_exception.dart';
 import '../../data/models.dart';
 import '../../data/phone_launcher.dart';
 import '../../data/providers.dart';
-import '../cart/cart_controller.dart';
 import '../notifications/notifications_controller.dart';
 import '../checkout/delivery_time.dart';
 import 'orders_controller.dart';
@@ -30,37 +34,108 @@ class OrderSuccessScreen extends ConsumerWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(children: [
-            const Spacer(),
-            Container(width: 120, height: 120, decoration: const BoxDecoration(color: Pal.green, shape: BoxShape.circle), child: const Icon(Icons.check_rounded, size: 72, color: Pal.ink)),
-            const SizedBox(height: 28),
-            Text(context.tr('Order placed!'), style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Consumer(builder: (context, ref, _) {
-              // The estimate the customer was given for this order, not whatever the store's estimate is now.
-              final eta = mine?.estimatedMinutes ?? ref.watch(selectedStoreProvider).value?.estimatedMinutes;
-              if (mine != null && mine.isScheduled) {
-                return Text(context.tr('Order #{id} is being prepared.\nDelivery: {when}', {'id': number, 'when': slotWords(context, mine.deliverySlotStart!, mine.deliverySlotEnd!)}), textAlign: TextAlign.center, style: TextStyle(color: context.pal.mutedOnGround, height: 1.4));
-              }
-              return Text(
-                eta == null ? context.tr('Order #{id} is being prepared.', {'id': number}) : context.tr('Order #{id} is being prepared.\nExpected in about {n} minutes.', {'id': number, 'n': '$eta'}),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: context.pal.mutedOnGround, height: 1.4),
-              );
-            }),
-            if (mine != null) ...[
-              const SizedBox(height: 6),
-              Text(mine.isOnline ? context.tr('Paid {amt} online.', {'amt': rupees(mine.total)}) : context.tr('Pay {amt} in cash on delivery.', {'amt': rupees(mine.total)}), textAlign: TextAlign.center, style: TextStyle(color: context.pal.mutedOnGround, fontWeight: FontWeight.w800)),
+          child: Column(
+            children: [
+              const Spacer(),
+              Container(
+                width: 120,
+                height: 120,
+                decoration: const BoxDecoration(
+                  color: Pal.green,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.check, size: 72, color: Pal.ink),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                context.tr('Order placed!'),
+                style: TextStyle(
+                  color: context.pal.onGround,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Consumer(
+                builder: (context, ref, _) {
+                  // The estimate the customer was given for this order, not whatever the store's estimate is now.
+                  final eta =
+                      mine?.estimatedMinutes ??
+                      ref.watch(selectedStoreProvider).value?.estimatedMinutes;
+                  if (mine != null && mine.isScheduled) {
+                    return Text(
+                      context.tr(
+                        'Order #{id} is being prepared.\nDelivery: {when}',
+                        {
+                          'id': number,
+                          'when': slotWords(
+                            context,
+                            mine.deliverySlotStart!,
+                            mine.deliverySlotEnd!,
+                          ),
+                        },
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: context.pal.mutedOnGround,
+                        height: 1.4,
+                      ),
+                    );
+                  }
+                  return Text(
+                    eta == null
+                        ? context.tr('Order #{id} is being prepared.', {
+                            'id': number,
+                          })
+                        : context.tr(
+                            'Order #{id} is being prepared.\nExpected in about {n} minutes.',
+                            {'id': number, 'n': '$eta'},
+                          ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: context.pal.mutedOnGround,
+                      height: 1.4,
+                    ),
+                  );
+                },
+              ),
+              if (mine != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  mine.isOnline
+                      ? context.tr('Paid {amt} online.', {
+                          'amt': rupees(mine.total),
+                        })
+                      : context.tr('Pay {amt} in cash on delivery.', {
+                          'amt': rupees(mine.total),
+                        }),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: context.pal.mutedOnGround,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              const AdBanner(AdPlace.order, padding: EdgeInsets.zero),
+              const Spacer(),
+              PillButton(
+                context.tr('Track order'),
+                arrow: true,
+                onPressed: () {
+                  // Orders underneath, so Back from tracking lands on the orders list instead of leaving the app.
+                  context.go('/orders');
+                  context.push('/order/$id');
+                },
+              ),
+              const SizedBox(height: 12),
+              SoftPillButton(
+                context.tr('Continue shopping'),
+                height: 60,
+                onPressed: () => context.go('/'),
+              ),
             ],
-            const Spacer(),
-            PillButton(context.tr('Track order'), arrow: true, onPressed: () {
-              // Orders underneath, so Back from tracking lands on the orders list instead of leaving the app.
-              context.go('/orders');
-              context.push('/order/$id');
-            }),
-            const SizedBox(height: 12),
-            SoftPillButton(context.tr('Continue shopping'), height: 60, onPressed: () => context.go('/')),
-          ]),
+          ),
         ),
       ),
     );
@@ -75,10 +150,19 @@ class OrderDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(orderProvider(id));
     return async.when(
-      loading: () => AppScaffold(appBar: appTopBar(context, '', backFallback: '/orders'), body: const Padding(padding: EdgeInsets.all(QC.gutter), child: SkeletonBox(height: 240, radius: 24))),
+      loading: () => AppScaffold(
+        appBar: appTopBar(context, '', backFallback: '/orders'),
+        body: const Padding(
+          padding: EdgeInsets.all(QC.gutter),
+          child: SkeletonBox(height: 240, radius: 24),
+        ),
+      ),
       error: (e, _) => AppScaffold(
         appBar: appTopBar(context, '', backFallback: '/orders'),
-        body: ErrorState(error: e, onRetry: () => ref.invalidate(orderProvider(id))),
+        body: ErrorState(
+          error: e,
+          onRetry: () => ref.invalidate(orderProvider(id)),
+        ),
       ),
       data: (order) => _Detail(order),
     );
@@ -98,7 +182,9 @@ class _DetailState extends ConsumerState<_Detail> {
 
   Order get order => widget.order;
 
-  void _say(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _say(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
 
   Future<void> _call() async {
     final ok = await ref.read(phoneLauncherProvider).dial(order.storePhone!);
@@ -106,7 +192,9 @@ class _DetailState extends ConsumerState<_Detail> {
   }
 
   Future<void> _callPartner() async {
-    final ok = await ref.read(phoneLauncherProvider).dial(order.deliveryPartnerPhone!);
+    final ok = await ref
+        .read(phoneLauncherProvider)
+        .dial(order.deliveryPartnerPhone!);
     if (!ok && mounted) _say(context.tr('Could not open the phone app.'));
   }
 
@@ -115,10 +203,24 @@ class _DetailState extends ConsumerState<_Detail> {
       context: context,
       builder: (dialog) => AlertDialog(
         title: Text(dialog.tr('Cancel this order?')),
-        content: Text(dialog.tr(order.paymentState == PaymentState.paid ? 'The store has not accepted it yet. If you cancel, the items go back to the store and your payment is refunded to the original payment method.' : order.stage == OrderStage.awaitingPayment ? 'You have not paid yet, so nothing is charged. The items go back to the store.' : 'The store has not accepted it yet. If you cancel, nothing is charged and the items go back to the store.')),
+        content: Text(
+          dialog.tr(
+            order.paymentState == PaymentState.paid
+                ? 'The store has not accepted it yet. If you cancel, the items go back to the store and your payment is refunded to the original payment method.'
+                : order.stage == OrderStage.awaitingPayment
+                ? 'You have not paid yet, so nothing is charged. The items go back to the store.'
+                : 'The store has not accepted it yet. If you cancel, nothing is charged and the items go back to the store.',
+          ),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(dialog.tr('Keep order'))),
-          TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(dialog.tr('Cancel order'))),
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: Text(dialog.tr('Keep order')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: Text(dialog.tr('Cancel order')),
+          ),
         ],
       ),
     );
@@ -133,7 +235,12 @@ class _DetailState extends ConsumerState<_Detail> {
     } on ConflictException catch (_) {
       // Too late: the store accepted it a moment ago. Show where it is now and say what to do.
       await orders.pollOne(order.id).catchError((Object _) {});
-      if (mounted) _say(context.tr('The store has already accepted your order, so it can no longer be cancelled here. Please call the store.'));
+      if (mounted)
+        _say(
+          context.tr(
+            'The store has already accepted your order, so it can no longer be cancelled here. Please call the store.',
+          ),
+        );
     } on ApiException catch (e) {
       if (mounted) _say(context.tr(e.userMessageKey));
     } finally {
@@ -144,10 +251,22 @@ class _DetailState extends ConsumerState<_Detail> {
   /// "Arriving in about N minutes" counted from when the order was placed; "any moment now" once that time has passed.
   String? _arrival(BuildContext context, DateTime now) {
     final minutes = order.estimatedMinutes;
-    if (order.isScheduled && order.stage.isActive) return context.tr('Delivery: {when}', {'when': slotWords(context, order.deliverySlotStart!, order.deliverySlotEnd!)});
+    if (order.isScheduled && order.stage.isActive)
+      return context.tr('Delivery: {when}', {
+        'when': slotWords(
+          context,
+          order.deliverySlotStart!,
+          order.deliverySlotEnd!,
+        ),
+      });
     if (!order.stage.isActive || minutes == null) return null;
-    final left = order.placedAt.add(Duration(minutes: minutes)).difference(now).inMinutes;
-    return left <= 0 ? context.tr('Arriving any moment now') : context.tr('Arriving in about {n} minutes', {'n': '$left'});
+    final left = order.placedAt
+        .add(Duration(minutes: minutes))
+        .difference(now)
+        .inMinutes;
+    return left <= 0
+        ? context.tr('Arriving any moment now')
+        : context.tr('Arriving in about {n} minutes', {'n': '$left'});
   }
 
   bool _reordering = false;
@@ -155,28 +274,9 @@ class _DetailState extends ConsumerState<_Detail> {
   /// "Order again": the same items from the same store. Whatever the store cannot supply now is listed on the cart screen.
   Future<void> _reorder() async {
     if (_reordering) return;
-    final held = ref.read(serverCartProvider);
-    if (held != null && held.storeId != order.storeId && held.lines.isNotEmpty) {
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: Text(dialog.tr('Start a new cart?')),
-          content: Text(dialog.tr('Your cart has items from another store. Ordering again from {store} empties it.', {'store': order.storeName ?? dialog.tr('this store')})),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(dialog).pop(false), child: Text(dialog.tr('Keep my cart'))),
-            TextButton(onPressed: () => Navigator.of(dialog).pop(true), child: Text(dialog.tr('Order again'))),
-          ],
-        ),
-      );
-      if (replace != true || !mounted) return;
-    }
-
     setState(() => _reordering = true);
-    final added = await ref.read(cartProvider.notifier).addFromOrder(order);
-    if (!mounted) return;
-    setState(() => _reordering = false);
-    if (!added && ref.read(cartNoticeProvider).isEmpty) _say(context.tr('None of these items can be ordered right now.'));
-    context.push('/cart');
+    await reorderOrder(context, ref, order);
+    if (mounted) setState(() => _reordering = false);
   }
 
   @override
@@ -192,226 +292,567 @@ class _DetailState extends ConsumerState<_Detail> {
       onTick: () async {
         await ref.read(ordersProvider.notifier).pollOne(order.id);
         // The partner's distance is asked again on the same beat, only while the order is out for delivery.
-        if (order.deliveryOtp != null) ref.invalidate(trackingProvider(order.id));
+        if (order.deliveryOtp != null)
+          ref.invalidate(trackingProvider(order.id));
       },
       child: AppScaffold(
-        appBar: appTopBar(context, '${context.tr('Order')} #${order.number}', backFallback: '/orders'),
-        body: ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24), children: [
-          if (arrival != null) ...[
-            // v4: the live card. A small line (stage, shop, items), the arrival time as the big heading, and the four-step bar.
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: p.dark ? p.card : Colors.white, borderRadius: BorderRadius.circular(QC.rCard + 8), border: Border.all(color: p.border)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  [stageLabel(context, order.stage).toUpperCase(), if (order.storeName != null) order.storeName!, context.tr(order.itemCount == 1 ? '{n} item' : '{n} items', {'n': '${order.itemCount}'})].join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: p.mutedOnCard, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .6),
+        appBar: appTopBar(
+          context,
+          '${context.tr('Order')} #${order.number}',
+          backFallback: '/orders',
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(QC.gutter, 4, QC.gutter, 24),
+          children: [
+            if (arrival != null) ...[
+              // v4: the live card. A small line (stage, shop, items), the arrival time as the big heading, and the four-step bar.
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: p.dark ? p.card : Colors.white,
+                  borderRadius: BorderRadius.circular(QC.rCard + 8),
+                  border: Border.all(color: p.border),
                 ),
-                const SizedBox(height: 4),
-                Text(arrival, key: const Key('arrival-heading'), style: QC.display(24, color: p.onCard, height: 1.15)),
-                const SizedBox(height: 12),
-                _StepBar(order.stage),
-              ]),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (order.stage == OrderStage.cancelled || order.stage == OrderStage.rejected) ...[
-            Surface(
-              color: Pal.pink,
-              child: Row(children: [
-                Icon(order.stage == OrderStage.cancelled ? Icons.cancel_outlined : Icons.block, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(order.stage == OrderStage.cancelled ? context.tr('This order was cancelled.') : context.tr('The store declined this order.'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(endedMoneyLine(context, order), key: const Key('ended-money-line'), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      [
+                        stageLabel(context, order.stage).toUpperCase(),
+                        if (order.storeName != null) order.storeName!,
+                        context.tr(
+                          order.itemCount == 1 ? '{n} item' : '{n} items',
+                          {'n': '${order.itemCount}'},
+                        ),
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: p.mutedOnCard,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .6,
+                      ),
                     ),
-                  ]),
+                    const SizedBox(height: 4),
+                    Text(
+                      arrival,
+                      key: const Key('arrival-heading'),
+                      style: QC.display(24, color: p.onCard, height: 1.15),
+                    ),
+                    const SizedBox(height: 12),
+                    _StepBar(order.stage),
+                  ],
                 ),
-              ]),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (order.stage == OrderStage.awaitingPayment)
-            Surface(
-              color: Pal.yellow,
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  const Icon(Icons.payments_outlined, color: Pal.ink),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(context.tr('Payment pending. The store will see your order once it is paid.'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, height: 1.3))),
-                ]),
-                const SizedBox(height: 12),
-                PillButton('${context.tr('Pay now')} · ${rupees(order.total)}', height: 52, onPressed: () => context.push('/pay/${order.id}')),
-              ]),
-            )
-          else
-            Surface(child: _Timeline(order.stage)),
-          if (order.isOnline && order.paymentState != PaymentState.notRequired && order.paymentState != PaymentState.created) ...[
-            const SizedBox(height: 12),
-            Surface(
-              color: switch (order.paymentState) {
-                PaymentState.refundFailed || PaymentState.failed => Pal.pink,
-                _ => null,
-              },
-              child: Row(children: [
-                Icon(switch (order.paymentState) { PaymentState.paid => Icons.check_circle_outline, PaymentState.refunded => Icons.undo, PaymentState.refunding => Icons.hourglass_top, _ => Icons.error_outline }, color: (order.paymentState == PaymentState.refundFailed || order.paymentState == PaymentState.failed) ? Colors.white : p.onCard),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    context.tr(switch (order.paymentState) {
-                      PaymentState.paid => 'Payment received',
-                      PaymentState.refunding => 'Your refund is on its way to your original payment method.',
-                      PaymentState.refunded => 'Your payment was refunded to your original payment method.',
-                      PaymentState.refundFailed => 'We could not refund your payment automatically. Please contact the store.',
-                      _ => 'Payment not completed',
-                    }),
-                    style: TextStyle(color: (order.paymentState == PaymentState.refundFailed || order.paymentState == PaymentState.failed) ? Colors.white : p.onCard, fontWeight: FontWeight.w800, height: 1.3),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (order.stage == OrderStage.cancelled ||
+                order.stage == OrderStage.rejected) ...[
+              Surface(
+                color: Pal.pink,
+                child: Row(
+                  children: [
+                    Icon(
+                      order.stage == OrderStage.cancelled
+                          ? LucideIcons.circleX
+                          : LucideIcons.ban,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.stage == OrderStage.cancelled
+                                ? context.tr('This order was cancelled.')
+                                : context.tr('The store declined this order.'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              endedMoneyLine(context, order),
+                              key: const Key('ended-money-line'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            const AdBanner(AdPlace.order, padding: EdgeInsets.only(bottom: 12)),
+            if (order.stage == OrderStage.awaitingPayment)
+              Surface(
+                color: Pal.yellow,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.banknote, color: Pal.ink),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            context.tr(
+                              'Payment pending. The store will see your order once it is paid.',
+                            ),
+                            style: const TextStyle(
+                              color: Pal.ink,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    PillButton(
+                      '${context.tr('Pay now')} · ${rupees(order.total)}',
+                      height: 52,
+                      onPressed: () => context.push('/pay/${order.id}'),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Surface(child: _Timeline(order.stage)),
+            if (order.isOnline &&
+                order.paymentState != PaymentState.notRequired &&
+                order.paymentState != PaymentState.created) ...[
+              const SizedBox(height: 12),
+              Surface(
+                color: switch (order.paymentState) {
+                  PaymentState.refundFailed || PaymentState.failed => Pal.pink,
+                  _ => null,
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      switch (order.paymentState) {
+                        PaymentState.paid => LucideIcons.circleCheck,
+                        PaymentState.refunded => LucideIcons.undo2,
+                        PaymentState.refunding => LucideIcons.hourglass,
+                        _ => LucideIcons.circleAlert,
+                      },
+                      color:
+                          (order.paymentState == PaymentState.refundFailed ||
+                              order.paymentState == PaymentState.failed)
+                          ? Colors.white
+                          : p.onCard,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        context.tr(switch (order.paymentState) {
+                          PaymentState.paid => 'Payment received',
+                          PaymentState.refunding => 'Your refund is on its way to your original payment method.',
+                          PaymentState.refunded => 'Your payment was refunded to your original payment method.',
+                          PaymentState.refundFailed => 'We could not refund your payment automatically. Please contact the store.',
+                          _ => 'Payment not completed',
+                        }),
+                        style: TextStyle(
+                          color:
+                              (order.paymentState ==
+                                      PaymentState.refundFailed ||
+                                  order.paymentState == PaymentState.failed)
+                              ? Colors.white
+                              : p.onCard,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (failing && order.stage.isActive)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  context.tr('Could not refresh. Showing the last update.'),
+                  style: TextStyle(
+                    color: context.pal.mutedOnGround,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ]),
-            ),
-          ],
-          if (failing && order.stage.isActive)
-            Padding(padding: const EdgeInsets.only(top: 8), child: Text(context.tr('Could not refresh. Showing the last update.'), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 12, fontWeight: FontWeight.w700))),
-          const SizedBox(height: 16),
-          if (order.deliveryOtp != null) _TrackingLine(order.id),
-          if (order.deliveryOtp != null) ...[
+              ),
+            const SizedBox(height: 16),
+            if (order.deliveryOtp != null) _TrackingLine(order.id),
+            if (order.deliveryOtp != null) ...[
+              Surface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: const BoxDecoration(
+                            color: Pal.green,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(LucideIcons.bike, color: Pal.ink),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('Delivery partner'),
+                                style: TextStyle(
+                                  color: p.mutedOnCard,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                order.deliveryPartnerName ??
+                                    context.tr('On the way'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: p.onCard,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (order.deliveryPartnerPhone != null)
+                          TextButton.icon(
+                            onPressed: _callPartner,
+                            icon: const Icon(LucideIcons.phone),
+                            label: Text(context.tr('Call')),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      context.tr('Your delivery code'),
+                      style: TextStyle(color: p.mutedOnCard, fontSize: 12),
+                    ),
+                    Text(
+                      order.deliveryOtp!,
+                      key: const Key('delivery-code'),
+                      style: TextStyle(
+                        color: p.onCard,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 32,
+                        letterSpacing: 8,
+                      ),
+                    ),
+                    Text(
+                      context.tr(
+                        'Give this code to the delivery partner only when your order arrives.',
+                      ),
+                      style: TextStyle(
+                        color: p.mutedOnCard,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (order.storeName != null) ...[
+              Surface(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: Pal.yellow,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(LucideIcons.store, color: Pal.ink),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr('Sold by'),
+                            style: TextStyle(
+                              color: p.mutedOnCard,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            order.storeName!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: p.onCard,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (order.storePhone != null)
+                      TextButton.icon(
+                        onPressed: _call,
+                        icon: const Icon(LucideIcons.phone),
+                        label: Text(context.tr('Call store')),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Surface(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Container(width: 44, height: 44, decoration: const BoxDecoration(color: Pal.green, shape: BoxShape.circle), child: const Icon(Icons.delivery_dining_outlined, color: Pal.ink)),
+              child: Column(
+                children: [
+                  for (final l in order.lines)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          OrderLineThumb(l),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${l.name}\n${l.label.isEmpty ? '' : '${l.label} × '}${l.quantity}',
+                              style: TextStyle(
+                                color: p.onCard,
+                                height: 1.3,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            rupees(l.total),
+                            style: TextStyle(
+                              color: p.onCard,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Divider(color: p.border),
+                  BillRow(context.tr('Item total'), rupees(order.subtotal)),
+                  BillRow(
+                    context.tr('Delivery fee'),
+                    order.deliveryFee == 0
+                        ? context.tr('FREE')
+                        : rupees(order.deliveryFee),
+                    accent: order.deliveryFee == 0,
+                  ),
+                  BillRow(
+                    context.tr('Handling fee'),
+                    rupees(order.handlingFee),
+                  ),
+                  if (order.couponDiscount > 0)
+                    BillRow(
+                      context.tr('Coupon ({code})', {
+                        'code': order.couponCode ?? '',
+                      }),
+                      '−${rupees(order.couponDiscount)}',
+                      accent: true,
+                    ),
+                  Divider(color: p.border),
+                  BillRow(
+                    context.tr('Payment'),
+                    context.tr(
+                      order.payment == 'CashOnDelivery'
+                          ? 'Cash on delivery'
+                          : order.isOnline
+                          ? 'Online payment'
+                          : order.payment,
+                    ),
+                  ),
+                  BillRow(context.tr('Total'), rupees(order.total), bold: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Surface(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: Pal.yellow,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(LucideIcons.mapPin, color: Pal.ink),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(context.tr('Delivery partner'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                      Text(order.deliveryPartnerName ?? context.tr('On the way'), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
-                    ]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.address,
+                          style: TextStyle(color: p.mutedOnCard),
+                        ),
+                        if (order.receiverName != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '${order.receiverName}${order.receiverPhone == null ? '' : ' · ${order.receiverPhone}'}',
+                            style: TextStyle(
+                              color: p.onCard,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  if (order.deliveryPartnerPhone != null) TextButton.icon(onPressed: _callPartner, icon: const Icon(Icons.call_outlined), label: Text(context.tr('Call'))),
-                ]),
-                const SizedBox(height: 12),
-                Text(context.tr('Your delivery code'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                Text(order.deliveryOtp!, key: const Key('delivery-code'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900, fontSize: 32, letterSpacing: 8)),
-                Text(context.tr('Give this code to the delivery partner only when your order arrives.'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, height: 1.3)),
-              ]),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (order.storeName != null) ...[
-            Surface(
-              child: Row(children: [
-                Container(width: 44, height: 44, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.storefront_outlined, color: Pal.ink)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(context.tr('Sold by'), style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                    Text(order.storeName!, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
-                  ]),
-                ),
-                if (order.storePhone != null) TextButton.icon(onPressed: _call, icon: const Icon(Icons.call_outlined), label: Text(context.tr('Call store'))),
-              ]),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Surface(
-            child: Column(children: [
-              for (final l in order.lines)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(children: [
-                    OrderLineThumb(l),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text('${l.name}\n${l.label.isEmpty ? '' : '${l.label} × '}${l.quantity}', style: TextStyle(color: p.onCard, height: 1.3, fontWeight: FontWeight.w600))),
-                    Text(rupees(l.total), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
-                  ]),
-                ),
-              Divider(color: p.border),
-              BillRow(context.tr('Item total'), rupees(order.subtotal)),
-              BillRow(context.tr('Delivery fee'), order.deliveryFee == 0 ? context.tr('FREE') : rupees(order.deliveryFee), accent: order.deliveryFee == 0),
-              BillRow(context.tr('Handling fee'), rupees(order.handlingFee)),
-              if (order.couponDiscount > 0) BillRow(context.tr('Coupon ({code})', {'code': order.couponCode ?? ''}), '−${rupees(order.couponDiscount)}', accent: true),
-              Divider(color: p.border),
-              BillRow(context.tr('Payment'), context.tr(order.payment == 'CashOnDelivery' ? 'Cash on delivery' : order.isOnline ? 'Online payment' : order.payment)),
-              BillRow(context.tr('Total'), rupees(order.total), bold: true),
-            ]),
-          ),
-          const SizedBox(height: 16),
-          Surface(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(width: 44, height: 44, decoration: const BoxDecoration(color: Pal.yellow, shape: BoxShape.circle), child: const Icon(Icons.location_on_outlined, color: Pal.ink)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(order.address, style: TextStyle(color: p.mutedOnCard)),
-                  if (order.receiverName != null) ...[
-                    const SizedBox(height: 6),
-                    Text('${order.receiverName}${order.receiverPhone == null ? '' : ' · ${order.receiverPhone}'}', style: TextStyle(color: p.onCard, fontWeight: FontWeight.w700)),
-                  ],
-                ]),
+                ],
               ),
-            ]),
-          ),
-          if (order.replacement != null) _ReplacementCard(order.id, order.replacement!),
-          for (final change in order.changes) ...[
-            const SizedBox(height: 12),
-            Surface(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(context.tr('The store changed your order'), key: const Key('order-change'), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 6),
-                for (final line in change.lines)
-                  Text(
-                    line.to == 0
-                        ? context.tr('{item} removed (was {n})', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'n': '${line.from}'})
-                        : context.tr('{item}: {from} to {to}', {'item': '${line.name}${line.label == null ? '' : ' ${line.label}'}', 'from': '${line.from}', 'to': '${line.to}'}),
-                    style: TextStyle(color: p.onCard),
-                  ),
-                if (change.reason != null) Text(change.reason!, style: TextStyle(color: p.mutedOnCard, fontSize: 12)),
-                if (change.refund > 0) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    context.tr(switch (change.refundStatus) {
-                      'Processed' => 'Refund of {amount} done',
-                      'Failed' => 'We could not refund {amount} automatically. Please contact the store.',
-                      _ => 'Refund of {amount} is on its way to your original payment method',
-                    }, {'amount': rupees(change.refund)}),
-                    style: TextStyle(color: change.refundStatus == 'Failed' ? Pal.pink : p.onCard, fontWeight: FontWeight.w800),
-                  ),
-                ],
-              ]),
+            ),
+            if (order.replacement != null)
+              _ReplacementCard(order.id, order.replacement!),
+            for (final change in order.changes) ...[
+              const SizedBox(height: 12),
+              Surface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('The store changed your order'),
+                      key: const Key('order-change'),
+                      style: TextStyle(
+                        color: p.onCard,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final line in change.lines)
+                      Text(
+                        line.to == 0
+                            ? context.tr('{item} removed (was {n})', {
+                                'item':
+                                    '${line.name}${line.label == null ? '' : ' ${line.label}'}',
+                                'n': '${line.from}',
+                              })
+                            : context.tr('{item}: {from} to {to}', {
+                                'item':
+                                    '${line.name}${line.label == null ? '' : ' ${line.label}'}',
+                                'from': '${line.from}',
+                                'to': '${line.to}',
+                              }),
+                        style: TextStyle(color: p.onCard),
+                      ),
+                    if (change.reason != null)
+                      Text(
+                        change.reason!,
+                        style: TextStyle(color: p.mutedOnCard, fontSize: 12),
+                      ),
+                    if (change.refund > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        context.tr(
+                          switch (change.refundStatus) {
+                            'Processed' => 'Refund of {amount} done',
+                            'Failed' => 'We could not refund {amount} automatically. Please contact the store.',
+                            _ => 'Refund of {amount} is on its way to your original payment method',
+                          },
+                          {'amount': rupees(change.refund)},
+                        ),
+                        style: TextStyle(
+                          color: change.refundStatus == 'Failed'
+                              ? Pal.pink
+                              : p.onCard,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            if (order.note != null || order.outOfStockChoice != null) ...[
+              const SizedBox(height: 12),
+              Surface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (order.note != null) ...[
+                      Text(
+                        context.tr('Your note'),
+                        style: TextStyle(
+                          color: p.mutedOnCard,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(order.note!, style: TextStyle(color: p.onCard)),
+                      const SizedBox(height: 6),
+                    ],
+                    if (order.outOfStockChoice != null) ...[
+                      Text(
+                        context.tr('If an item is out of stock'),
+                        style: TextStyle(
+                          color: p.mutedOnCard,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        context.tr(switch (order.outOfStockChoice) {
+                          'Remove' => 'Remove it',
+                          'Replace' => 'Replace it',
+                          _ => 'Call me',
+                        }),
+                        style: TextStyle(
+                          color: p.onCard,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (order.stage == OrderStage.delivered)
+              RatingCard(order.id, storeName: order.storeName),
+            // Only while the store has not accepted it.
+            if (order.stage == OrderStage.placed ||
+                order.stage == OrderStage.awaitingPayment) ...[
+              SoftPillButton(
+                _cancelling
+                    ? context.tr('Cancelling…')
+                    : context.tr('Cancel order'),
+                height: 60,
+                onPressed: () {
+                  if (!_cancelling) _cancel();
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+            PillButton(
+              context.tr(_reordering ? 'Please wait…' : 'Reorder'),
+              height: 60,
+              onPressed: _reordering ? null : _reorder,
             ),
           ],
-          if (order.note != null || order.outOfStockChoice != null) ...[
-            const SizedBox(height: 12),
-            Surface(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if (order.note != null) ...[
-                  Text(context.tr('Your note'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
-                  Text(order.note!, style: TextStyle(color: p.onCard)),
-                  const SizedBox(height: 6),
-                ],
-                if (order.outOfStockChoice != null) ...[
-                  Text(context.tr('If an item is out of stock'), style: TextStyle(color: p.mutedOnCard, fontSize: 12, fontWeight: FontWeight.w700)),
-                  Text(context.tr(switch (order.outOfStockChoice) { 'Remove' => 'Remove it', 'Replace' => 'Replace it', _ => 'Call me' }), style: TextStyle(color: p.onCard, fontWeight: FontWeight.w700)),
-                ],
-              ]),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (order.stage == OrderStage.delivered) RatingCard(order.id, storeName: order.storeName),
-          // Only while the store has not accepted it.
-          if (order.stage == OrderStage.placed || order.stage == OrderStage.awaitingPayment) ...[
-            SoftPillButton(_cancelling ? context.tr('Cancelling…') : context.tr('Cancel order'), height: 60, onPressed: () {
-              if (!_cancelling) _cancel();
-            }),
-            const SizedBox(height: 12),
-          ],
-          PillButton(context.tr(_reordering ? 'Please wait…' : 'Reorder'), height: 60, onPressed: _reordering ? null : _reorder),
-        ]),
+        ),
       ),
     );
   }
@@ -420,13 +861,29 @@ class _DetailState extends ConsumerState<_Detail> {
 /// What happened to the customer's money when an order was cancelled or declined: nothing charged, a refund on its way (with how long it
 /// takes), or a refund done. A refund that could not be made is explained in the payment card below.
 String endedMoneyLine(BuildContext context, Order order) {
-  final paidOnline = order.isOnline && {PaymentState.paid, PaymentState.refunding, PaymentState.refunded, PaymentState.refundFailed}.contains(order.paymentState);
+  final paidOnline =
+      order.isOnline &&
+      {
+        PaymentState.paid,
+        PaymentState.refunding,
+        PaymentState.refunded,
+        PaymentState.refundFailed,
+      }.contains(order.paymentState);
   if (!paidOnline) return context.tr('You were not charged for this order.');
   final amount = rupees(order.total);
   return switch (order.paymentState) {
-    PaymentState.refunded => context.tr('Your {amount} was refunded to your original payment method.', {'amount': amount}),
-    PaymentState.refundFailed => context.tr('We could not refund {amount} automatically. Please contact the store.', {'amount': amount}),
-    _ => context.tr('Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.', {'amount': amount}),
+    PaymentState.refunded => context.tr(
+      'Your {amount} was refunded to your original payment method.',
+      {'amount': amount},
+    ),
+    PaymentState.refundFailed => context.tr(
+      'We could not refund {amount} automatically. Please contact the store.',
+      {'amount': amount},
+    ),
+    _ => context.tr(
+      'Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.',
+      {'amount': amount},
+    ),
   };
 }
 
@@ -448,12 +905,24 @@ class _StepBar extends StatelessWidget {
     return Semantics(
       label: at < 0 ? null : context.tr('Step {n} of 4', {'n': '${at + 1}'}),
       child: ExcludeSemantics(
-        child: Row(children: [
-          for (var i = 0; i < 4; i++) ...[
-            if (i > 0) const SizedBox(width: 4),
-            Expanded(child: Container(height: 5, decoration: BoxDecoration(color: i < at || (i == at && stage == OrderStage.delivered) ? const Color(0xFF14A44D) : (i == at ? Pal.yellow : p.border), borderRadius: BorderRadius.circular(QC.rPill)))),
+        child: Row(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(width: 4),
+              Expanded(
+                child: Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: i < at || (i == at && stage == OrderStage.delivered)
+                        ? const Color(0xFF14A44D)
+                        : (i == at ? Pal.yellow : p.border),
+                    borderRadius: BorderRadius.circular(QC.rPill),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
       ),
     );
   }
@@ -468,40 +937,87 @@ class _Timeline extends StatelessWidget {
     final p = context.pal;
     final on = p.dark ? Pal.yellow : Pal.ink;
     // A declined or cancelled order stops after "placed".
-    final ended = current == OrderStage.rejected || current == OrderStage.cancelled;
-    final stages = ended ? [OrderStage.placed, current] : [OrderStage.placed, OrderStage.packed, OrderStage.onTheWay, OrderStage.delivered];
+    final ended =
+        current == OrderStage.rejected || current == OrderStage.cancelled;
+    final stages = ended
+        ? [OrderStage.placed, current]
+        : [
+            OrderStage.placed,
+            OrderStage.packed,
+            OrderStage.onTheWay,
+            OrderStage.delivered,
+          ];
     final currentAt = stages.indexOf(current);
-    return Column(children: [
-      for (var i = 0; i < stages.length; i++)
-        Builder(builder: (_) {
-          final s = stages[i];
-          final reached = i <= currentAt;
-          final last = i == stages.length - 1;
-          final bad = s == OrderStage.rejected || s == OrderStage.cancelled;
-          final dot = bad ? Pal.pink : on;
-          return IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              SizedBox(
-                width: 28,
-                child: Column(children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: reached ? dot : Colors.transparent, border: Border.all(color: reached ? dot : p.mutedOnCard, width: 2)),
-                    child: reached ? Icon(bad ? Icons.close : Icons.check, size: 15, color: bad ? Colors.white : (p.dark ? Pal.ink : Pal.yellow)) : null,
-                  ),
-                  if (!last) Expanded(child: Container(width: 3, color: i < currentAt ? on : p.border)),
-                ]),
-              ),
-              const SizedBox(width: 14),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Text(stageLabel(context, s), style: TextStyle(fontWeight: i == currentAt ? FontWeight.w900 : FontWeight.w500, fontSize: i == currentAt ? 17 : 15, color: reached ? p.onCard : p.mutedOnCard)),
-              ),
-            ]),
-          );
-        }),
-    ]);
+    return Column(
+      children: [
+        for (var i = 0; i < stages.length; i++)
+          Builder(
+            builder: (_) {
+              final s = stages[i];
+              final reached = i <= currentAt;
+              final last = i == stages.length - 1;
+              final bad = s == OrderStage.rejected || s == OrderStage.cancelled;
+              final dot = bad ? Pal.pink : on;
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: reached ? dot : Colors.transparent,
+                              border: Border.all(
+                                color: reached ? dot : p.mutedOnCard,
+                                width: 2,
+                              ),
+                            ),
+                            child: reached
+                                ? Icon(
+                                    bad ? LucideIcons.x : LucideIcons.check,
+                                    size: 15,
+                                    color: bad
+                                        ? Colors.white
+                                        : (p.dark ? Pal.ink : Pal.yellow),
+                                  )
+                                : null,
+                          ),
+                          if (!last)
+                            Expanded(
+                              child: Container(
+                                width: 3,
+                                color: i < currentAt ? on : p.border,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Text(
+                        stageLabel(context, s),
+                        style: TextStyle(
+                          fontWeight: i == currentAt
+                              ? FontWeight.w900
+                              : FontWeight.w500,
+                          fontSize: i == currentAt ? 17 : 15,
+                          color: reached ? p.onCard : p.mutedOnCard,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
   }
 }
 
@@ -513,23 +1029,36 @@ class _TrackingLine extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tracking = ref.watch(trackingProvider(orderId)).value;
-    if (tracking == null || !tracking.available || tracking.distanceKm == null || tracking.etaMinutes == null) return const SizedBox.shrink();
+    if (tracking == null ||
+        !tracking.available ||
+        tracking.distanceKm == null ||
+        tracking.etaMinutes == null)
+      return const SizedBox.shrink();
     final name = tracking.partnerName ?? context.tr('Your delivery partner');
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Surface(
         color: Pal.green,
-        child: Row(children: [
-          const Icon(Icons.near_me_outlined, color: Pal.ink),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              context.tr('{name} is {km} km away, about {n} min', {'name': name, 'km': tracking.distanceKm!.toStringAsFixed(1), 'n': '${tracking.etaMinutes}'}),
-              key: const Key('tracking-line'),
-              style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.navigation, color: Pal.ink),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.tr('{name} is {km} km away, about {n} min', {
+                  'name': name,
+                  'km': tracking.distanceKm!.toStringAsFixed(1),
+                  'n': '${tracking.etaMinutes}',
+                }),
+                key: const Key('tracking-line'),
+                style: const TextStyle(
+                  color: Pal.ink,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -555,11 +1084,18 @@ class _ReplacementCardState extends ConsumerState<_ReplacementCard> {
       _problem = null;
     });
     try {
-      await ref.read(replacementRepositoryProvider).answer(widget.orderId, widget.replacement.id, accept: accept);
+      await ref
+          .read(replacementRepositoryProvider)
+          .answer(widget.orderId, widget.replacement.id, accept: accept);
     } on ConflictException catch (e) {
       if (mounted) setState(() => _problem = e.message);
     } catch (_) {
-      if (mounted) setState(() => _problem = context.tr('Could not send your answer. Please try again.'));
+      if (mounted)
+        setState(
+          () => _problem = context.tr(
+            'Could not send your answer. Please try again.',
+          ),
+        );
     } finally {
       // The order is read again: it now shows the swap, or the removed item, or what changed meanwhile.
       await ref.read(ordersProvider.notifier).pollOne(widget.orderId);
@@ -571,35 +1107,95 @@ class _ReplacementCardState extends ConsumerState<_ReplacementCard> {
   Widget build(BuildContext context) {
     final p = context.pal;
     final r = widget.replacement;
-    String item(String name, String? label) => label == null ? name : '$name $label';
+    String item(String name, String? label) =>
+        label == null ? name : '$name $label';
     final change = r.priceChange;
     final minutes = r.expiresAt.difference(DateTime.now()).inMinutes;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Surface(
         color: Pal.yellow,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(context.tr('A replacement for your order'), key: const Key('replacement-card'), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w900, fontSize: 16)),
-          const SizedBox(height: 6),
-          Text(context.tr('The store is out of {item}.', {'item': item(r.oldName, r.oldLabel)}), style: const TextStyle(color: Pal.ink)),
-          Text(context.tr('Instead: {n} × {item} at {price} each', {'n': '${r.newQuantity}', 'item': item(r.newName, r.newLabel), 'price': rupees(r.newUnitPrice)}), style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800)),
-          Text(
-            change == 0
-                ? context.tr('Your total stays the same.')
-                : change > 0
-                    ? context.tr('Your total goes up by {amount}.', {'amount': rupees(change)})
-                    : context.tr('Your total goes down by {amount}.', {'amount': rupees(-change)}),
-            style: const TextStyle(color: Pal.ink),
-          ),
-          Text(context.tr('Answer within {n} min or the item is removed.', {'n': '${minutes < 1 ? 1 : minutes}'}), style: TextStyle(color: p.dark ? Pal.ink : Pal.ink, fontSize: 12)),
-          if (_problem != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_problem!, style: const TextStyle(color: Pal.ink, fontWeight: FontWeight.w800))),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: PillButton(context.tr('Accept'), height: 46, onPressed: _busy ? null : () => _answer(true))),
-            const SizedBox(width: 10),
-            Expanded(child: SoftPillButton(context.tr('Decline'), height: 46, onPressed: _busy ? () {} : () => _answer(false))),
-          ]),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.tr('A replacement for your order'),
+              key: const Key('replacement-card'),
+              style: const TextStyle(
+                color: Pal.ink,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              context.tr('The store is out of {item}.', {
+                'item': item(r.oldName, r.oldLabel),
+              }),
+              style: const TextStyle(color: Pal.ink),
+            ),
+            Text(
+              context.tr('Instead: {n} × {item} at {price} each', {
+                'n': '${r.newQuantity}',
+                'item': item(r.newName, r.newLabel),
+                'price': rupees(r.newUnitPrice),
+              }),
+              style: const TextStyle(
+                color: Pal.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              change == 0
+                  ? context.tr('Your total stays the same.')
+                  : change > 0
+                  ? context.tr('Your total goes up by {amount}.', {
+                      'amount': rupees(change),
+                    })
+                  : context.tr('Your total goes down by {amount}.', {
+                      'amount': rupees(-change),
+                    }),
+              style: const TextStyle(color: Pal.ink),
+            ),
+            Text(
+              context.tr('Answer within {n} min or the item is removed.', {
+                'n': '${minutes < 1 ? 1 : minutes}',
+              }),
+              style: TextStyle(color: p.dark ? Pal.ink : Pal.ink, fontSize: 12),
+            ),
+            if (_problem != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _problem!,
+                  style: const TextStyle(
+                    color: Pal.ink,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: PillButton(
+                    context.tr('Accept'),
+                    height: 46,
+                    onPressed: _busy ? null : () => _answer(true),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SoftPillButton(
+                    context.tr('Decline'),
+                    height: 46,
+                    onPressed: _busy ? () {} : () => _answer(false),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -2,7 +2,8 @@
 /// Missing keys fall back to English, so partial coverage is safe.
 const marathi = <String, String>{
   // Welcome / auth
-  'Your trusted neighbourhood shop, now digital': 'तुमचं विश्वासू शेजारचं दुकान, आता डिजिटल',
+  'Your trusted neighbourhood shop, now digital':
+      'तुमचं विश्वासू शेजारचं दुकान, आता डिजिटल',
   'Your local shop,\nnow in your hand.': 'आपलं दुकान,\nआता आपल्या हातात.',
   '{n} min delivery': '{n} मिनिटांत डिलिव्हरी',
   'Fresh & reliable': 'ताजं आणि विश्वासार्ह',
@@ -13,7 +14,8 @@ const marathi = <String, String>{
   'Create account': 'खाते तयार करा',
   'Browse as guest': 'पाहुणा म्हणून पहा',
   'Welcome back': 'पुन्हा स्वागत आहे',
-  'Log in to see your orders and saved addresses.': 'तुमच्या ऑर्डर आणि जतन केलेले पत्ते पाहण्यासाठी लॉग इन करा.',
+  'Log in to see your orders and saved addresses.':
+      'तुमच्या ऑर्डर आणि जतन केलेले पत्ते पाहण्यासाठी लॉग इन करा.',
   'Email or phone': 'ईमेल किंवा फोन',
   'Email': 'ईमेल',
   'Password': 'पासवर्ड',
@@ -24,14 +26,17 @@ const marathi = <String, String>{
   'or': 'किंवा',
   'New here?': 'नवीन आहात?',
   'Create your account': 'तुमचं खाते तयार करा',
-  'Sign up in a few seconds and start shopping.': 'काही सेकंदात साइन अप करा आणि खरेदी सुरू करा.',
+  'Sign up in a few seconds and start shopping.':
+      'काही सेकंदात साइन अप करा आणि खरेदी सुरू करा.',
   'or sign up with email': 'किंवा ईमेलने साइन अप करा',
   'Full name': 'पूर्ण नाव',
   'Mobile number': 'मोबाइल नंबर',
-  'I agree to the Terms of Service and Privacy Policy': 'मी सेवा अटी आणि गोपनीयता धोरणाशी सहमत आहे',
+  'I agree to the Terms of Service and Privacy Policy':
+      'मी सेवा अटी आणि गोपनीयता धोरणाशी सहमत आहे',
   'Already registered?': 'आधीच नोंदणी केली आहे?',
   'Reset password': 'पासवर्ड रीसेट करा',
-  'Enter your email and we will send you a reset link.': 'तुमचा ईमेल टाका, आम्ही रीसेट लिंक पाठवू.',
+  'Enter your email and we will send you a reset link.':
+      'तुमचा ईमेल टाका, आम्ही रीसेट लिंक पाठवू.',
   'Send reset link': 'रीसेट लिंक पाठवा',
   'Check your inbox for a reset link.': 'रीसेट लिंकसाठी तुमचा इनबॉक्स तपासा.',
   'Back to log in': 'लॉग इनवर परत जा',
@@ -41,12 +46,14 @@ const marathi = <String, String>{
   'Enter a 10-digit number': '१० अंकी नंबर टाका',
   '{provider} is a design preview; signing in as a demo user.': '{provider} हे डिझाइन प्रिव्ह्यू आहे; डेमो वापरकर्ता म्हणून साइन इन करत आहे.',
   'Verify your number': 'तुमचा नंबर सत्यापित करा',
-  'Enter the 6-digit code sent to {phone}': '{phone} वर पाठवलेला ६ अंकी कोड टाका',
+  'Enter the 6-digit code sent to {phone}':
+      '{phone} वर पाठवलेला ६ अंकी कोड टाका',
   'Resend code in 0:{s}': 'कोड पुन्हा पाठवा 0:{s}',
   'Resend code': 'कोड पुन्हा पाठवा',
   'Verify and continue': 'सत्यापित करा आणि पुढे जा',
   'Change number': 'नंबर बदला',
-  'Design preview: any 6 digits will work.': 'डिझाइन प्रिव्ह्यू: कोणतेही ६ अंक चालतील.',
+  'Design preview: any 6 digits will work.':
+      'डिझाइन प्रिव्ह्यू: कोणतेही ६ अंक चालतील.',
 
   // Home
   'Good morning': 'शुभ प्रभात',
@@ -121,7 +128,8 @@ const marathi = <String, String>{
   '{code} applied': '{code} लागू केला',
   'Coupon ({code})': 'कूपन ({code})',
   'Sign in to use a code.': 'कोड वापरण्यासाठी साइन इन करा.',
-  'Could not check the code. Try again.': 'कोड तपासता आला नाही. पुन्हा प्रयत्न करा.',
+  'Could not check the code. Try again.':
+      'कोड तपासता आला नाही. पुन्हा प्रयत्न करा.',
   'That coupon could not be used, so it was removed. Place your order again to continue without it.': 'तो कूपन वापरता आला नाही, म्हणून काढला. त्याशिवाय पुढे जाण्यासाठी ऑर्डर पुन्हा द्या.',
   'Delivery time': 'डिलिव्हरीची वेळ',
   'As soon as possible': 'शक्य तितक्या लवकर',
@@ -129,10 +137,13 @@ const marathi = <String, String>{
   'Tomorrow': 'उद्या',
   'Full': 'भरले',
   'Delivery: {when}': 'डिलिव्हरी: {when}',
-  'Choose a delivery time to continue.': 'पुढे जाण्यासाठी डिलिव्हरीची वेळ निवडा.',
-  'No delivery times are open right now.': 'सध्या डिलिव्हरीच्या कोणत्याही वेळा उपलब्ध नाहीत.',
+  'Choose a delivery time to continue.':
+      'पुढे जाण्यासाठी डिलिव्हरीची वेळ निवडा.',
+  'No delivery times are open right now.':
+      'सध्या डिलिव्हरीच्या कोणत्याही वेळा उपलब्ध नाहीत.',
   'That delivery time is no longer available. Pick another time and place your order again.': 'ती डिलिव्हरीची वेळ आता उपलब्ध नाही. दुसरी वेळ निवडा आणि ऑर्डर पुन्हा द्या.',
-  'Order #{id} is being prepared.\nDelivery: {when}': 'ऑर्डर #{id} तयार होत आहे.\nडिलिव्हरी: {when}',
+  'Order #{id} is being prepared.\nDelivery: {when}':
+      'ऑर्डर #{id} तयार होत आहे.\nडिलिव्हरी: {when}',
   'FESTIVE OFFER': 'सणाची ऑफर',
   'ENDS TODAY': 'आज संपते',
   'ENDS IN 1 DAY': '१ दिवसात संपते',
@@ -159,12 +170,14 @@ const marathi = <String, String>{
   'UPI': 'UPI',
   'Card': 'कार्ड',
   'Order summary': 'ऑर्डर सारांश',
-  'Payment is a placeholder in this build; no charge is made.': 'या आवृत्तीत पेमेंट हे केवळ नमुना आहे; कोणतेही शुल्क आकारले जात नाही.',
+  'Payment is a placeholder in this build; no charge is made.':
+      'या आवृत्तीत पेमेंट हे केवळ नमुना आहे; कोणतेही शुल्क आकारले जात नाही.',
   'Place order': 'ऑर्डर द्या',
 
   // Orders
   'Order placed!': 'ऑर्डर दिली!',
-  'Order #{id} is being prepared.\nExpected in about {n} minutes.': 'ऑर्डर #{id} तयार होत आहे.\nसुमारे {n} मिनिटांत पोहोचेल.',
+  'Order #{id} is being prepared.\nExpected in about {n} minutes.':
+      'ऑर्डर #{id} तयार होत आहे.\nसुमारे {n} मिनिटांत पोहोचेल.',
   'Track order': 'ऑर्डर ट्रॅक करा',
   'Continue shopping': 'खरेदी सुरू ठेवा',
   'Orders': 'ऑर्डर',
@@ -188,7 +201,8 @@ const marathi = <String, String>{
   'Home': 'होम',
   'Profile': 'प्रोफाइल',
   'Guest shopper': 'पाहुणा ग्राहक',
-  'Sign in to sync orders and addresses': 'ऑर्डर आणि पत्ते सिंक करण्यासाठी साइन इन करा',
+  'Sign in to sync orders and addresses':
+      'ऑर्डर आणि पत्ते सिंक करण्यासाठी साइन इन करा',
   'Signed in': 'साइन इन केले',
   'My orders': 'माझ्या ऑर्डर',
   '{n} placed': '{n} दिल्या',
@@ -217,21 +231,29 @@ const marathi = <String, String>{
   'Confirm location': 'स्थान निश्चित करा',
 
   // API errors (see lib/data/api/api_exception.dart)
-  'Cannot reach the server. Check your connection and try again.': 'सर्व्हरशी संपर्क होत नाही. कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.',
-  'The server took too long to respond. Please try again.': 'सर्व्हरने प्रतिसाद द्यायला खूप वेळ घेतला. कृपया पुन्हा प्रयत्न करा.',
+  'Cannot reach the server. Check your connection and try again.':
+      'सर्व्हरशी संपर्क होत नाही. कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.',
+  'The server took too long to respond. Please try again.':
+      'सर्व्हरने प्रतिसाद द्यायला खूप वेळ घेतला. कृपया पुन्हा प्रयत्न करा.',
   'Please check the details you entered.': 'कृपया तुम्ही टाकलेली माहिती तपासा.',
   'Please sign in to continue.': 'पुढे जाण्यासाठी कृपया साइन इन करा.',
   'You do not have access to this.': 'तुम्हाला याचा प्रवेश नाही.',
-  'We could not find what you were looking for.': 'तुम्ही शोधत असलेले आम्हाला सापडले नाही.',
+  'We could not find what you were looking for.':
+      'तुम्ही शोधत असलेले आम्हाला सापडले नाही.',
   'This changed while you were shopping. Please review and try again.': 'तुम्ही खरेदी करत असताना यात बदल झाला. कृपया तपासा आणि पुन्हा प्रयत्न करा.',
-  'Too many attempts. Please wait a moment and try again.': 'खूप प्रयत्न झाले. कृपया थोडं थांबून पुन्हा प्रयत्न करा.',
-  'Something went wrong on our side. Please try again.': 'आमच्या बाजूने काहीतरी चुकलं. कृपया पुन्हा प्रयत्न करा.',
-  'Something went wrong. Please try again.': 'काहीतरी चुकलं. कृपया पुन्हा प्रयत्न करा.',
+  'Too many attempts. Please wait a moment and try again.':
+      'खूप प्रयत्न झाले. कृपया थोडं थांबून पुन्हा प्रयत्न करा.',
+  'Something went wrong on our side. Please try again.':
+      'आमच्या बाजूने काहीतरी चुकलं. कृपया पुन्हा प्रयत्न करा.',
+  'Something went wrong. Please try again.':
+      'काहीतरी चुकलं. कृपया पुन्हा प्रयत्न करा.',
 
   // Catalog loading (task 1.7)
   'Retry': 'पुन्हा प्रयत्न करा',
   'Could not load': 'लोड करता आले नाही',
   'Load more': 'आणखी दाखवा',
+  'All': 'सर्व',
+  '+{n} more': '+{n} अधिक',
   'Loading…': 'लोड होत आहे…',
   'All items': 'सर्व वस्तू',
   'Browse the full catalogue': 'संपूर्ण यादी पहा',
@@ -247,35 +269,43 @@ const marathi = <String, String>{
   'Save': 'जतन करा',
   'An account with this email already exists.': 'या ईमेलने आधीच खाते आहे.',
   'Wrong email or password.': 'ईमेल किंवा पासवर्ड चुकीचा आहे.',
-  'This account cannot be used in the customer app.': 'हे खाते ग्राहक अॅपमध्ये वापरता येत नाही.',
-  'That code is not valid or has expired. Check it or ask for a new one.': 'हा कोड चुकीचा आहे किंवा संपला आहे. तपासा किंवा नवीन कोड मागवा.',
+  'This account cannot be used in the customer app.':
+      'हे खाते ग्राहक अॅपमध्ये वापरता येत नाही.',
+  'That code is not valid or has expired. Check it or ask for a new one.':
+      'हा कोड चुकीचा आहे किंवा संपला आहे. तपासा किंवा नवीन कोड मागवा.',
   'Your current password is not correct.': 'तुमचा सध्याचा पासवर्ड चुकीचा आहे.',
   'Mobile number (optional)': 'मोबाइल नंबर (ऐच्छिक)',
-  'Enter your email and we will send you a reset code.': 'तुमचा ईमेल टाका, आम्ही रीसेट कोड पाठवू.',
+  'Enter your email and we will send you a reset code.':
+      'तुमचा ईमेल टाका, आम्ही रीसेट कोड पाठवू.',
   'Send reset code': 'रीसेट कोड पाठवा',
   'Enter your code': 'तुमचा कोड टाका',
-  'We sent an 8-character code to {email}. It works for 30 minutes.': 'आम्ही {email} वर ८ अक्षरी कोड पाठवला आहे. तो ३० मिनिटे चालेल.',
+  'We sent an 8-character code to {email}. It works for 30 minutes.':
+      'आम्ही {email} वर ८ अक्षरी कोड पाठवला आहे. तो ३० मिनिटे चालेल.',
   'Reset code': 'रीसेट कोड',
   'Enter the 8-character code': '८ अक्षरी कोड टाका',
   'New password': 'नवीन पासवर्ड',
   'Change password': 'पासवर्ड बदला',
   'Send a new code': 'नवीन कोड पाठवा',
-  'Password changed. Log in with your new password.': 'पासवर्ड बदलला. नवीन पासवर्डने लॉग इन करा.',
+  'Password changed. Log in with your new password.':
+      'पासवर्ड बदलला. नवीन पासवर्डने लॉग इन करा.',
   'Edit profile': 'प्रोफाइल बदला',
   'Your email cannot be changed here.': 'तुमचा ईमेल इथे बदलता येत नाही.',
   'Profile saved': 'प्रोफाइल जतन केले',
-  'Password changed. Your other devices were signed out.': 'पासवर्ड बदलला. तुमची इतर उपकरणे लॉग आउट झाली.',
+  'Password changed. Your other devices were signed out.':
+      'पासवर्ड बदलला. तुमची इतर उपकरणे लॉग आउट झाली.',
   'Other devices will be signed out.': 'इतर उपकरणे लॉग आउट होतील.',
   'Current password': 'सध्याचा पासवर्ड',
   'Sign in to see your orders': 'ऑर्डर पाहण्यासाठी लॉग इन करा',
-  'Your orders are saved to your account.': 'तुमच्या ऑर्डर तुमच्या खात्यात जतन होतात.',
+  'Your orders are saved to your account.':
+      'तुमच्या ऑर्डर तुमच्या खात्यात जतन होतात.',
   // Store selection
   'Choose a store': 'दुकान निवडा',
   'Change store': 'दुकान बदला',
   'Nearest': 'सर्वात जवळचे',
   '{n} min': '{n} मिनिटे',
   'Stores that deliver to your address. Pick one to see what it has in stock.': 'तुमच्या पत्त्यावर डिलिव्हरी करणारी दुकाने. त्यांच्याकडे काय उपलब्ध आहे ते पाहण्यासाठी एक निवडा.',
-  'No store delivers to this address. Try another address.': 'या पत्त्यावर कोणतेही दुकान डिलिव्हरी करत नाही. दुसरा पत्ता वापरून पहा.',
+  'No store delivers to this address. Try another address.':
+      'या पत्त्यावर कोणतेही दुकान डिलिव्हरी करत नाही. दुसरा पत्ता वापरून पहा.',
   'Switch to {store}?': '{store} वर जायचे?',
   'Your cart has items from {store}. Switching store will empty your cart.': 'तुमच्या कार्टमध्ये {store} मधील वस्तू आहेत. दुकान बदलल्यास कार्ट रिकामे होईल.',
   'your current store': 'तुमचे सध्याचे दुकान',
@@ -303,7 +333,8 @@ const marathi = <String, String>{
   'A to Z': 'अ ते ज्ञ',
   'Shop from {store}': '{store} मधून खरेदी करा',
   '{km} km': '{km} किमी',
-  '{km} km away · delivers within {r} km': '{km} किमी दूर · {r} किमीपर्यंत डिलिव्हरी',
+  '{km} km away · delivers within {r} km':
+      '{km} किमी दूर · {r} किमीपर्यंत डिलिव्हरी',
   'Check other stores': 'इतर दुकाने पहा',
   // Addresses and delivery location (P4)
   'Edit address': 'पत्ता बदला',
@@ -326,10 +357,13 @@ const marathi = <String, String>{
   'We deliver here': 'आम्ही इथे डिलिव्हरी करतो',
   'You can still save it, but orders to this address are not possible until a store delivers here.': 'तुम्ही तो जतन करू शकता, पण एखादे दुकान इथे डिलिव्हरी करेपर्यंत या पत्त्यावर ऑर्डर देता येणार नाही.',
   'Type the address first.': 'आधी पत्ता टाका.',
-  'We could not find this address. Check it, or use your current location.': 'हा पत्ता सापडला नाही. तो तपासा, किंवा तुमचे सध्याचे ठिकाण वापरा.',
+  'We could not find this address. Check it, or use your current location.':
+      'हा पत्ता सापडला नाही. तो तपासा, किंवा तुमचे सध्याचे ठिकाण वापरा.',
   'Address lookup is not available right now. Use your current location, or enter coordinates below.': 'पत्ता शोध सध्या उपलब्ध नाही. तुमचे सध्याचे ठिकाण वापरा, किंवा खाली निर्देशांक टाका.',
-  'Enter valid coordinates, for example 19.0760 and 72.8777.': 'योग्य निर्देशांक टाका, उदा. 19.0760 आणि 72.8777.',
-  'Set the location first: find the address or use your current location.': 'आधी ठिकाण निश्चित करा: पत्ता शोधा किंवा तुमचे सध्याचे ठिकाण वापरा.',
+  'Enter valid coordinates, for example 19.0760 and 72.8777.':
+      'योग्य निर्देशांक टाका, उदा. 19.0760 आणि 72.8777.',
+  'Set the location first: find the address or use your current location.':
+      'आधी ठिकाण निश्चित करा: पत्ता शोधा किंवा तुमचे सध्याचे ठिकाण वापरा.',
   'Save address': 'पत्ता जतन करा',
   'Use this location': 'हे ठिकाण वापरा',
   'Delivery addresses': 'डिलिव्हरीचे पत्ते',
@@ -352,18 +386,21 @@ const marathi = <String, String>{
   'Keep current address': 'सध्याचा पत्ता ठेवा',
   'Change and empty cart': 'बदला आणि कार्ट रिकामे करा',
   'We need permission to use your location. You can enter an address instead.': 'तुमचे ठिकाण वापरण्यासाठी परवानगी हवी आहे. तुम्ही त्याऐवजी पत्ता टाकू शकता.',
-  'Could not get your location. Try again, or enter an address.': 'तुमचे ठिकाण मिळाले नाही. पुन्हा प्रयत्न करा, किंवा पत्ता टाका.',
+  'Could not get your location. Try again, or enter an address.':
+      'तुमचे ठिकाण मिळाले नाही. पुन्हा प्रयत्न करा, किंवा पत्ता टाका.',
   'Location permission needed': 'ठिकाणाची परवानगी हवी',
   'QuickCart cannot see your location because permission was turned off. You can allow it in the app settings, or enter an address instead.': 'परवानगी बंद केल्यामुळे QuickCart ला तुमचे ठिकाण दिसत नाही. तुम्ही ती अॅप सेटिंग्जमध्ये चालू करू शकता, किंवा त्याऐवजी पत्ता टाका.',
   'Location is off': 'ठिकाण बंद आहे',
   'Turn on location on your phone to use your current location, or enter an address instead.': 'सध्याचे ठिकाण वापरण्यासाठी फोनवर लोकेशन चालू करा, किंवा त्याऐवजी पत्ता टाका.',
   'Not now': 'आत्ता नको',
   'Open settings': 'सेटिंग्ज उघडा',
-  'You have reached the limit of saved addresses. Delete one to add another.': 'जतन केलेल्या पत्त्यांची मर्यादा गाठली आहे. नवीन जोडण्यासाठी एक हटवा.',
+  'You have reached the limit of saved addresses. Delete one to add another.':
+      'जतन केलेल्या पत्त्यांची मर्यादा गाठली आहे. नवीन जोडण्यासाठी एक हटवा.',
   'This address no longer exists.': 'हा पत्ता आता अस्तित्वात नाही.',
   'Choose location': 'ठिकाण निवडा',
   'Where should we deliver?': 'आम्ही कुठे डिलिव्हरी करावी?',
-  'Add your location to see the stores that deliver to you.': 'तुमच्याकडे डिलिव्हरी करणारी दुकाने पाहण्यासाठी तुमचे ठिकाण जोडा.',
+  'Add your location to see the stores that deliver to you.':
+      'तुमच्याकडे डिलिव्हरी करणारी दुकाने पाहण्यासाठी तुमचे ठिकाण जोडा.',
   'Try another address': 'दुसरा पत्ता वापरून पहा',
   'Add an address': 'पत्ता जोडा',
   'Choose a delivery address': 'डिलिव्हरीचा पत्ता निवडा',
@@ -371,13 +408,15 @@ const marathi = <String, String>{
   'Choose': 'निवडा',
   'We do not deliver to this address yet. Choose another address to place your order.': 'आम्ही अजून या पत्त्यावर डिलिव्हरी करत नाही. ऑर्डर देण्यासाठी दुसरा पत्ता निवडा.',
   'Some items need your attention': 'काही वस्तूंकडे तुमचे लक्ष हवे आहे',
-  '{name}: price changed from {old} to {now}': '{name}: किंमत {old} वरून {now} झाली',
+  '{name}: price changed from {old} to {now}':
+      '{name}: किंमत {old} वरून {now} झाली',
   '{name} is no longer available': '{name} आता उपलब्ध नाही',
   '{name}: only {n} left': '{name}: फक्त {n} शिल्लक',
   'An item': 'एक वस्तू',
   '{name} is out of stock': '{name} संपले आहे',
   'Only {n} of {name} could be added': '{name} चे फक्त {n} जोडता आले',
-  'Some items from your cart could not be added:': 'तुमच्या कार्टमधील काही वस्तू जोडता आल्या नाहीत:',
+  'Some items from your cart could not be added:':
+      'तुमच्या कार्टमधील काही वस्तू जोडता आल्या नाहीत:',
   'Dismiss': 'बंद करा',
   'You have two carts': 'तुमच्याकडे दोन कार्ट आहेत',
   'You have a saved cart from another store and a cart on this phone. A cart can only be from one store. Which one do you want to keep?': 'तुमच्याकडे दुसऱ्या दुकानाचे सेव्ह केलेले कार्ट आणि या फोनवरचे कार्ट आहे. कार्ट एकाच दुकानाचे असू शकते. कोणते ठेवायचे?',
@@ -386,7 +425,8 @@ const marathi = <String, String>{
   'Pay with cash when your order arrives.': 'ऑर्डर आल्यावर रोख रक्कम द्या.',
   'Placing your order…': 'तुमची ऑर्डर देत आहोत…',
   'Pay {amt} in cash on delivery.': 'डिलिव्हरीवेळी {amt} रोख द्या.',
-  'Some items are not available and were left out.': 'काही वस्तू उपलब्ध नाहीत आणि वगळल्या.',
+  'Some items are not available and were left out.':
+      'काही वस्तू उपलब्ध नाहीत आणि वगळल्या.',
   'Payment': 'पेमेंट',
   'Update prices': 'किमती अपडेट करा',
   'Remove unavailable items': 'उपलब्ध नसलेल्या वस्तू काढा',
@@ -395,12 +435,15 @@ const marathi = <String, String>{
   'View your orders': 'तुमच्या ऑर्डर पहा',
   'Declined': 'नाकारली',
   'We could not load your orders.': 'तुमच्या ऑर्डर लोड करता आल्या नाहीत.',
-  'Your cart changed while we were placing the order. Review the changes below, then place your order again.': 'ऑर्डर देताना तुमचे कार्ट बदलले. खालील बदल पाहा आणि पुन्हा ऑर्डर द्या.',
+  'Your cart changed while we were placing the order. Review the changes below, then place your order again.':
+      'ऑर्डर देताना तुमचे कार्ट बदलले. खालील बदल पाहा आणि पुन्हा ऑर्डर द्या.',
   'Your cart is empty. If you already placed this order, you will find it in Your orders.': 'तुमचे कार्ट रिकामे आहे. ही ऑर्डर आधीच दिली असल्यास ती तुमच्या ऑर्डरमध्ये दिसेल.',
   'We could not confirm your order. Check Your orders before trying again; if it is not there, tap Place order again.': 'आम्ही तुमच्या ऑर्डरची खात्री करू शकलो नाही. पुन्हा प्रयत्न करण्यापूर्वी तुमच्या ऑर्डर तपासा; तिथे नसल्यास पुन्हा ऑर्डर द्या दाबा.',
-  'We could not place your order. Please try again.': 'आम्ही तुमची ऑर्डर देऊ शकलो नाही. कृपया पुन्हा प्रयत्न करा.',
+  'We could not place your order. Please try again.':
+      'आम्ही तुमची ऑर्डर देऊ शकलो नाही. कृपया पुन्हा प्रयत्न करा.',
   'View cart': 'कार्ट पहा',
-  'We do not deliver to your location yet. Choose another address.': 'आम्ही अजून तुमच्या ठिकाणी डिलिव्हरी करत नाही. दुसरा पत्ता निवडा.',
+  'We do not deliver to your location yet. Choose another address.':
+      'आम्ही अजून तुमच्या ठिकाणी डिलिव्हरी करत नाही. दुसरा पत्ता निवडा.',
   'Happy Navratri & Dussehra!': 'नवरात्री आणि दसऱ्याच्या हार्दिक शुभेच्छा!',
   'Happy Diwali!': 'दिवाळीच्या हार्दिक शुभेच्छा!',
   'Merry Christmas!': 'नाताळच्या शुभेच्छा!',
@@ -408,9 +451,11 @@ const marathi = <String, String>{
   'Happy Makar Sankranti!': 'मकर संक्रांतीच्या हार्दिक शुभेच्छा!',
   'Happy Republic Day!': 'प्रजासत्ताक दिनाच्या शुभेच्छा!',
   'Happy Holi!': 'होळीच्या हार्दिक शुभेच्छा!',
-  'Fresh groceries for your festive table': 'तुमच्या सणासुदीच्या जेवणासाठी ताजा किराणा',
+  'Fresh groceries for your festive table':
+      'तुमच्या सणासुदीच्या जेवणासाठी ताजा किराणा',
   'Festival animations': 'सणांचे अॅनिमेशन',
-  'Falling lights and petals on Home during festivals': 'सणांच्या दिवसांत होमवर पडणारे दिवे आणि पाकळ्या',
+  'Falling lights and petals on Home during festivals':
+      'सणांच्या दिवसांत होमवर पडणारे दिवे आणि पाकळ्या',
   'Choose your delivery location first.': 'आधी तुमचे डिलिव्हरीचे ठिकाण निवडा.',
   'Order status updated': 'ऑर्डरची स्थिती बदलली',
   'Order cancelled': 'ऑर्डर रद्द झाली',
@@ -429,11 +474,14 @@ const marathi = <String, String>{
   '{n} h ago': '{n} तासांपूर्वी',
   'Mark all as read': 'सर्व वाचले म्हणून खूण करा',
   'Sign in to see your notifications': 'सूचना पाहण्यासाठी साइन इन करा',
-  'We tell you when the store accepts or delivers your order.': 'दुकानाने तुमची ऑर्डर स्वीकारली किंवा पोहोचवली की आम्ही कळवतो.',
+  'We tell you when the store accepts or delivers your order.':
+      'दुकानाने तुमची ऑर्डर स्वीकारली किंवा पोहोचवली की आम्ही कळवतो.',
   'No notifications yet': 'अजून कोणत्याही सूचना नाहीत',
-  'We will tell you here when the store accepts or delivers your order.': 'दुकानाने तुमची ऑर्डर स्वीकारली किंवा पोहोचवली की आम्ही इथे कळवू.',
+  'We will tell you here when the store accepts or delivers your order.':
+      'दुकानाने तुमची ऑर्डर स्वीकारली किंवा पोहोचवली की आम्ही इथे कळवू.',
   'Unread': 'न वाचलेले',
-  'Could not refresh. Showing the last update.': 'रिफ्रेश करता आले नाही. शेवटची माहिती दाखवत आहोत.',
+  'Could not refresh. Showing the last update.':
+      'रिफ्रेश करता आले नाही. शेवटची माहिती दाखवत आहोत.',
   'Could not open the phone app.': 'फोन अॅप उघडता आले नाही.',
   'Cancel this order?': 'ही ऑर्डर रद्द करायची?',
   'The store has not accepted it yet. If you cancel, nothing is charged and the items go back to the store.': 'दुकानाने ती अजून स्वीकारलेली नाही. रद्द केल्यास काहीही आकारले जाणार नाही आणि वस्तू दुकानात परत जातील.',
@@ -450,32 +498,42 @@ const marathi = <String, String>{
   'Pay online': 'ऑनलाइन पैसे द्या',
   'UPI, card or net banking. Your items are held for {n} minutes while you pay.': 'UPI, कार्ड किंवा नेट बँकिंग. तुम्ही पैसे देईपर्यंत {n} मिनिटे तुमच्या वस्तू राखून ठेवल्या जातात.',
   'Paid {amt} online.': '{amt} ऑनलाइन दिले.',
-  'Payment pending. The store will see your order once it is paid.': 'पेमेंट बाकी आहे. पैसे दिल्यावरच दुकानाला तुमची ऑर्डर दिसेल.',
+  'Payment pending. The store will see your order once it is paid.':
+      'पेमेंट बाकी आहे. पैसे दिल्यावरच दुकानाला तुमची ऑर्डर दिसेल.',
   'Pay now': 'आता पैसे द्या',
   'You have not paid yet, so nothing is charged. The items go back to the store.': 'तुम्ही अजून पैसे दिलेले नाहीत, त्यामुळे काहीही आकारले जाणार नाही. वस्तू दुकानात परत जातील.',
-  'Payment was not completed. You can try again.': 'पेमेंट पूर्ण झाले नाही. तुम्ही पुन्हा प्रयत्न करू शकता.',
+  'Payment was not completed. You can try again.':
+      'पेमेंट पूर्ण झाले नाही. तुम्ही पुन्हा प्रयत्न करू शकता.',
   'Your payment did not go through. No money was taken; if it was, it will be returned. Please try again.': 'तुमचे पेमेंट झाले नाही. पैसे कापले गेले नाहीत; कापले गेले असल्यास ते परत केले जातील. कृपया पुन्हा प्रयत्न करा.',
   'We received your payment and are confirming it. This can take a minute. Please do not pay again.': 'तुमचे पेमेंट मिळाले आहे आणि आम्ही ते तपासत आहोत. यासाठी एक मिनिट लागू शकतो. कृपया पुन्हा पैसे देऊ नका.',
   'Online payment is not available right now. Please try again in a moment.': 'ऑनलाइन पेमेंट सध्या उपलब्ध नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा.',
   'This order was cancelled because it was not paid in time. If any money was taken, it will be returned to you.': 'वेळेत पैसे न दिल्यामुळे ही ऑर्डर रद्द झाली. पैसे कापले गेले असल्यास ते तुम्हाला परत केले जातील.',
   'This order can no longer be paid.': 'या ऑर्डरचे पेमेंट आता करता येत नाही.',
-  'Pay online with UPI, card or net banking.': 'UPI, कार्ड किंवा नेट बँकिंगने ऑनलाइन पैसे द्या.',
-  'Time is up. This order is being cancelled.': 'वेळ संपली. ही ऑर्डर रद्द केली जात आहे.',
-  'Your items are held for {time}': 'तुमच्या वस्तू {time} पर्यंत राखून ठेवल्या आहेत',
+  'Pay online with UPI, card or net banking.':
+      'UPI, कार्ड किंवा नेट बँकिंगने ऑनलाइन पैसे द्या.',
+  'Time is up. This order is being cancelled.':
+      'वेळ संपली. ही ऑर्डर रद्द केली जात आहे.',
+  'Your items are held for {time}':
+      'तुमच्या वस्तू {time} पर्यंत राखून ठेवल्या आहेत',
   'Try again': 'पुन्हा प्रयत्न करा',
   'Awaiting payment': 'पेमेंटची प्रतीक्षा',
   'Online payment': 'ऑनलाइन पेमेंट',
   'Payment received': 'पेमेंट मिळाले',
   'Payment not completed': 'पेमेंट पूर्ण झाले नाही',
-  'Your refund is on its way to your original payment method.': 'तुमचा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे.',
-  'Your payment was refunded to your original payment method.': 'तुमचे पैसे तुमच्या मूळ पेमेंट पद्धतीत परत केले गेले.',
-  'We could not refund your payment automatically. Please contact the store.': 'आम्ही तुमचे पैसे आपोआप परत करू शकलो नाही. कृपया दुकानाशी संपर्क साधा.',
+  'Your refund is on its way to your original payment method.':
+      'तुमचा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे.',
+  'Your payment was refunded to your original payment method.':
+      'तुमचे पैसे तुमच्या मूळ पेमेंट पद्धतीत परत केले गेले.',
+  'We could not refund your payment automatically. Please contact the store.':
+      'आम्ही तुमचे पैसे आपोआप परत करू शकलो नाही. कृपया दुकानाशी संपर्क साधा.',
   'The store has not accepted it yet. If you cancel, the items go back to the store and your payment is refunded to the original payment method.': 'दुकानाने ती अजून स्वीकारलेली नाही. तुम्ही रद्द केल्यास वस्तू दुकानात परत जातील आणि तुमचे पैसे मूळ पेमेंट पद्धतीत परत केले जातील.',
   'Online payment is not available right now. You can pay cash on delivery instead.': 'ऑनलाइन पेमेंट सध्या उपलब्ध नाही. त्याऐवजी तुम्ही डिलिव्हरीच्या वेळी रोख देऊ शकता.',
   'Offer': 'ऑफर',
   'Offers and announcements': 'ऑफर आणि सूचना',
-  'Order and payment updates are always sent.': 'ऑर्डर आणि पेमेंटच्या सूचना नेहमी पाठवल्या जातात.',
-  'Could not save your choice. Please try again.': 'तुमची निवड जतन झाली नाही. कृपया पुन्हा प्रयत्न करा.',
+  'Order and payment updates are always sent.':
+      'ऑर्डर आणि पेमेंटच्या सूचना नेहमी पाठवल्या जातात.',
+  'Could not save your choice. Please try again.':
+      'तुमची निवड जतन झाली नाही. कृपया पुन्हा प्रयत्न करा.',
   'Sponsored': 'प्रायोजित',
   'Delivery partner': 'डिलिव्हरी पार्टनर',
   'Continue with phone': 'फोन नंबरने सुरू करा',
@@ -491,47 +549,59 @@ const marathi = <String, String>{
   'delivery': 'डिलिव्हरी',
   'Thank you for your rating.': 'तुमच्या रेटिंगबद्दल धन्यवाद.',
   'This order can no longer be rated.': 'या ऑर्डरला आता रेटिंग देता येत नाही.',
-  'Please check your rating. A comment cannot contain < or >.': 'कृपया रेटिंग तपासा. टिप्पणीत < किंवा > वापरू नका.',
+  'Please check your rating. A comment cannot contain < or >.':
+      'कृपया रेटिंग तपासा. टिप्पणीत < किंवा > वापरू नका.',
   'Saved items': 'जतन केलेल्या वस्तू',
   'Save for later': 'नंतरसाठी जतन करा',
   'Remove from saved items': 'जतन केलेल्यातून काढा',
-  'Could not update your saved items. Please try again.': 'जतन केलेल्या वस्तू अपडेट करता आल्या नाहीत. पुन्हा प्रयत्न करा.',
+  'Could not update your saved items. Please try again.':
+      'जतन केलेल्या वस्तू अपडेट करता आल्या नाहीत. पुन्हा प्रयत्न करा.',
   'Nothing saved yet': 'अजून काहीही जतन केलेले नाही',
-  'Tap the heart on a product to keep it here.': 'येथे ठेवण्यासाठी वस्तूवरील हृदयावर टॅप करा.',
+  'Tap the heart on a product to keep it here.':
+      'येथे ठेवण्यासाठी वस्तूवरील हृदयावर टॅप करा.',
   'Browse products': 'वस्तू पहा',
   'Start a new cart?': 'नवीन कार्ट सुरू करायची?',
   'Your cart has items from another store. Ordering again from {store} empties it.': 'तुमच्या कार्टमध्ये दुसऱ्या दुकानातील वस्तू आहेत. {store} मधून पुन्हा ऑर्डर केल्यास ती रिकामी होईल.',
   'this store': 'हे दुकान',
   'Keep my cart': 'माझी कार्ट ठेवा',
   'Order again': 'पुन्हा ऑर्डर करा',
-  'None of these items can be ordered right now.': 'यातील कोणतीही वस्तू सध्या ऑर्डर करता येत नाही.',
+  'None of these items can be ordered right now.':
+      'यातील कोणतीही वस्तू सध्या ऑर्डर करता येत नाही.',
   'Delete account': 'खाते हटवा',
   'Delete my account': 'माझे खाते हटवा',
   'Type DELETE to confirm': 'खात्री करण्यासाठी DELETE टाइप करा',
   'Your account was deleted.': 'तुमचे खाते हटवले गेले.',
-  'Finish or cancel your open orders first.': 'आधी तुमच्या सुरू असलेल्या ऑर्डर पूर्ण करा किंवा रद्द करा.',
+  'Finish or cancel your open orders first.':
+      'आधी तुमच्या सुरू असलेल्या ऑर्डर पूर्ण करा किंवा रद्द करा.',
   'Your password is not correct.': 'तुमचा पासवर्ड बरोबर नाही.',
   'This erases your name, phone, email, addresses and notifications for good. Past orders stay with the store without your details.': 'हे तुमचे नाव, फोन, ईमेल, पत्ते आणि सूचना कायमचे पुसते. जुन्या ऑर्डर तुमच्या माहितीशिवाय दुकानाकडे राहतात.',
   'Continue with Google': 'Google ने सुरू करा',
-  'Google sign-in did not work. Please try again.': 'Google ने साइन इन झाले नाही. पुन्हा प्रयत्न करा.',
+  'Google sign-in did not work. Please try again.':
+      'Google ने साइन इन झाले नाही. पुन्हा प्रयत्न करा.',
   'Your phone number': 'तुमचा फोन नंबर',
-  'We will text you a 6-digit code. No password needed.': 'आम्ही तुम्हाला ६ अंकी कोड एसएमएसने पाठवू. पासवर्डची गरज नाही.',
-  'We will text a 6-digit code to prove this number is yours.': 'हा नंबर तुमचाच आहे हे सिद्ध करण्यासाठी आम्ही ६ अंकी कोड पाठवू.',
+  'We will text you a 6-digit code. No password needed.':
+      'आम्ही तुम्हाला ६ अंकी कोड एसएमएसने पाठवू. पासवर्डची गरज नाही.',
+  'We will text a 6-digit code to prove this number is yours.':
+      'हा नंबर तुमचाच आहे हे सिद्ध करण्यासाठी आम्ही ६ अंकी कोड पाठवू.',
   'Verify phone number': 'फोन नंबर पडताळा',
   'Phone number verified': 'फोन नंबर पडताळला',
   'So you can sign in with a code': 'म्हणजे तुम्ही कोडने साइन इन करू शकाल',
-  'Number verified. You can now sign in with a code.': 'नंबर पडताळला. आता तुम्ही कोडने साइन इन करू शकता.',
-  'This number is already verified on another account.': 'हा नंबर आधीच दुसऱ्या खात्यावर पडताळला आहे.',
+  'Number verified. You can now sign in with a code.':
+      'नंबर पडताळला. आता तुम्ही कोडने साइन इन करू शकता.',
+  'This number is already verified on another account.':
+      'हा नंबर आधीच दुसऱ्या खात्यावर पडताळला आहे.',
   'On the way': 'वाटेत आहे',
   'Call': 'कॉल करा',
   'Your delivery code': 'तुमचा डिलिव्हरी कोड',
-  'Give this code to the delivery partner only when your order arrives.': 'ऑर्डर पोहोचल्यावरच हा कोड डिलिव्हरी पार्टनरला सांगा.',
+  'Give this code to the delivery partner only when your order arrives.':
+      'ऑर्डर पोहोचल्यावरच हा कोड डिलिव्हरी पार्टनरला सांगा.',
 
   // Offers, your stores, bought before
   'Offers for you': 'तुमच्यासाठी ऑफर्स',
   '{n}% off': '{n}% सूट',
   'Your stores': 'तुमची दुकाने',
-  'This store does not deliver to your address.': 'हे दुकान तुमच्या पत्त्यावर डिलिव्हरी करत नाही.',
+  'This store does not deliver to your address.':
+      'हे दुकान तुमच्या पत्त्यावर डिलिव्हरी करत नाही.',
   'Not delivering to you': 'तुमच्याकडे डिलिव्हरी नाही',
   'Bought before': 'आधी घेतलेले',
   'Forgot something?': 'काही विसरलात का?',
@@ -544,7 +614,8 @@ const marathi = <String, String>{
   'From': 'कडून',
   'Products in this offer': 'या ऑफरमधील वस्तू',
   'Shop at {store}': '{store} मध्ये खरेदी करा',
-  'This offer is not for a store that delivers to you.': 'ही ऑफर तुमच्याकडे डिलिव्हरी करणाऱ्या दुकानासाठी नाही.',
+  'This offer is not for a store that delivers to you.':
+      'ही ऑफर तुमच्याकडे डिलिव्हरी करणाऱ्या दुकानासाठी नाही.',
 
   // Order note and out-of-stock choice
   'If an item is out of stock': 'एखादी वस्तू संपली असेल तर',
@@ -559,7 +630,8 @@ const marathi = <String, String>{
   'Your note': 'तुमची सूचना',
 
   // Delivery tracking
-  '{name} is {km} km away, about {n} min': '{name} {km} किमी अंतरावर आहेत, सुमारे {n} मिनिटे',
+  '{name} is {km} km away, about {n} min':
+      '{name} {km} किमी अंतरावर आहेत, सुमारे {n} मिनिटे',
   'Your delivery partner': 'तुमचा डिलिव्हरी पार्टनर',
 
   // Order changed by the store
@@ -572,28 +644,47 @@ const marathi = <String, String>{
   'Account': 'खाते',
   'Orders and places': 'ऑर्डर आणि पत्ते',
   'Payments and support': 'पेमेंट आणि मदत',
+  'SPECIAL OFFER': 'खास ऑफर',
+  'Shop fresh': 'ताजे खरेदी करा',
+  'See the sale': 'सेल पहा',
+  'Save now': 'आत्ताच बचत करा',
+  'Shop combos': 'कॉम्बो खरेदी करा',
+  'Order now': 'आत्ताच ऑर्डर करा',
+  'See what is new': 'नवीन काय आहे ते पहा',
+  'Ad': 'जाहिरात',
+  'You rated': 'तुमचे रेटिंग',
+  'Rate this order': 'या ऑर्डरला रेटिंग द्या',
   'Refund of {amount} done': '{amount} चा परतावा पूर्ण झाला',
-  'You were not charged for this order.': 'या ऑर्डरसाठी तुमच्याकडून कोणतेही पैसे घेतले नाहीत.',
-  'Your {amount} was refunded to your original payment method.': 'तुमचे {amount} तुमच्या मूळ पेमेंट पद्धतीकडे परत केले.',
-  'We could not refund {amount} automatically. Please contact the store.': '{amount} आपोआप परत करता आले नाहीत. कृपया दुकानाशी संपर्क साधा.',
+  'You were not charged for this order.':
+      'या ऑर्डरसाठी तुमच्याकडून कोणतेही पैसे घेतले नाहीत.',
+  'Your {amount} was refunded to your original payment method.':
+      'तुमचे {amount} तुमच्या मूळ पेमेंट पद्धतीकडे परत केले.',
+  'We could not refund {amount} automatically. Please contact the store.':
+      '{amount} आपोआप परत करता आले नाहीत. कृपया दुकानाशी संपर्क साधा.',
   'Your {amount} refund is on its way. It can take 5 to 7 working days to show in your account.': 'तुमचा {amount} चा परतावा येत आहे. तो तुमच्या खात्यात दिसायला ५ ते ७ कामकाजाचे दिवस लागू शकतात.',
-  'Refund of {amount} is on its way to your original payment method': '{amount} चा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे',
+  'Refund of {amount} is on its way to your original payment method':
+      '{amount} चा परतावा तुमच्या मूळ पेमेंट पद्धतीकडे येत आहे',
 
   // Replacement products
   'A replacement for your order': 'तुमच्या ऑर्डरसाठी पर्याय',
   'The store is out of {item}.': 'दुकानाकडे {item} संपली आहे.',
-  'Instead: {n} × {item} at {price} each': 'त्याऐवजी: {n} × {item}, प्रत्येकी {price}',
+  'Instead: {n} × {item} at {price} each':
+      'त्याऐवजी: {n} × {item}, प्रत्येकी {price}',
   'Your total stays the same.': 'तुमची एकूण रक्कम तीच राहते.',
   'Your total goes up by {amount}.': 'तुमची एकूण रक्कम {amount} ने वाढते.',
   'Your total goes down by {amount}.': 'तुमची एकूण रक्कम {amount} ने कमी होते.',
-  'Answer within {n} min or the item is removed.': '{n} मिनिटांत उत्तर द्या, नाहीतर वस्तू काढली जाईल.',
-  'Could not send your answer. Please try again.': 'तुमचे उत्तर पाठवता आले नाही. कृपया पुन्हा प्रयत्न करा.',
+  'Answer within {n} min or the item is removed.':
+      '{n} मिनिटांत उत्तर द्या, नाहीतर वस्तू काढली जाईल.',
+  'Could not send your answer. Please try again.':
+      'तुमचे उत्तर पाठवता आले नाही. कृपया पुन्हा प्रयत्न करा.',
   'Accept': 'स्वीकारा',
   'Decline': 'नाकारा',
 
   // Map picker
   'Choose on map': 'नकाशावर निवडा',
-  'Move the map to put the pin on your door': 'पिन तुमच्या दारावर येईल असा नकाशा हलवा',
+  'Move the map to put the pin on your door':
+      'पिन तुमच्या दारावर येईल असा नकाशा हलवा',
   'Finding the address…': 'पत्ता शोधत आहे…',
-  'No address found here. You can still use this spot.': 'येथे पत्ता सापडला नाही. तरीही तुम्ही ही जागा वापरू शकता.',
+  'No address found here. You can still use this spot.':
+      'येथे पत्ता सापडला नाही. तरीही तुम्ही ही जागा वापरू शकता.',
 };

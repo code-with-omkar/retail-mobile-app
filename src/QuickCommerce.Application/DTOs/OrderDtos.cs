@@ -49,7 +49,11 @@ public sealed record OrderResponse(
     string? CouponCode = null,
     decimal CouponDiscount = 0,
     DateTime? DeliverySlotStart = null,
-    DateTime? DeliverySlotEnd = null);
+    DateTime? DeliverySlotEnd = null,
+    decimal? StoreRating = null,
+    int? StoreRatingCount = null,
+    int? MyStoreStars = null,
+    int? MyDeliveryStars = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,

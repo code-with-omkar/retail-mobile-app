@@ -148,7 +148,7 @@ class CachingCatalogRepository implements CatalogRepository {
   }
 }
 
-Category categoryFromCatalogDto(CatalogCategoryDto d) => Category(d.id, d.name, iconForCategoryKey(categoryKeyFor(d.name)), labelMr: d.translations['mr']?.name);
+Category categoryFromCatalogDto(CatalogCategoryDto d) => Category(d.id, d.name, iconForCategoryKey(categoryKeyFor(d.name)), labelMr: d.translations['mr']?.name, parentId: d.parentCategoryId);
 
 // Defaults for fields the API does not provide: no pack sizes (variants are phase P3). Stock is unknown (treated as in stock)
 // when the product was requested without a store.

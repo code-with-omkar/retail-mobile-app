@@ -1,9 +1,14 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 class Category {
-  const Category(this.id, this.label, this.icon, {String? labelMr}) : labelMr = labelMr ?? label;
+  const Category(this.id, this.label, this.icon, {String? labelMr, this.parentId})
+    : labelMr = labelMr ?? label;
   final String id;
   final String label;
+
+  /// The top-level category this one sits under (a sub-category), or null for a top-level one.
+  final String? parentId;
 
   /// Marathi name; equals [label] when there is no translation.
   final String labelMr;
@@ -18,23 +23,32 @@ String categoryKeyFor(String name) {
   if (n.contains('veg')) return 'vegetables';
   if (n.contains('fruit')) return 'fruits';
   if (n.contains('dairy') || n.contains('milk')) return 'dairy';
-  if (n.contains('grocer') || n.contains('pantry') || n.contains('staple')) return 'pantry';
+  if (n.contains('grocer') || n.contains('pantry') || n.contains('staple'))
+    return 'pantry';
   if (n.contains('snack') || n.contains('bakery')) return 'snacks';
   return 'other';
 }
 
 IconData iconForCategoryKey(String key) => switch (key) {
-      'vegetables' => Icons.eco_outlined,
-      'fruits' => Icons.apple,
-      'dairy' => Icons.local_drink_outlined,
-      'pantry' => Icons.shopping_basket_outlined,
-      'snacks' => Icons.cookie_outlined,
-      _ => Icons.category_outlined,
-    };
+  'vegetables' => LucideIcons.leaf,
+  'fruits' => Icons.apple,
+  'dairy' => LucideIcons.cupSoda,
+  'pantry' => LucideIcons.shoppingBasket,
+  'snacks' => LucideIcons.cookie,
+  _ => LucideIcons.layoutGrid,
+};
 
 /// One pack size of a product (an API variant): its own price, MRP and stock. [id] is what the cart is keyed by.
 class PackOption {
-  const PackOption({required this.id, required this.label, required this.price, required this.mrp, this.isDefault = false, this.inStock = true, this.lowStock = false});
+  const PackOption({
+    required this.id,
+    required this.label,
+    required this.price,
+    required this.mrp,
+    this.isDefault = false,
+    this.inStock = true,
+    this.lowStock = false,
+  });
   final String id, label;
   final double price, mrp;
   final bool isDefault;
@@ -43,7 +57,8 @@ class PackOption {
   final bool inStock;
   final bool lowStock;
 
-  int get discountPct => mrp > price ? (((mrp - price) / mrp) * 100).round() : 0;
+  int get discountPct =>
+      mrp > price ? (((mrp - price) / mrp) * 100).round() : 0;
 }
 
 class Product {
@@ -64,10 +79,17 @@ class Product {
     this.rating = 4.5,
     this.inStock = true,
     this.lowStock = false,
-  })  : categoryId = categoryId ?? category,
-        descriptionMr = descriptionMr ?? description;
+  }) : categoryId = categoryId ?? category,
+       descriptionMr = descriptionMr ?? description;
 
-  final String id, name, nameMr, unit, category, categoryId, description, descriptionMr;
+  final String id,
+      name,
+      nameMr,
+      unit,
+      category,
+      categoryId,
+      description,
+      descriptionMr;
 
   /// Money is decimal because the API returns decimals (for example 34.50).
   final double price, mrp;
@@ -82,7 +104,8 @@ class Product {
   final List<PackOption> packs;
 
   /// The pack that is bought when none is chosen, or null for a product without packs.
-  PackOption? get defaultPack => packs.where((p) => p.isDefault).firstOrNull ?? packs.firstOrNull;
+  PackOption? get defaultPack =>
+      packs.where((p) => p.isDefault).firstOrNull ?? packs.firstOrNull;
 
   /// Optional product photo URL. When null or failing to load, a generated category icon is shown.
   final String? imageUrl;
@@ -90,15 +113,28 @@ class Product {
   /// [category] is a visual group key (see [categoryKeyFor]); [categoryId] is the catalog's id for filtering.
   IconData get icon => iconForCategoryKey(category);
 
-  int get discountPct => mrp > price ? (((mrp - price) / mrp) * 100).round() : 0;
+  int get discountPct =>
+      mrp > price ? (((mrp - price) / mrp) * 100).round() : 0;
 }
 
 double _money(double v) => (v * 100).round() / 100;
 
 /// One cart entry: a product in one pack size ([pack] null means a product without packs).
 class CartLine {
-  const CartLine(this.product, this.quantity, [this.pack]) : priceSnapshot = null, currentPrice = null, available = null, unavailable = false;
-  const CartLine._server(this.product, this.quantity, this.pack, this.priceSnapshot, this.currentPrice, this.available, this.unavailable);
+  const CartLine(this.product, this.quantity, [this.pack])
+    : priceSnapshot = null,
+      currentPrice = null,
+      available = null,
+      unavailable = false;
+  const CartLine._server(
+    this.product,
+    this.quantity,
+    this.pack,
+    this.priceSnapshot,
+    this.currentPrice,
+    this.available,
+    this.unavailable,
+  );
   final Product product;
   final int quantity;
   final PackOption? pack;
@@ -116,9 +152,20 @@ class CartLine {
   final bool unavailable;
 
   /// The same line with what the server says about it.
-  CartLine withServer(ServerCartLine s) => CartLine._server(product, quantity, pack, s.unitPrice, s.currentUnitPrice, s.available, s.unavailable);
+  CartLine withServer(ServerCartLine s) => CartLine._server(
+    product,
+    quantity,
+    pack,
+    s.unitPrice,
+    s.currentUnitPrice,
+    s.available,
+    s.unavailable,
+  );
 
-  bool get priceChanged => priceSnapshot != null && currentPrice != null && (currentPrice! - priceSnapshot!).abs() > 0.004;
+  bool get priceChanged =>
+      priceSnapshot != null &&
+      currentPrice != null &&
+      (currentPrice! - priceSnapshot!).abs() > 0.004;
   bool get notEnoughStock => available != null && quantity > available!;
 
   double get unitPrice => priceSnapshot ?? pack?.price ?? product.price;
@@ -130,11 +177,20 @@ class CartLine {
 
 /// Cart key: the pack's id (the API variant id), or the product id for a product without packs. A product added without
 /// naming a pack is its default pack.
-String cartKey(Product p, [PackOption? pack]) => (pack ?? p.defaultPack)?.id ?? p.id;
+String cartKey(Product p, [PackOption? pack]) =>
+    (pack ?? p.defaultPack)?.id ?? p.id;
 
 /// A store that delivers to the delivery location, with distance and delivery estimate from the API.
 class NearestStore {
-  const NearestStore({required this.id, required this.name, required this.distanceKm, required this.estimatedMinutes, this.address = '', this.serviceRadiusKm = 0, this.sponsored = false});
+  const NearestStore({
+    required this.id,
+    required this.name,
+    required this.distanceKm,
+    required this.estimatedMinutes,
+    this.address = '',
+    this.serviceRadiusKm = 0,
+    this.sponsored = false,
+  });
   final String id, name, address;
   final double distanceKm;
 
@@ -162,7 +218,11 @@ enum OrderStage {
   cancelled;
 
   /// Still on its way to being delivered, so its status can still change.
-  bool get isActive => this == awaitingPayment || this == placed || this == packed || this == onTheWay;
+  bool get isActive =>
+      this == awaitingPayment ||
+      this == placed ||
+      this == packed ||
+      this == onTheWay;
 }
 
 /// Where the payment of an order stands. Cash on delivery orders are [notRequired].
@@ -178,7 +238,14 @@ enum PaymentState {
 
 /// One line of a placed order, as it was when the order was placed: later price or name changes never touch it.
 class OrderLine {
-  const OrderLine({required this.productId, this.variantId, required this.name, this.label = '', required this.unitPrice, required this.quantity});
+  const OrderLine({
+    required this.productId,
+    this.variantId,
+    required this.name,
+    this.label = '',
+    required this.unitPrice,
+    required this.quantity,
+  });
   final String productId, name, label;
   final String? variantId;
   final double unitPrice;
@@ -192,7 +259,12 @@ class OrderLine {
 
 /// One line the store reduced or removed while packing the order.
 class ChangedLine {
-  const ChangedLine({required this.name, this.label, required this.from, required this.to});
+  const ChangedLine({
+    required this.name,
+    this.label,
+    required this.from,
+    required this.to,
+  });
   final String name;
   final String? label;
   final int from, to;
@@ -200,7 +272,13 @@ class ChangedLine {
 
 /// What the store changed in an order and what goes back to the customer. [refundStatus]: None, Pending, Started, Processed or Failed.
 class OrderChange {
-  const OrderChange({required this.at, required this.lines, required this.refund, required this.refundStatus, this.reason});
+  const OrderChange({
+    required this.at,
+    required this.lines,
+    required this.refund,
+    required this.refundStatus,
+    this.reason,
+  });
   final DateTime at;
   final List<ChangedLine> lines;
   final double refund;
@@ -210,7 +288,19 @@ class OrderChange {
 
 /// A replacement the store offers for an item it cannot supply. The customer has until [expiresAt] to accept or decline.
 class Replacement {
-  const Replacement({required this.id, required this.oldName, this.oldLabel, required this.oldQuantity, required this.oldUnitPrice, required this.newName, this.newLabel, required this.newQuantity, required this.newUnitPrice, required this.priceChange, required this.expiresAt});
+  const Replacement({
+    required this.id,
+    required this.oldName,
+    this.oldLabel,
+    required this.oldQuantity,
+    required this.oldUnitPrice,
+    required this.newName,
+    this.newLabel,
+    required this.newQuantity,
+    required this.newUnitPrice,
+    required this.priceChange,
+    required this.expiresAt,
+  });
   final String id, oldName, newName;
   final String? oldLabel, newLabel;
   final int oldQuantity, newQuantity;
@@ -254,7 +344,15 @@ class Order {
     this.couponDiscount = 0,
     this.deliverySlotStart,
     this.deliverySlotEnd,
+    this.storeRating,
+    this.storeRatingCount,
+    this.myStoreStars,
+    this.myDeliveryStars,
   });
+
+  /// The shop's average stars and how many ratings it rests on (the order list only), and the stars this customer gave this order.
+  final double? storeRating;
+  final int? storeRatingCount, myStoreStars, myDeliveryStars;
 
   /// The window the customer chose for scheduled delivery (UTC); both null for "as soon as possible".
   final DateTime? deliverySlotStart, deliverySlotEnd;
@@ -298,47 +396,153 @@ class Order {
   bool get isOnline => payment == 'Online';
 
   /// A copy with another payment state (and status), for example once an online order is paid.
-  Order withPayment({required OrderStage stage, required PaymentState state}) => Order(
-        id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
-        placedAt: placedAt, stage: stage, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
-        storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: state, paymentExpiresAt: stage == OrderStage.awaitingPayment ? paymentExpiresAt : null,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement, couponCode: couponCode, couponDiscount: couponDiscount, deliverySlotStart: deliverySlotStart, deliverySlotEnd: deliverySlotEnd,
+  Order withPayment({required OrderStage stage, required PaymentState state}) =>
+      Order(
+        id: id,
+        number: number,
+        storeId: storeId,
+        lines: lines,
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+        handlingFee: handlingFee,
+        total: total,
+        placedAt: placedAt,
+        stage: stage,
+        address: address,
+        payment: payment,
+        receiverName: receiverName,
+        receiverPhone: receiverPhone,
+        storeName: storeName,
+        storePhone: storePhone,
+        estimatedMinutes: estimatedMinutes,
+        paymentState: state,
+        paymentExpiresAt: stage == OrderStage.awaitingPayment
+            ? paymentExpiresAt
+            : null,
+        deliveryPartnerName: deliveryPartnerName,
+        deliveryPartnerPhone: deliveryPartnerPhone,
+        deliveryOtp: deliveryOtp,
+        note: note,
+        outOfStockChoice: outOfStockChoice,
+        changes: changes,
+        replacement: replacement,
+        couponCode: couponCode,
+        couponDiscount: couponDiscount,
+        deliverySlotStart: deliverySlotStart,
+        deliverySlotEnd: deliverySlotEnd,
+        storeRating: storeRating,
+        storeRatingCount: storeRatingCount,
+        myStoreStars: myStoreStars,
+        myDeliveryStars: myDeliveryStars,
       );
 
   /// A copy with another status (used when the customer cancels, before the next read).
   Order withStage(OrderStage next) => Order(
-        id: id, number: number, storeId: storeId, lines: lines, subtotal: subtotal, deliveryFee: deliveryFee, handlingFee: handlingFee, total: total,
-        placedAt: placedAt, stage: next, address: address, payment: payment, receiverName: receiverName, receiverPhone: receiverPhone,
-        storeName: storeName, storePhone: storePhone, estimatedMinutes: estimatedMinutes, paymentState: paymentState, paymentExpiresAt: paymentExpiresAt,
-        deliveryPartnerName: deliveryPartnerName, deliveryPartnerPhone: deliveryPartnerPhone, deliveryOtp: deliveryOtp, note: note, outOfStockChoice: outOfStockChoice, changes: changes, replacement: replacement, couponCode: couponCode, couponDiscount: couponDiscount, deliverySlotStart: deliverySlotStart, deliverySlotEnd: deliverySlotEnd,
-      );
+    id: id,
+    number: number,
+    storeId: storeId,
+    lines: lines,
+    subtotal: subtotal,
+    deliveryFee: deliveryFee,
+    handlingFee: handlingFee,
+    total: total,
+    placedAt: placedAt,
+    stage: next,
+    address: address,
+    payment: payment,
+    receiverName: receiverName,
+    receiverPhone: receiverPhone,
+    storeName: storeName,
+    storePhone: storePhone,
+    estimatedMinutes: estimatedMinutes,
+    paymentState: paymentState,
+    paymentExpiresAt: paymentExpiresAt,
+    deliveryPartnerName: deliveryPartnerName,
+    deliveryPartnerPhone: deliveryPartnerPhone,
+    deliveryOtp: deliveryOtp,
+    note: note,
+    outOfStockChoice: outOfStockChoice,
+    changes: changes,
+    replacement: replacement,
+    couponCode: couponCode,
+    couponDiscount: couponDiscount,
+    deliverySlotStart: deliverySlotStart,
+    deliverySlotEnd: deliverySlotEnd,
+    storeRating: storeRating,
+    storeRatingCount: storeRatingCount,
+    myStoreStars: myStoreStars,
+    myDeliveryStars: myDeliveryStars,
+  );
 
   int get itemCount => lines.fold(0, (s, l) => s + l.quantity);
 }
 
 /// What the customer pays on top of the products, as the server is set up (`GET api/catalog/pricing`).
 class PricingSettings {
-  const PricingSettings({required this.deliveryFee, required this.handlingFee, required this.freeDeliveryThreshold});
+  const PricingSettings({
+    required this.deliveryFee,
+    required this.handlingFee,
+    required this.freeDeliveryThreshold,
+  });
   final double deliveryFee, handlingFee, freeDeliveryThreshold;
 
   /// The same rule the server uses, so the cart shows what checkout will charge.
   CartPricing price(double subtotal) {
-    if (subtotal <= 0) return CartPricing(subtotal: 0, deliveryFee: 0, handlingFee: 0, total: 0, freeDeliveryThreshold: freeDeliveryThreshold, amountToFreeDelivery: 0);
+    if (subtotal <= 0)
+      return CartPricing(
+        subtotal: 0,
+        deliveryFee: 0,
+        handlingFee: 0,
+        total: 0,
+        freeDeliveryThreshold: freeDeliveryThreshold,
+        amountToFreeDelivery: 0,
+      );
     final free = freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold;
     final delivery = free ? 0.0 : deliveryFee;
-    final toFree = freeDeliveryThreshold > 0 && !free ? _money(freeDeliveryThreshold - subtotal) : 0.0;
-    return CartPricing(subtotal: subtotal, deliveryFee: delivery, handlingFee: handlingFee, total: _money(subtotal + delivery + handlingFee), freeDeliveryThreshold: freeDeliveryThreshold, amountToFreeDelivery: toFree);
+    final toFree = freeDeliveryThreshold > 0 && !free
+        ? _money(freeDeliveryThreshold - subtotal)
+        : 0.0;
+    return CartPricing(
+      subtotal: subtotal,
+      deliveryFee: delivery,
+      handlingFee: handlingFee,
+      total: _money(subtotal + delivery + handlingFee),
+      freeDeliveryThreshold: freeDeliveryThreshold,
+      amountToFreeDelivery: toFree,
+    );
   }
 }
 
 class CartPricing {
-  const CartPricing({required this.subtotal, required this.deliveryFee, required this.handlingFee, required this.total, required this.freeDeliveryThreshold, required this.amountToFreeDelivery});
-  final double subtotal, deliveryFee, handlingFee, total, freeDeliveryThreshold, amountToFreeDelivery;
+  const CartPricing({
+    required this.subtotal,
+    required this.deliveryFee,
+    required this.handlingFee,
+    required this.total,
+    required this.freeDeliveryThreshold,
+    required this.amountToFreeDelivery,
+  });
+  final double subtotal,
+      deliveryFee,
+      handlingFee,
+      total,
+      freeDeliveryThreshold,
+      amountToFreeDelivery;
 }
 
 /// A line of the server's cart (`api/carts`).
 class ServerCartLine {
-  const ServerCartLine({required this.productId, this.variantId, required this.name, this.label = '', required this.quantity, required this.unitPrice, this.currentUnitPrice, this.available, this.unavailable = false});
+  const ServerCartLine({
+    required this.productId,
+    this.variantId,
+    required this.name,
+    this.label = '',
+    required this.quantity,
+    required this.unitPrice,
+    this.currentUnitPrice,
+    this.available,
+    this.unavailable = false,
+  });
   final String productId, name, label;
   final String? variantId;
   final int quantity;
@@ -355,7 +559,11 @@ class ServerCartLine {
 
 /// The customer's cart as the server holds it.
 class ServerCart {
-  const ServerCart({required this.storeId, required this.lines, required this.pricing});
+  const ServerCart({
+    required this.storeId,
+    required this.lines,
+    required this.pricing,
+  });
   final String storeId;
   final List<ServerCartLine> lines;
   final CartPricing pricing;
@@ -365,7 +573,14 @@ class ServerCart {
 
 /// What a merge did not do as asked.
 class CartNote {
-  const CartNote({required this.productId, this.variantId, required this.name, this.label = '', required this.kind, required this.quantity});
+  const CartNote({
+    required this.productId,
+    this.variantId,
+    required this.name,
+    this.label = '',
+    required this.kind,
+    required this.quantity,
+  });
   final String productId, name, label, kind;
   final String? variantId;
   final int quantity;
@@ -394,7 +609,16 @@ class CheckoutReasons {
 
 /// A cart line that stopped checkout.
 class CheckoutIssue {
-  const CheckoutIssue({required this.productId, this.variantId, required this.name, this.label = '', required this.quantity, this.available, this.oldPrice, this.newPrice});
+  const CheckoutIssue({
+    required this.productId,
+    this.variantId,
+    required this.name,
+    this.label = '',
+    required this.quantity,
+    this.available,
+    this.oldPrice,
+    this.newPrice,
+  });
   final String productId, name, label;
   final String? variantId;
   final int quantity;
@@ -413,7 +637,11 @@ class ServiceabilityReasons {
 
 /// Whether anyone delivers to a point (`GET api/catalog/serviceability`).
 class ServiceabilityResult {
-  const ServiceabilityResult({required this.serviceable, required this.reason, this.nearestDistanceKm});
+  const ServiceabilityResult({
+    required this.serviceable,
+    required this.reason,
+    this.nearestDistanceKm,
+  });
   final bool serviceable;
   final String reason;
   final double? nearestDistanceKm;
@@ -436,12 +664,20 @@ class SavedAddress {
     this.serviceabilityReason = ServiceabilityReasons.serviceable,
   });
 
-  final String id, label, line, flatOrBuilding, landmark, receiverName, receiverPhone, serviceabilityReason;
+  final String id,
+      label,
+      line,
+      flatOrBuilding,
+      landmark,
+      receiverName,
+      receiverPhone,
+      serviceabilityReason;
   final double latitude, longitude;
   final bool isDefault, serviceable;
 
   /// Flat or building followed by the address line, the way it is read out for a delivery.
-  String get fullLine => flatOrBuilding.isEmpty ? line : '$flatOrBuilding, $line';
+  String get fullLine =>
+      flatOrBuilding.isEmpty ? line : '$flatOrBuilding, $line';
 }
 
 /// What the customer typed or picked when saving an address; the server validates it again.
@@ -457,13 +693,24 @@ class AddressDraft {
     required this.receiverPhone,
   });
 
-  final String label, line, flatOrBuilding, landmark, receiverName, receiverPhone;
+  final String label,
+      line,
+      flatOrBuilding,
+      landmark,
+      receiverName,
+      receiverPhone;
   final double latitude, longitude;
 }
 
 /// Where the app delivers to right now: a saved address, or a place on this device only (guest, or "use my current location").
 class DeliveryPlace {
-  const DeliveryPlace({this.addressId, required this.label, required this.line, required this.latitude, required this.longitude});
+  const DeliveryPlace({
+    this.addressId,
+    required this.label,
+    required this.line,
+    required this.latitude,
+    required this.longitude,
+  });
 
   /// Set for a saved address; null for a device-only place.
   final String? addressId;
@@ -474,24 +721,55 @@ class DeliveryPlace {
 
   /// The area name shown in the Home header: the part of the line before the city, when there is one.
   String get area {
-    final parts = line.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
-    return parts.length > 1 ? parts[parts.length > 2 ? parts.length - 2 : 0] : line;
+    final parts = line
+        .split(',')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+    return parts.length > 1
+        ? parts[parts.length > 2 ? parts.length - 2 : 0]
+        : line;
   }
 
-  Map<String, Object?> toJson() => {'label': label, 'line': line, 'latitude': latitude, 'longitude': longitude};
+  Map<String, Object?> toJson() => {
+    'label': label,
+    'line': line,
+    'latitude': latitude,
+    'longitude': longitude,
+  };
 
   static DeliveryPlace? fromJson(Object? json) {
     if (json is! Map) return null;
-    final label = json['label'], line = json['line'], lat = json['latitude'], lng = json['longitude'];
-    if (label is! String || line is! String || lat is! num || lng is! num) return null;
-    return DeliveryPlace(label: label, line: line, latitude: lat.toDouble(), longitude: lng.toDouble());
+    final label = json['label'],
+        line = json['line'],
+        lat = json['latitude'],
+        lng = json['longitude'];
+    if (label is! String || line is! String || lat is! num || lng is! num)
+      return null;
+    return DeliveryPlace(
+      label: label,
+      line: line,
+      latitude: lat.toDouble(),
+      longitude: lng.toDouble(),
+    );
   }
 }
 
-
 /// A message from the shop about an order (`api/customer/notifications`). [title] and [message] are the server's English text.
 class AppNotification {
-  const AppNotification({required this.id, this.orderId, required this.type, required this.title, required this.message, required this.isRead, required this.createdAt, this.category = 'Order', this.storeName, this.imageUrl, this.campaignId});
+  const AppNotification({
+    required this.id,
+    this.orderId,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.isRead,
+    required this.createdAt,
+    this.category = 'Order',
+    this.storeName,
+    this.imageUrl,
+    this.campaignId,
+  });
   final String id, type, title, message;
 
   /// For an offer: its banner picture (a full link) and the offer to open when the notification is tapped.
@@ -506,5 +784,17 @@ class AppNotification {
   final bool isRead;
   final DateTime createdAt;
 
-  AppNotification asRead() => AppNotification(id: id, orderId: orderId, type: type, title: title, message: message, isRead: true, createdAt: createdAt, category: category, storeName: storeName, imageUrl: imageUrl, campaignId: campaignId);
+  AppNotification asRead() => AppNotification(
+    id: id,
+    orderId: orderId,
+    type: type,
+    title: title,
+    message: message,
+    isRead: true,
+    createdAt: createdAt,
+    category: category,
+    storeName: storeName,
+    imageUrl: imageUrl,
+    campaignId: campaignId,
+  );
 }

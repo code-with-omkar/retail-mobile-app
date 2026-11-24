@@ -103,7 +103,9 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
         if (categoryId.HasValue)
         {
-            query = query.Where(product => product.CategoryId == categoryId.Value);
+            // A top-level category also lists what is in its sub-categories.
+            var id = categoryId.Value;
+            query = query.Where(product => product.CategoryId == id || db.Categories.Any(category => category.Id == product.CategoryId && category.ParentCategoryId == id));
         }
 
         var total = await query.CountAsync(cancellationToken);

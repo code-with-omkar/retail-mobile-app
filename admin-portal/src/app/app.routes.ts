@@ -109,6 +109,24 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'categories',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/categories/categories.component').then(
+            m => m.CategoriesComponent
+          ),
+      },
+      {
+        path: 'ads',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/ads/ads.component').then(
+            m => m.AdsComponent
+          ),
+      },
+      {
         path: 'coupons',
         canActivate: [RoleGuard],
         data: { roles: [Role.ApplicationAdmin, Role.Admin] },

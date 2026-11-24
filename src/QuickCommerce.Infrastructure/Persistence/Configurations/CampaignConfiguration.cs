@@ -30,7 +30,7 @@ public sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.ToTable(table =>
         {
             table.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");
-            table.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas')");
+            table.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas','fresh','weekend','bigsaver','combo','freeship','newin')");
             table.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
         });
     }

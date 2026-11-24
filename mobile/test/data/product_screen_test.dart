@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -38,7 +39,7 @@ class _Repo implements CatalogRepository {
   int productCalls = 0;
 
   @override
-  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
+  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', LucideIcons.leaf)];
 
   @override
   Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => const [NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10)];
@@ -146,9 +147,9 @@ void main() {
     await _pump(tester, _Repo());
 
     // Tomato has no image url (vegetables icon); Rice has one that cannot load (pantry icon).
-    expect(find.byIcon(Icons.eco_outlined), findsWidgets);
+    expect(find.byIcon(LucideIcons.leaf), findsWidgets);
     await tester.ensureVisible(find.textContaining('Rice', findRichText: true));
     await tester.pumpAndSettle();
-    expect(find.byIcon(Icons.shopping_basket_outlined), findsWidgets);
+    expect(find.byIcon(LucideIcons.shoppingBasket), findsWidgets);
   });
 }

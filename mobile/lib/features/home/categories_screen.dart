@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,8 @@ import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../stores/store_widgets.dart';
+import '../../data/repositories/ads_repository.dart';
+import '../ads/ad_banner.dart';
 import 'product_pager.dart';
 
 /// Categories tab (v4): the shop at the top, a rail of categories on the left and the chosen category's products, three across, on the right.
@@ -20,34 +23,134 @@ class CategoriesScreen extends ConsumerStatefulWidget {
 class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String? _selected;
 
+  /// The sub-category chosen in the chips; null is "All" of the category.
+  String? _sub;
+
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
     final cats = ref.watch(categoriesProvider);
     return SafeArea(
       bottom: false,
-      child: Column(children: [
-        // Which store these categories are from, with a way to change it.
-        const Padding(padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 10), child: CompactStoreBar(flush: true)),
-        Divider(height: 1, color: p.border),
-        Expanded(
-          child: cats.when(
-            loading: () => const Padding(padding: EdgeInsets.all(QC.gutter), child: SkeletonBox(radius: QC.rCard)),
-            error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(categoriesProvider)),
-            data: (list) {
-              if (list.isEmpty) {
-                return EmptyState(icon: Icons.category_outlined, title: context.tr('Nothing here yet'), message: context.tr('Check back soon.'));
-              }
-              final current = list.where((c) => c.id == _selected).firstOrNull ?? list.first;
-              return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _Rail(list, current.id, (id) => setState(() => _selected = id)),
-                VerticalDivider(width: 1, thickness: 1, color: p.border),
-                Expanded(child: CategoryProducts(current.id, key: ValueKey(current.id), title: categoryLabel(context, current))),
-              ]);
-            },
+      child: Column(
+        children: [
+          // Which store these categories are from, with a way to change it.
+          const Padding(
+            padding: EdgeInsets.fromLTRB(QC.gutter, 12, QC.gutter, 10),
+            child: CompactStoreBar(flush: true),
+          ),
+          Divider(height: 1, color: p.border),
+          Expanded(
+            child: cats.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(QC.gutter),
+                child: SkeletonBox(radius: QC.rCard),
+              ),
+              error: (e, _) => ErrorState(
+                error: e,
+                onRetry: () => ref.invalidate(categoriesProvider),
+              ),
+              data: (all) {
+                // The rail lists the top-level categories; a category's sub-categories are chips above its products.
+                final list = all.where((c) => c.parentId == null).toList();
+                if (list.isEmpty) {
+                  return EmptyState(
+                    icon: LucideIcons.layoutGrid,
+                    title: context.tr('Nothing here yet'),
+                    message: context.tr('Check back soon.'),
+                  );
+                }
+                final current =
+                    list.where((c) => c.id == _selected).firstOrNull ??
+                    list.first;
+                final subs = all.where((c) => c.parentId == current.id).toList();
+                final sub = subs.where((c) => c.id == _sub).firstOrNull;
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _Rail(
+                      list,
+                      current.id,
+                      (id) => setState(() {
+                        _selected = id;
+                        _sub = null;
+                      }),
+                    ),
+                    VerticalDivider(width: 1, thickness: 1, color: p.border),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          if (subs.isNotEmpty) SubCategoryChips(subs, sub?.id, (id) => setState(() => _sub = id)),
+                          Expanded(
+                            child: CategoryProducts(
+                              sub?.id ?? current.id,
+                              key: ValueKey(sub?.id ?? current.id),
+                              title: categoryLabel(context, sub ?? current),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "All" and one pill per sub-category of the category in view; the chosen one is yellow.
+class SubCategoryChips extends StatelessWidget {
+  const SubCategoryChips(this.subs, this.selectedId, this.onPick, {super.key});
+  final List<Category> subs;
+  final String? selectedId;
+  final ValueChanged<String?> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.pal;
+    Widget chip(String? id, String label) {
+      final on = id == selectedId;
+      return Semantics(
+        button: true,
+        selected: on,
+        label: label,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onPick(id),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: on ? Pal.yellow : p.card,
+                  borderRadius: BorderRadius.circular(QC.rPill),
+                  border: Border.all(color: on ? Pal.yellow : p.border),
+                ),
+                child: ExcludeSemantics(
+                  child: Text(label, style: TextStyle(color: on ? Pal.ink : p.onCard, fontSize: 12, fontWeight: on ? FontWeight.w800 : FontWeight.w600)),
+                ),
+              ),
+            ),
           ),
         ),
-      ]),
+      );
+    }
+
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          chip(null, context.tr('All')),
+          for (final c in subs) ...[const SizedBox(width: 6), chip(c.id, categoryLabel(context, c))],
+        ],
+      ),
     );
   }
 }
@@ -80,24 +183,61 @@ class _Rail extends StatelessWidget {
               child: Container(
                 color: on ? p.card : Colors.transparent,
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                child: Stack(children: [
-                  Positioned(left: -4, top: 0, bottom: 0, child: Container(width: 4, decoration: BoxDecoration(color: on ? Pal.yellow : Colors.transparent, borderRadius: const BorderRadius.horizontal(right: Radius.circular(4))))),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Column(children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(color: p.tiles[i % 4], borderRadius: BorderRadius.circular(14), border: Border.all(color: on ? Pal.yellow : Colors.transparent, width: 2)),
-                        child: Icon(c.icon, size: 26, color: Pal.ink),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -4,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: on ? Pal.yellow : Colors.transparent,
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(4),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      ExcludeSemantics(
-                        child: Text(categoryLabel(context, c), maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.onGround, fontSize: 10, height: 1.2, fontWeight: on ? FontWeight.w800 : FontWeight.w600)),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: p.tiles[i % 4],
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: on ? Pal.yellow : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(c.icon, size: 26, color: Pal.ink),
+                          ),
+                          const SizedBox(height: 4),
+                          ExcludeSemantics(
+                            child: Text(
+                              categoryLabel(context, c),
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: p.onGround,
+                                fontSize: 10,
+                                height: 1.2,
+                                fontWeight: on
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ]),
-                  ),
-                ]),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -114,19 +254,35 @@ class CategoryProductsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final category = ref.watch(categoriesProvider).value?.where((c) => c.id == id).firstOrNull;
+    final category = ref
+        .watch(categoriesProvider)
+        .value
+        ?.where((c) => c.id == id)
+        .firstOrNull;
     return AppScaffold(
-      appBar: appTopBar(context, category == null ? context.tr('Categories') : categoryLabel(context, category)),
-      body: Column(children: [
-        const CompactStoreBar(),
-        Expanded(child: CategoryProducts(id, showCount: true)),
-      ]),
+      appBar: appTopBar(
+        context,
+        category == null
+            ? context.tr('Categories')
+            : categoryLabel(context, category),
+      ),
+      body: Column(
+        children: [
+          const CompactStoreBar(),
+          Expanded(child: CategoryProducts(id, showCount: true)),
+        ],
+      ),
     );
   }
 }
 
 class CategoryProducts extends ConsumerStatefulWidget {
-  const CategoryProducts(this.id, {super.key, this.title, this.showCount = false});
+  const CategoryProducts(
+    this.id, {
+    super.key,
+    this.title,
+    this.showCount = false,
+  });
   final String id;
 
   /// Show how many items the category has, even without a title.
@@ -143,10 +299,10 @@ class _CategoryProductsState extends ConsumerState<CategoryProducts> {
   late ProductPager _pager = _newPager();
 
   ProductPager _newPager() => ProductPager(
-        ref.read(catalogRepositoryProvider),
-        categoryId: widget.id,
-        storeId: ref.read(storeIdResolverProvider),
-      )..addListener(() => mounted ? setState(() {}) : null);
+    ref.read(catalogRepositoryProvider),
+    categoryId: widget.id,
+    storeId: ref.read(storeIdResolverProvider),
+  )..addListener(() => mounted ? setState(() {}) : null);
 
   @override
   void initState() {
@@ -166,21 +322,48 @@ class _CategoryProductsState extends ConsumerState<CategoryProducts> {
     super.dispose();
   }
 
-  static const _grid = SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 8, mainAxisExtent: 178);
+  static const _grid = SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 3,
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 8,
+    mainAxisExtent: 178,
+  );
 
   @override
   Widget build(BuildContext context) {
     final pager = _pager;
-    final side = widget.title == null ? QC.gutter : 12.0; // beside the rail the grid has less room
+    final side = widget.title == null
+        ? QC.gutter
+        : 12.0; // beside the rail the grid has less room
     final heading = widget.title == null && !widget.showCount
         ? null
         : Padding(
             padding: EdgeInsets.fromLTRB(side, 12, side, 4),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-              if (widget.title == null) const Spacer(),
-              if (widget.title != null) Flexible(child: Text(widget.title!, maxLines: 1, overflow: TextOverflow.ellipsis, style: QC.display(17, color: context.pal.onGround))),
-              if (!pager.isEmpty && pager.items.isNotEmpty) Text(context.tr('{n} items', {'n': '${pager.totalCount}'}), style: TextStyle(color: context.pal.mutedOnGround, fontSize: 11)),
-            ]),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                if (widget.title == null) const Spacer(),
+                if (widget.title != null)
+                  Flexible(
+                    child: Text(
+                      widget.title!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: QC.display(17, color: context.pal.onGround),
+                    ),
+                  ),
+                if (!pager.isEmpty && pager.items.isNotEmpty)
+                  Text(
+                    context.tr('{n} items', {'n': '${pager.totalCount}'}),
+                    style: TextStyle(
+                      color: context.pal.mutedOnGround,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
           );
     final Widget body = pager.isInitialLoading
         ? GridView.builder(
@@ -190,25 +373,54 @@ class _CategoryProductsState extends ConsumerState<CategoryProducts> {
             itemBuilder: (_, _) => const SkeletonBox(radius: QC.rCard),
           )
         : pager.error != null && pager.items.isEmpty
-            ? ErrorState(error: pager.error!, onRetry: pager.retry)
-            : pager.isEmpty
-                ? EmptyState(icon: Icons.category_outlined, title: context.tr('Nothing here yet'), message: context.tr('Check back soon.'))
-                : CustomScrollView(slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(side, 8, side, 12),
-                      sliver: SliverGrid.builder(gridDelegate: _grid, itemCount: pager.items.length, itemBuilder: (_, i) => ProductCard(pager.items[i])),
-                    ),
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(side, 0, side, 24),
-                      sliver: SliverToBoxAdapter(
-                        child: pager.error != null
-                            ? ErrorState(error: pager.error!, compact: true, onRetry: pager.retry)
-                            : pager.hasMore
-                                ? PillButton(pager.loading ? context.tr('Loading…') : context.tr('Load more'), height: 56, onPressed: pager.loading ? null : pager.loadMore)
-                                : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ]);
-    return Column(children: [?heading, Expanded(child: body)]);
+        ? ErrorState(error: pager.error!, onRetry: pager.retry)
+        : pager.isEmpty
+        ? EmptyState(
+            icon: LucideIcons.layoutGrid,
+            title: context.tr('Nothing here yet'),
+            message: context.tr('Check back soon.'),
+          )
+        : CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(side, 8, side, 12),
+                sliver: SliverGrid.builder(
+                  gridDelegate: _grid,
+                  itemCount: pager.items.length,
+                  itemBuilder: (_, i) => ProductCard(pager.items[i]),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(side, 0, side, 24),
+                sliver: SliverToBoxAdapter(
+                  child: pager.error != null
+                      ? ErrorState(
+                          error: pager.error!,
+                          compact: true,
+                          onRetry: pager.retry,
+                        )
+                      : pager.hasMore
+                      ? PillButton(
+                          pager.loading
+                              ? context.tr('Loading…')
+                              : context.tr('Load more'),
+                          height: 56,
+                          onPressed: pager.loading ? null : pager.loadMore,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          );
+    return Column(
+      children: [
+        const AdBanner(
+          AdPlace.categories,
+          padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
+        ),
+        ?heading,
+        Expanded(child: body),
+      ],
+    );
   }
 }

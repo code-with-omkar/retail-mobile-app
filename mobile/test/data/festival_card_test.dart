@@ -30,8 +30,9 @@ Finder _nameLine(String name, String mr) => find.byWidgetPredicate((w) => w is R
 
 void main() {
   group('the eight festival designs', () {
-    test('are the eight the API stores, in the same order', () {
-      expect(festivalThemes.map((t) => t.key), ['diwali', 'ganesh', 'navratri', 'holi', 'sankranti', 'padwa', 'eid', 'christmas']);
+    test('are the fourteen the API stores, in the same order (eight festivals, then six everyday designs)', () {
+      expect(festivalThemes.map((t) => t.key), ['diwali', 'ganesh', 'navratri', 'holi', 'sankranti', 'padwa', 'eid', 'christmas', 'fresh', 'weekend', 'bigsaver', 'combo', 'freeship', 'newin']);
+      expect(festivalThemes.where((t) => t.festive).length, 8);
     });
 
     test('each has an English and a Marathi name and a button text, and an unknown key has no theme', () {
@@ -72,12 +73,21 @@ void main() {
 
         expect(_nameLine(t.name, t.mr), findsOneWidget); // the festival name, then its Marathi name beside it
         expect(find.text('Up to 20% off sweets'), findsOneWidget);
-        expect(find.text('FESTIVE OFFER'), findsOneWidget);
+        expect(find.text(t.festive ? 'FESTIVE OFFER' : 'SPECIAL OFFER'), findsOneWidget);
         expect(find.text(t.cta), findsOneWidget);
         expect(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is FestivalMotifPainter), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     }
+
+    testWidgets('an everyday design says SPECIAL OFFER, not FESTIVE OFFER, and shows its own name and button', (tester) async {
+      await _pump(tester, _offer(design: 'bigsaver', title: 'Up to 20% off staples'));
+      expect(find.text('SPECIAL OFFER'), findsOneWidget);
+      expect(find.text('FESTIVE OFFER'), findsNothing);
+      expect(find.text('Save now'), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().startsWith('Big saver')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('each motif is a different drawing', (tester) async {
       final drawings = <String>{};
@@ -86,7 +96,7 @@ void main() {
         final painter = tester.widget<CustomPaint>(find.byWidgetPredicate((w) => w is CustomPaint && w.painter is FestivalMotifPainter)).painter! as FestivalMotifPainter;
         drawings.add(painter.theme.key);
       }
-      expect(drawings.length, 8);
+      expect(drawings.length, festivalThemes.length);
     });
 
     testWidgets('the chip counts the days left and says when it ends today', (tester) async {
@@ -143,11 +153,24 @@ void main() {
   });
 
   group('festive touches', () {
-    test('every design has a product tag and a Marathi greeting', () {
-      for (final t in festivalThemes) {
+    test('every festival design has a product tag and a Marathi greeting', () {
+      for (final t in festivalThemes.where((t) => t.festive)) {
         expect(festivalTags[t.key], isNotEmpty, reason: t.key);
         expect(RegExp(r'[ऀ-ॿ]').hasMatch(festivalGreetings[t.key] ?? ''), isTrue, reason: t.key);
       }
+    });
+
+    test('everyday designs add no product tags and no Home greeting', () {
+      final offers = [
+        Offer(id: 'a', title: 'Sale', cardDesign: 'bigsaver', productIds: const ['p1']),
+        Offer(id: 'b', title: 'Fresh', cardDesign: 'fresh', productIds: const ['p2']),
+      ];
+      expect(festivalProductThemes(offers), isEmpty);
+      expect(festivalGreetingTheme(offers), isNull);
+      // A festival offer after them still counts.
+      final mixed = [...offers, Offer(id: 'c', title: 'Diwali', cardDesign: 'diwali', productIds: const ['p3'])];
+      expect(festivalProductThemes(mixed).keys, ['p3']);
+      expect(festivalGreetingTheme(mixed)?.key, 'diwali');
     });
 
     test('products of festival offers map to their design; plain offers add none; the first offer wins', () {

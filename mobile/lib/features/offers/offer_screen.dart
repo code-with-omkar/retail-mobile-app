@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +28,7 @@ class OfferScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorState(error: e, onRetry: () => ref.invalidate(offerProvider(id))),
         data: (value) => value == null
-            ? EmptyState(icon: Icons.local_offer_outlined, title: context.tr('This offer is no longer available.'), message: context.tr('Look at the offers on the home screen.'), actionLabel: context.tr('Go to home'), onAction: () => context.go('/'))
+            ? EmptyState(icon: LucideIcons.tag, title: context.tr('This offer is no longer available.'), message: context.tr('Look at the offers on the home screen.'), actionLabel: context.tr('Go to home'), onAction: () => context.go('/'))
             : _Body(value),
       ),
     );

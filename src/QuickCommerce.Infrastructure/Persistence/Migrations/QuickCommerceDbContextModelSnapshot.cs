@@ -22,6 +22,87 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("QuickCommerce.Domain.Ad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClickCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Placement")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Target")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("ViewCount")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("Placement", "IsActive");
+
+                    b.ToTable("Ads", t =>
+                        {
+                            t.HasCheckConstraint("CK_Ads_Counts", "[ViewCount] >= 0 AND [ClickCount] >= 0");
+
+                            t.HasCheckConstraint("CK_Ads_Placement", "[Placement] IN ('home','home_middle','categories','search','cart','order','product')");
+
+                            t.HasCheckConstraint("CK_Ads_TargetType", "[TargetType] IN ('None','Product','Category','Offer','Url')");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.AnalyticsDaily", b =>
                 {
                     b.Property<DateOnly>("Day")
@@ -464,7 +545,7 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.ToTable("Campaigns", t =>
                         {
-                            t.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas')");
+                            t.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas','fresh','weekend','bigsaver','combo','freeship','newin')");
 
                             t.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
 
@@ -3145,6 +3226,20 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                             EffectiveFrom = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             IsActive = true
                         });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.Ad", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>

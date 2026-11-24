@@ -282,6 +282,10 @@ Order sampleOrder({
   String? deliveryPartnerPhone,
   String? deliveryOtp,
   String payment = 'CashOnDelivery',
+  double? storeRating,
+  int? storeRatingCount,
+  int? myStoreStars,
+  int? myDeliveryStars,
 }) {
   final ls = lines ?? const [OrderLine(productId: 'milk', variantId: 'milk:1l', name: 'Farm Milk', label: '1 l', unitPrice: 34, quantity: 2), OrderLine(productId: 'rice', variantId: 'rice:5kg', name: 'Basmati Rice', label: '5 kg', unitPrice: 89, quantity: 1)];
   final subtotal = ls.fold<double>(0, (s, l) => s + l.total);
@@ -306,6 +310,10 @@ Order sampleOrder({
     deliveryPartnerName: deliveryPartnerName,
     deliveryPartnerPhone: deliveryPartnerPhone,
     deliveryOtp: deliveryOtp,
+    storeRating: storeRating,
+    storeRatingCount: storeRatingCount,
+    myStoreStars: myStoreStars,
+    myDeliveryStars: myDeliveryStars,
   );
 }
 

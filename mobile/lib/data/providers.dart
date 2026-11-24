@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
+
 import 'google_sign_in_service.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/analytics.dart';
@@ -13,6 +15,7 @@ import 'session_store.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/cart_repository.dart';
 import 'repositories/coupon_repository.dart';
+import 'repositories/ads_repository.dart';
 import 'repositories/delivery_slots_repository.dart';
 import 'repositories/favourites_repository.dart';
 import 'repositories/offers_repository.dart';
@@ -29,7 +32,9 @@ import 'repositories/health_repository.dart';
 import 'repositories/product_store.dart';
 
 /// Overridden in tests to point at a fake environment.
-final appConfigProvider = Provider<AppConfig>((ref) => AppConfig.fromEnvironment());
+final appConfigProvider = Provider<AppConfig>(
+  (ref) => AppConfig.fromEnvironment(),
+);
 
 /// Lets the API client use the current session without depending on the repository that uses the API client.
 class SessionBinding {
@@ -39,7 +44,9 @@ class SessionBinding {
   Future<bool> refresh() async => await _auth?.refreshSession() ?? false;
 }
 
-final sessionBindingProvider = Provider<SessionBinding>((ref) => SessionBinding());
+final sessionBindingProvider = Provider<SessionBinding>(
+  (ref) => SessionBinding(),
+);
 
 /// Tests replace the network layer by overriding this.
 final httpClientAdapterProvider = Provider<HttpClientAdapter?>((ref) => null);
@@ -59,12 +66,16 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 });
 
 /// Overridden in tests with a [MemorySessionStore].
-final sessionStoreProvider = Provider<SessionStore>((ref) => const SecureSessionStore());
+final sessionStoreProvider = Provider<SessionStore>(
+  (ref) => const SecureSessionStore(),
+);
 
 /// Google sign-in. Off unless the build has a Google web client id: `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`.
 final googleSignInServiceProvider = Provider<GoogleSignInService>((ref) {
   const clientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-  return clientId.isEmpty ? const DisabledGoogleSignInService() : PluginGoogleSignInService(clientId);
+  return clientId.isEmpty
+      ? const DisabledGoogleSignInService()
+      : PluginGoogleSignInService(clientId);
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -82,44 +93,70 @@ final localShopProvider = Provider<LocalShop>((ref) => LocalShop());
 
 final cartRepositoryProvider = Provider<CartRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalCartRepository(ref.watch(localShopProvider)) : ApiCartRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalCartRepository(ref.watch(localShopProvider))
+      : ApiCartRepository(ref.watch(apiClientProvider));
 });
 
 final ratingRepositoryProvider = Provider<RatingRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalRatingRepository() : ApiRatingRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalRatingRepository()
+      : ApiRatingRepository(ref.watch(apiClientProvider));
 });
 
 final replacementRepositoryProvider = Provider<ReplacementRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalReplacementRepository() : ApiReplacementRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalReplacementRepository()
+      : ApiReplacementRepository(ref.watch(apiClientProvider));
 });
 
 final trackingRepositoryProvider = Provider<TrackingRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalTrackingRepository() : ApiTrackingRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalTrackingRepository()
+      : ApiTrackingRepository(ref.watch(apiClientProvider));
 });
 
 final offersRepositoryProvider = Provider<OffersRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalOffersRepository() : ApiOffersRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalOffersRepository()
+      : ApiOffersRepository(ref.watch(apiClientProvider));
 });
 
 final favouritesRepositoryProvider = Provider<FavouritesRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalFavouritesRepository() : ApiFavouritesRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalFavouritesRepository()
+      : ApiFavouritesRepository(ref.watch(apiClientProvider));
 });
 
-final deliverySlotsRepositoryProvider = Provider<DeliverySlotsRepository>((ref) {
+/// Ads from the administrator. Anyone sees them, signed in or not.
+final adsRepositoryProvider = Provider<AdsRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalDeliverySlotsRepository() : ApiDeliverySlotsRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalAdsRepository()
+      : ApiAdsRepository(ref.watch(apiClientProvider));
+});
+
+final deliverySlotsRepositoryProvider = Provider<DeliverySlotsRepository>((
+  ref,
+) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData
+      ? LocalDeliverySlotsRepository()
+      : ApiDeliverySlotsRepository(ref.watch(apiClientProvider));
 });
 
 /// The customer's steps, recorded anonymously (see [Analytics]). A new random session each time the app starts.
 final analyticsProvider = Provider<Analytics>((ref) {
   final config = ref.watch(appConfigProvider);
   final analytics = Analytics(
-    config.useSeedData ? NoAnalyticsSink() : ApiAnalyticsSink(ref.watch(apiClientProvider)),
+    config.useSeedData
+        ? NoAnalyticsSink()
+        : ApiAnalyticsSink(ref.watch(apiClientProvider)),
     storeId: () => ref.read(selectedStoreProvider).value?.id,
   );
   ref.onDispose(analytics.dispose);
@@ -128,35 +165,49 @@ final analyticsProvider = Provider<Analytics>((ref) {
 
 final couponRepositoryProvider = Provider<CouponRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalCouponRepository() : ApiCouponRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalCouponRepository()
+      : ApiCouponRepository(ref.watch(apiClientProvider));
 });
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalOrderRepository(ref.watch(localShopProvider)) : ApiOrderRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalOrderRepository(ref.watch(localShopProvider))
+      : ApiOrderRepository(ref.watch(apiClientProvider));
 });
 
 final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalPaymentRepository() : ApiPaymentRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalPaymentRepository()
+      : ApiPaymentRepository(ref.watch(apiClientProvider));
 });
 
 /// Opens the payment provider screen. Tests replace it.
-final paymentLauncherProvider = Provider<PaymentLauncher>((ref) => RazorpayLauncher());
+final paymentLauncherProvider = Provider<PaymentLauncher>(
+  (ref) => RazorpayLauncher(),
+);
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  return config.useSeedData ? LocalNotificationRepository(ref.watch(localShopProvider)) : ApiNotificationRepository(ref.watch(apiClientProvider));
+  return config.useSeedData
+      ? LocalNotificationRepository(ref.watch(localShopProvider))
+      : ApiNotificationRepository(ref.watch(apiClientProvider));
 });
 
-final healthRepositoryProvider = Provider<HealthRepository>((ref) => HealthRepository(ref.watch(apiClientProvider)));
+final healthRepositoryProvider = Provider<HealthRepository>(
+  (ref) => HealthRepository(ref.watch(apiClientProvider)),
+);
 
 /// Products loaded so far, by id. Used by the cart and reorder.
 final productStoreProvider = Provider<ProductStore>((ref) => ProductStore());
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
   final config = ref.watch(appConfigProvider);
-  final CatalogRepository inner = config.useSeedData ? const SeedCatalogRepository() : ApiCatalogRepository(ref.watch(apiClientProvider));
+  final CatalogRepository inner = config.useSeedData
+      ? const SeedCatalogRepository()
+      : ApiCatalogRepository(ref.watch(apiClientProvider));
   return CachingCatalogRepository(inner, ref.watch(productStoreProvider));
 });
 
@@ -164,11 +215,15 @@ final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
 double roundCoordinate(double value) => (value * 1000).round() / 1000;
 
 /// Where to deliver, rounded for the catalogue calls, or null while no place is chosen (see `deliveryStateProvider`).
-final deliveryLocationProvider = Provider<({double latitude, double longitude})?>((ref) {
-  final place = ref.watch(deliveryPlaceProvider);
-  if (place == null) return null;
-  return (latitude: roundCoordinate(place.latitude), longitude: roundCoordinate(place.longitude));
-});
+final deliveryLocationProvider =
+    Provider<({double latitude, double longitude})?>((ref) {
+      final place = ref.watch(deliveryPlaceProvider);
+      if (place == null) return null;
+      return (
+        latitude: roundCoordinate(place.latitude),
+        longitude: roundCoordinate(place.longitude),
+      );
+    });
 
 /// Every store that delivers to the delivery location, nearest first.
 /// The pincode of the delivery point, found on the phone (null when it cannot be found, which only means no paid placement applies).
@@ -176,18 +231,30 @@ final deliveryPincodeProvider = FutureProvider<String?>((ref) async {
   final where = ref.watch(deliveryLocationProvider);
   if (where == null) return null;
   try {
-    return await ref.watch(geocodingServiceProvider).pincode(latitude: where.latitude, longitude: where.longitude).timeout(const Duration(seconds: 3));
+    return await ref
+        .watch(geocodingServiceProvider)
+        .pincode(latitude: where.latitude, longitude: where.longitude)
+        .timeout(const Duration(seconds: 3));
   } catch (_) {
     return null;
   }
 });
 
-final serviceableStoresProvider = FutureProvider<List<NearestStore>>((ref) async {
+final serviceableStoresProvider = FutureProvider<List<NearestStore>>((
+  ref,
+) async {
   final where = ref.watch(deliveryLocationProvider);
-  if (where == null) return const <NearestStore>[]; // no place chosen: nothing to look up
+  if (where == null)
+    return const <NearestStore>[]; // no place chosen: nothing to look up
   // With the pincode the store that paid for first place there comes first, marked sponsored.
   final pincode = await ref.watch(deliveryPincodeProvider.future);
-  return ref.watch(catalogRepositoryProvider).stores(latitude: where.latitude, longitude: where.longitude, pincode: pincode);
+  return ref
+      .watch(catalogRepositoryProvider)
+      .stores(
+        latitude: where.latitude,
+        longitude: where.longitude,
+        pincode: pincode,
+      );
 });
 
 /// The store the customer chose (id), remembered between launches. Null means "use the nearest".
@@ -204,7 +271,8 @@ class SelectedStoreNotifier extends Notifier<String?> {
   }
 }
 
-final selectedStoreIdProvider = NotifierProvider<SelectedStoreNotifier, String?>(SelectedStoreNotifier.new);
+final selectedStoreIdProvider =
+    NotifierProvider<SelectedStoreNotifier, String?>(SelectedStoreNotifier.new);
 
 /// The store whose catalogue the app shows: the saved choice while it still delivers here, otherwise the nearest
 /// store. Null when no store delivers to the location.
@@ -225,13 +293,15 @@ Future<String?> _storeIdOf(Ref ref) async {
 }
 
 /// For screens that page through products themselves (search, category).
-final storeIdResolverProvider = Provider<Future<String?> Function()>((ref) => () async {
-      try {
-        return (await ref.read(selectedStoreProvider.future))?.id;
-      } catch (_) {
-        return null;
-      }
-    });
+final storeIdResolverProvider = Provider<Future<String?> Function()>(
+  (ref) => () async {
+    try {
+      return (await ref.read(selectedStoreProvider.future))?.id;
+    } catch (_) {
+      return null;
+    }
+  },
+);
 
 /// Categories of the selected store (all categories when there is no store).
 final categoriesProvider = FutureProvider<List<Category>>((ref) async {
@@ -242,7 +312,14 @@ final categoriesProvider = FutureProvider<List<Category>>((ref) async {
 /// First page of products for the Home "Popular near you" row.
 final popularProductsProvider = FutureProvider<List<Product>>((ref) async {
   final storeId = await _storeIdOf(ref);
-  return (await ref.watch(catalogRepositoryProvider).products(storeId: storeId, carriedOnly: storeId != null, pageSize: 10)).items;
+  return (await ref
+          .watch(catalogRepositoryProvider)
+          .products(
+            storeId: storeId,
+            carriedOnly: storeId != null,
+            pageSize: 10,
+          ))
+      .items;
 });
 
 /// Product detail with fresh stock for the nearest store.
@@ -252,8 +329,19 @@ final productProvider = FutureProvider.family<Product, String>((ref, id) async {
 });
 
 /// Other products in the same category, for "You might also like".
-final relatedProductsProvider = FutureProvider.family<List<Product>, ({String categoryId, String excludeId})>((ref, q) async {
-  final storeId = await _storeIdOf(ref);
-  final page = await ref.watch(catalogRepositoryProvider).products(categoryId: q.categoryId, storeId: storeId, carriedOnly: storeId != null, pageSize: 10);
-  return page.items.where((p) => p.id != q.excludeId).toList();
-});
+final relatedProductsProvider =
+    FutureProvider.family<
+      List<Product>,
+      ({String categoryId, String excludeId})
+    >((ref, q) async {
+      final storeId = await _storeIdOf(ref);
+      final page = await ref
+          .watch(catalogRepositoryProvider)
+          .products(
+            categoryId: q.categoryId,
+            storeId: storeId,
+            carriedOnly: storeId != null,
+            pageSize: 10,
+          );
+      return page.items.where((p) => p.id != q.excludeId).toList();
+    });

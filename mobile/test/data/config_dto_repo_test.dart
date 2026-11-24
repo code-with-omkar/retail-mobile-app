@@ -1,5 +1,5 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickcart_customer/core/config/app_config.dart';
 import 'package:quickcart_customer/core/strings_mr.dart';
@@ -76,8 +76,8 @@ void main() {
       });
       final cats = await ApiCatalogRepository(client).categories();
       expect(cats.map((c) => c.label), ['Vegetables', 'Hardware']);
-      expect(cats.first.icon, Icons.eco_outlined);
-      expect(cats.last.icon, Icons.category_outlined);
+      expect(cats.first.icon, LucideIcons.leaf);
+      expect(cats.last.icon, LucideIcons.layoutGrid);
       expect(adapter.requests.single.path, '/api/catalog/categories');
     });
 

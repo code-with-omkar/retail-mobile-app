@@ -7,20 +7,40 @@ import 'catalog_dto.dart';
 String _str(Map<String, dynamic> j, String key) {
   final v = j[key];
   if (v is String) return v;
-  throw FormatException('Field "$key" expected a string but was ${v.runtimeType}');
+  throw FormatException(
+    'Field "$key" expected a string but was ${v.runtimeType}',
+  );
 }
 
 double _double(Map<String, dynamic> j, String key) {
   final v = j[key];
   if (v is num) return v.toDouble();
-  throw FormatException('Field "$key" expected a number but was ${v.runtimeType}');
+  throw FormatException(
+    'Field "$key" expected a number but was ${v.runtimeType}',
+  );
 }
 
 /// The API sends the order status as a number (the enum's position) unless configured otherwise; accept both.
 /// Pending, Accepted, Preparing, Ready, Completed, Rejected, Confirmed, OutForDelivery, Delivered, Cancelled, AwaitingPayment.
 OrderStage orderStageFrom(Object? status) {
-  const names = ['Pending', 'Accepted', 'Preparing', 'Ready', 'Completed', 'Rejected', 'Confirmed', 'OutForDelivery', 'Delivered', 'Cancelled', 'AwaitingPayment'];
-  final name = status is num ? (status.toInt() >= 0 && status.toInt() < names.length ? names[status.toInt()] : null) : status as String?;
+  const names = [
+    'Pending',
+    'Accepted',
+    'Preparing',
+    'Ready',
+    'Completed',
+    'Rejected',
+    'Confirmed',
+    'OutForDelivery',
+    'Delivered',
+    'Cancelled',
+    'AwaitingPayment',
+  ];
+  final name = status is num
+      ? (status.toInt() >= 0 && status.toInt() < names.length
+            ? names[status.toInt()]
+            : null)
+      : status as String?;
   return switch (name) {
     'Pending' => OrderStage.placed,
     'Accepted' || 'Preparing' || 'Confirmed' => OrderStage.packed,
@@ -36,18 +56,25 @@ OrderStage orderStageFrom(Object? status) {
 /// NotRequired, Created, Failed, Paid, Refunding, Refunded, RefundFailed; a number or a name. Missing means cash on delivery.
 PaymentState paymentStateFrom(Object? value) {
   if (value == null) return PaymentState.notRequired;
-  final name = value is num ? (value.toInt() >= 0 && value.toInt() < PaymentState.values.length ? PaymentState.values[value.toInt()].name : null) : (value as String).toLowerCase();
-  return PaymentState.values.where((s) => s.name.toLowerCase() == name?.toLowerCase()).firstOrNull ?? PaymentState.notRequired;
+  final name = value is num
+      ? (value.toInt() >= 0 && value.toInt() < PaymentState.values.length
+            ? PaymentState.values[value.toInt()].name
+            : null)
+      : (value as String).toLowerCase();
+  return PaymentState.values
+          .where((s) => s.name.toLowerCase() == name?.toLowerCase())
+          .firstOrNull ??
+      PaymentState.notRequired;
 }
 
 OrderLine orderLineFromJson(Map<String, dynamic> j) => OrderLine(
-      productId: _str(j, 'productId'),
-      variantId: j['variantId'] as String?,
-      name: _str(j, 'productNameSnapshot'),
-      label: (j['variantLabel'] as String?) ?? '',
-      unitPrice: _double(j, 'unitPrice'),
-      quantity: (j['quantity'] as num).toInt(),
-    );
+  productId: _str(j, 'productId'),
+  variantId: j['variantId'] as String?,
+  name: _str(j, 'productNameSnapshot'),
+  label: (j['variantLabel'] as String?) ?? '',
+  unitPrice: _double(j, 'unitPrice'),
+  quantity: (j['quantity'] as num).toInt(),
+);
 
 Order orderFromJson(Map<String, dynamic> j) {
   final total = _double(j, 'totalAmount');
@@ -68,10 +95,14 @@ Order orderFromJson(Map<String, dynamic> j) {
     receiverName: j['receiverName'] as String?,
     receiverPhone: j['receiverPhone'] as String?,
     storeName: j['storeName'] as String?,
-    storePhone: (j['storePhone'] as String?)?.trim().isEmpty == true ? null : j['storePhone'] as String?,
+    storePhone: (j['storePhone'] as String?)?.trim().isEmpty == true
+        ? null
+        : j['storePhone'] as String?,
     estimatedMinutes: (j['estimatedDeliveryMinutes'] as num?)?.toInt(),
     paymentState: paymentStateFrom(j['paymentStatus']),
-    paymentExpiresAt: j['paymentExpiresAt'] == null ? null : DateTime.parse(j['paymentExpiresAt'] as String).toLocal(),
+    paymentExpiresAt: j['paymentExpiresAt'] == null
+        ? null
+        : DateTime.parse(j['paymentExpiresAt'] as String).toLocal(),
     deliveryPartnerName: j['deliveryPartnerName'] as String?,
     deliveryPartnerPhone: j['deliveryPartnerPhone'] as String?,
     deliveryOtp: j['deliveryOtp'] as String?,
@@ -79,28 +110,51 @@ Order orderFromJson(Map<String, dynamic> j) {
     outOfStockChoice: j['outOfStockChoice'] as String?,
     couponCode: j['couponCode'] as String?,
     couponDiscount: (j['couponDiscount'] as num?)?.toDouble() ?? 0,
-    deliverySlotStart: j['deliverySlotStart'] == null ? null : DateTime.parse(j['deliverySlotStart'] as String).toUtc(),
-    deliverySlotEnd: j['deliverySlotEnd'] == null ? null : DateTime.parse(j['deliverySlotEnd'] as String).toUtc(),
+    deliverySlotStart: j['deliverySlotStart'] == null
+        ? null
+        : DateTime.parse(j['deliverySlotStart'] as String).toUtc(),
+    deliverySlotEnd: j['deliverySlotEnd'] == null
+        ? null
+        : DateTime.parse(j['deliverySlotEnd'] as String).toUtc(),
+    storeRating: (j['storeRating'] as num?)?.toDouble(),
+    storeRatingCount: (j['storeRatingCount'] as num?)?.toInt(),
+    myStoreStars: (j['myStoreStars'] as num?)?.toInt(),
+    myDeliveryStars: (j['myDeliveryStars'] as num?)?.toInt(),
     replacement: j['replacement'] is Map
         ? Replacement(
             id: (j['replacement'] as Map)['id'] as String,
             oldName: (j['replacement'] as Map)['oldName'] as String,
             oldLabel: (j['replacement'] as Map)['oldLabel'] as String?,
-            oldQuantity: ((j['replacement'] as Map)['oldQuantity'] as num).toInt(),
-            oldUnitPrice: ((j['replacement'] as Map)['oldUnitPrice'] as num).toDouble(),
+            oldQuantity: ((j['replacement'] as Map)['oldQuantity'] as num)
+                .toInt(),
+            oldUnitPrice: ((j['replacement'] as Map)['oldUnitPrice'] as num)
+                .toDouble(),
             newName: (j['replacement'] as Map)['newName'] as String,
             newLabel: (j['replacement'] as Map)['newLabel'] as String?,
-            newQuantity: ((j['replacement'] as Map)['newQuantity'] as num).toInt(),
-            newUnitPrice: ((j['replacement'] as Map)['newUnitPrice'] as num).toDouble(),
-            priceChange: ((j['replacement'] as Map)['priceChange'] as num).toDouble(),
-            expiresAt: DateTime.parse((j['replacement'] as Map)['expiresAt'] as String).toLocal(),
+            newQuantity: ((j['replacement'] as Map)['newQuantity'] as num)
+                .toInt(),
+            newUnitPrice: ((j['replacement'] as Map)['newUnitPrice'] as num)
+                .toDouble(),
+            priceChange: ((j['replacement'] as Map)['priceChange'] as num)
+                .toDouble(),
+            expiresAt: DateTime.parse(
+              (j['replacement'] as Map)['expiresAt'] as String,
+            ).toLocal(),
           )
         : null,
     changes: [
       for (final c in (j['changes'] as List? ?? const []))
         OrderChange(
           at: DateTime.parse((c as Map)['at'] as String).toLocal(),
-          lines: [for (final l in (c['lines'] as List? ?? const [])) ChangedLine(name: (l as Map)['name'] as String, label: l['label'] as String?, from: (l['from'] as num).toInt(), to: (l['to'] as num).toInt())],
+          lines: [
+            for (final l in (c['lines'] as List? ?? const []))
+              ChangedLine(
+                name: (l as Map)['name'] as String,
+                label: l['label'] as String?,
+                from: (l['from'] as num).toInt(),
+                to: (l['to'] as num).toInt(),
+              ),
+          ],
           refund: (c['refundAmount'] as num?)?.toDouble() ?? 0,
           refundStatus: (c['refundStatus'] as String?) ?? 'None',
           reason: c['reason'] as String?,
@@ -111,19 +165,19 @@ Order orderFromJson(Map<String, dynamic> j) {
 
 List<Order> ordersFromJson(Object? data) => asList(data, orderFromJson);
 
-
 AppNotification notificationFromJson(Map<String, dynamic> j) => AppNotification(
-      id: _str(j, 'id'),
-      orderId: j['orderId'] as String?,
-      type: _str(j, 'type'),
-      title: _str(j, 'title'),
-      message: _str(j, 'message'),
-      isRead: j['isRead'] == true,
-      createdAt: DateTime.parse(_str(j, 'createdAt')).toLocal(),
-      category: (j['category'] as String?) ?? 'Order',
-      storeName: j['storeName'] as String?,
-      imageUrl: j['imageUrl'] as String?,
-      campaignId: j['campaignId'] as String?,
-    );
+  id: _str(j, 'id'),
+  orderId: j['orderId'] as String?,
+  type: _str(j, 'type'),
+  title: _str(j, 'title'),
+  message: _str(j, 'message'),
+  isRead: j['isRead'] == true,
+  createdAt: DateTime.parse(_str(j, 'createdAt')).toLocal(),
+  category: (j['category'] as String?) ?? 'Order',
+  storeName: j['storeName'] as String?,
+  imageUrl: j['imageUrl'] as String?,
+  campaignId: j['campaignId'] as String?,
+);
 
-List<AppNotification> notificationsFromJson(Object? data) => asList(data, notificationFromJson);
+List<AppNotification> notificationsFromJson(Object? data) =>
+    asList(data, notificationFromJson);

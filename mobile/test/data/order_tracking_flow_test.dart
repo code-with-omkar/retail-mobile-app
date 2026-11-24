@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,15 +193,15 @@ void main() {
       final app = await _open(tester, orders: [_active('ORD-1')]);
       await _goOrders(tester);
       await _openOrder(tester, 'ORD-1');
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(LucideIcons.check), findsOneWidget);
 
       _setStage(app, 'ORD-1', OrderStage.packed);
       await _elapse(tester, 15);
-      expect(find.byIcon(Icons.check), findsNWidgets(2));
+      expect(find.byIcon(LucideIcons.check), findsNWidgets(2));
 
       _setStage(app, 'ORD-1', OrderStage.delivered);
       await _elapse(tester, 15);
-      expect(find.byIcon(Icons.check), findsNWidgets(4));
+      expect(find.byIcon(LucideIcons.check), findsNWidgets(4));
       final calls = app.orders.listCalls;
       await _elapse(tester, 120);
       expect(app.orders.listCalls, calls);
@@ -491,7 +492,7 @@ void main() {
 
   group('the notifications screen', () {
     Future<void> openBell(WidgetTester tester) async {
-      await tester.tap(find.byIcon(Icons.notifications_none_rounded).first);
+      await tester.tap(find.byIcon(LucideIcons.bell).first);
       await tester.pumpAndSettle();
     }
 

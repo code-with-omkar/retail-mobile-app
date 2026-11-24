@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -190,6 +191,24 @@ void main() {
       expect(container.read(cartTotalsProvider).subtotal, 69.0);
     });
 
+    testWidgets('the page shows the running cart total above Add, and it follows what is added', (tester) async {
+      final container = await open(tester, _tomato());
+      expect(find.byKey(const Key('cart-strip')), findsNothing, reason: 'nothing in the cart yet');
+
+      await tester.tap(find.textContaining('Add · ₹45'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cart-strip')), findsOneWidget);
+      expect(find.text('1 item · ₹45'), findsOneWidget);
+
+      // Something added from elsewhere on the page (a tile under You might also like) moves the same total.
+      container.read(cartProvider.notifier).add('v1', 1);
+      await tester.pumpAndSettle();
+      expect(find.text('2 items · ₹90'), findsOneWidget);
+      expect(find.text('View cart'), findsWidgets);
+    });
+
     testWidgets('a pack that is out of stock cannot be chosen', (tester) async {
       final container = await open(tester, _tomato(packs: const [_small, PackOption(id: 'v500', label: '500 g', price: 24, mrp: 29, inStock: false), _kilo]));
 
@@ -241,7 +260,7 @@ class _Repo implements CatalogRepository {
   final Product item;
 
   @override
-  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
+  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', LucideIcons.leaf)];
 
   @override
   Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async => const [NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10)];

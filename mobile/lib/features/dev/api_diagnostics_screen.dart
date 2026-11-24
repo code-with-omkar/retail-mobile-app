@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,7 +65,7 @@ class _ApiDiagnosticsScreenState extends ConsumerState<ApiDiagnosticsScreen> {
             child: Surface(
               padding: const EdgeInsets.all(14),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(ok ? Icons.check_circle : Icons.error, color: ok ? const Color(0xFF008A2B) : Pal.pink),
+                Icon(ok ? LucideIcons.circleCheck : LucideIcons.circleAlert, color: ok ? const Color(0xFF008A2B) : Pal.pink),
                 const SizedBox(width: 10),
                 Expanded(child: Text(text, style: TextStyle(color: p.onCard))),
               ]),

@@ -720,9 +720,9 @@ public sealed class OfferDiscountTests
     }
 
     [Fact]
-    public void The_design_keys_are_the_eight_the_apps_and_the_portal_draw()
+    public void The_design_keys_are_the_fourteen_the_apps_and_the_portal_draw()
     {
-        Assert.Equal(["diwali", "ganesh", "navratri", "holi", "sankranti", "padwa", "eid", "christmas"], OfferCardDesigns.All);
+        Assert.Equal(["diwali", "ganesh", "navratri", "holi", "sankranti", "padwa", "eid", "christmas", "fresh", "weekend", "bigsaver", "combo", "freeship", "newin"], OfferCardDesigns.All);
         Assert.True(OfferCardDesigns.IsKnown(null));
         Assert.False(OfferCardDesigns.IsKnown("DIWALI")); // only the stored, lower-case form
         Assert.Equal("eid", OfferCardDesigns.Normalize(" Eid "));

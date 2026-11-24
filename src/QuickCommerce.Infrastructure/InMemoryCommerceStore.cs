@@ -75,7 +75,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || ProductTranslations.Any(translation => translation.ProductId == product.Id
                     && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
-            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId || Categories.Any(category => category.Id == product.CategoryId && category.ParentCategoryId == categoryId))
             .ToArray();
         var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
         return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));
@@ -91,7 +91,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
                 || product.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || ProductTranslations.Any(translation => translation.ProductId == product.Id
                     && (translation.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || (translation.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false))))
-            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId)
+            .Where(product => !categoryId.HasValue || product.CategoryId == categoryId || Categories.Any(category => category.Id == product.CategoryId && category.ParentCategoryId == categoryId))
             .ToArray();
         var items = query.OrderBy(product => product.Name, StringComparer.OrdinalIgnoreCase).ThenBy(product => product.Id).Skip(skip).Take(take).ToArray();
         return Task.FromResult<(IReadOnlyList<Product>, int)>((items, query.Length));

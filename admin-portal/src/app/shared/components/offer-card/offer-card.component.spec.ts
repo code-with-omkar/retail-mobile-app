@@ -12,8 +12,9 @@ function open(inputs: Partial<Pick<OfferCardComponent, 'title' | 'imageUrl' | 'e
 const text = (f: { nativeElement: unknown }) => ((f.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ');
 
 describe('offer card designs', () => {
-  it('has the eight festivals the API accepts, in the same order', () => {
-    expect(OFFER_CARD_KEYS).toEqual(['diwali', 'ganesh', 'navratri', 'holi', 'sankranti', 'padwa', 'eid', 'christmas']);
+  it('has the fourteen designs the API accepts, in the same order: eight festivals, then six everyday ones', () => {
+    expect(OFFER_CARD_KEYS).toEqual(['diwali', 'ganesh', 'navratri', 'holi', 'sankranti', 'padwa', 'eid', 'christmas', 'fresh', 'weekend', 'bigsaver', 'combo', 'freeship', 'newin']);
+    expect(OFFER_CARD_DESIGNS.filter(d => d.festive).length).toBe(8);
   });
 
   it('every design has an English and a Marathi name, a button text and colours', () => {
@@ -67,7 +68,18 @@ describe('OfferCardComponent', () => {
     expect((f.nativeElement as HTMLElement).querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('every one of the eight draws its own motif', () => {
+  it('an everyday design says SPECIAL OFFER, with its own name and button', () => {
+    const f = open({ designKey: 'bigsaver', title: 'Up to 20% off staples' });
+    expect(text(f)).toContain('SPECIAL OFFER');
+    expect(text(f)).not.toContain('FESTIVE OFFER');
+    expect(text(f)).toContain('Big saver');
+    expect(text(f)).toContain('मोठी बचत');
+    expect(text(f)).toContain('Save now');
+    expect(chipText(null, new Date(), false)).toBe('SPECIAL OFFER');
+    expect(chipText('2026-11-05T09:00:00Z', new Date('2026-11-05T10:00:00Z'), false)).toBe('SPECIAL OFFER · ENDS TODAY');
+  });
+
+  it('every one of the fourteen draws its own motif', () => {
     const shapes = new Set<string>();
     for (const key of OFFER_CARD_KEYS) {
       TestBed.resetTestingModule();
@@ -77,7 +89,7 @@ describe('OfferCardComponent', () => {
       expect(svg!.children.length, key).toBeGreaterThan(0);
       shapes.add(svg!.innerHTML);
     }
-    expect(shapes.size).toBe(8);
+    expect(shapes.size).toBe(14);
   });
 
   it('shows a placeholder line until the offer has a title', () => {

@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,10 +25,14 @@ class FestivalTheme {
     required this.m1,
     required this.m2,
     required this.m3,
+    this.festive = true,
   });
 
   final String key, name, mr, cta;
   final Color bg, ink, muted, chipBg, ctaBg, ctaInk, m1, m2, m3;
+
+  /// A festival design (tags, greeting and glow on Home go with it). The others are everyday offer designs: card only.
+  final bool festive;
 }
 
 const _y = Color(0xFFFFD400);
@@ -156,14 +161,115 @@ const festivalThemes = <FestivalTheme>[
     m2: _y,
     m3: _y,
   ),
+  FestivalTheme(
+    key: 'fresh',
+    name: 'Fresh picks',
+    mr: 'ताजे निवडक',
+    bg: Color(0xFF0F6B3A),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFD9F2E3),
+    chipBg: _white24,
+    cta: 'Shop fresh',
+    ctaBg: _y,
+    ctaInk: _ink,
+    m1: Color(0xFFB9F6CA),
+    m2: _y,
+    m3: Color(0xFFFFFFFF),
+    festive: false,
+  ),
+  FestivalTheme(
+    key: 'weekend',
+    name: 'Weekend sale',
+    mr: 'वीकेंड सेल',
+    bg: Color(0xFF3730A3),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFE0E0FF),
+    chipBg: _white24,
+    cta: 'See the sale',
+    ctaBg: _y,
+    ctaInk: _ink,
+    m1: _y,
+    m2: Color(0xFFFFFFFF),
+    m3: Color(0xFFA5B4FC),
+    festive: false,
+  ),
+  FestivalTheme(
+    key: 'bigsaver',
+    name: 'Big saver',
+    mr: 'मोठी बचत',
+    bg: Color(0xFFC42F1D),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFFFE8E4),
+    chipBg: _white24,
+    cta: 'Save now',
+    ctaBg: Color(0xFFFFFFFF),
+    ctaInk: Color(0xFFC42F1D),
+    m1: _y,
+    m2: Color(0xFFFFFFFF),
+    m3: Color(0xFFFFB4A6),
+    festive: false,
+  ),
+  FestivalTheme(
+    key: 'combo',
+    name: 'Combo deal',
+    mr: 'कॉम्बो ऑफर',
+    bg: Color(0xFF0E7490),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFE3F8FC),
+    chipBg: _white24,
+    cta: 'Shop combos',
+    ctaBg: _y,
+    ctaInk: _ink,
+    m1: _y,
+    m2: Color(0xFFA5F3FC),
+    m3: Color(0xFFFFFFFF),
+    festive: false,
+  ),
+  FestivalTheme(
+    key: 'freeship',
+    name: 'Free delivery',
+    mr: 'मोफत डिलिव्हरी',
+    bg: Color(0xFF141118),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFD7D4E0),
+    chipBg: _white24,
+    cta: 'Order now',
+    ctaBg: _y,
+    ctaInk: _ink,
+    m1: _y,
+    m2: Color(0xFFFFFFFF),
+    m3: Color(0xFF62606E),
+    festive: false,
+  ),
+  FestivalTheme(
+    key: 'newin',
+    name: 'New in store',
+    mr: 'नवीन आले',
+    bg: Color(0xFF9D174D),
+    ink: Color(0xFFFFFFFF),
+    muted: Color(0xFFFBD5E5),
+    chipBg: _white24,
+    cta: 'See what is new',
+    ctaBg: Color(0xFFFFFFFF),
+    ctaInk: Color(0xFF9D174D),
+    m1: _y,
+    m2: Color(0xFFFFFFFF),
+    m3: Color(0xFFF9A8D4),
+    festive: false,
+  ),
 ];
 
 FestivalTheme? festivalThemeOf(String? key) =>
     festivalThemes.where((t) => t.key == key).firstOrNull;
 
 /// The countdown chip: "FESTIVE OFFER", or with the days left ("ENDS IN 3 DAYS", "ENDS TODAY").
-String festivalChip(BuildContext context, DateTime? endsAt, {DateTime? now}) {
-  final base = context.tr('FESTIVE OFFER');
+String festivalChip(
+  BuildContext context,
+  DateTime? endsAt, {
+  DateTime? now,
+  bool festive = true,
+}) {
+  final base = context.tr(festive ? 'FESTIVE OFFER' : 'SPECIAL OFFER');
   if (endsAt == null) return base;
   final left = endsAt.difference(now ?? DateTime.now());
   final days = (left.inSeconds / 86400).ceil();
@@ -191,7 +297,7 @@ class FestivalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(QC.rPill),
       ),
       child: Text(
-        festivalChip(context, offer.endsAt),
+        festivalChip(context, offer.endsAt, festive: theme.festive),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -226,7 +332,7 @@ class FestivalCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Icon(Icons.chevron_right_rounded, size: 16, color: theme.ctaInk),
+          Icon(LucideIcons.chevronRight, size: 16, color: theme.ctaInk),
         ],
       ),
     );
@@ -533,6 +639,126 @@ class FestivalMotifPainter extends CustomPainter {
         canvas.drawCircle(const Offset(48, 10), 6, _fill(t.m3));
         canvas.drawCircle(const Offset(40, 58), 3, _fill(t.m3));
         canvas.drawCircle(const Offset(58, 66), 3, _fill(t.m3));
+      case 'fresh':
+        canvas.drawPath(
+          Path()
+            ..moveTo(18, 80)
+            ..cubicTo(18, 42, 48, 14, 84, 14)
+            ..cubicTo(84, 52, 56, 80, 18, 80)
+            ..close(),
+          _fill(t.m1),
+        );
+        canvas.drawLine(
+          const Offset(24, 74),
+          const Offset(70, 28),
+          _stroke(t.bg, 3),
+        );
+        canvas.drawCircle(const Offset(80, 78), 6, _fill(t.m2));
+        canvas.drawCircle(const Offset(14, 22), 4, _fill(t.m3));
+      case 'weekend':
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(14, 24, 68, 58),
+            const Radius.circular(10),
+          ),
+          _fill(t.m2),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndCorners(
+            const Rect.fromLTWH(14, 24, 68, 20),
+            topLeft: const Radius.circular(10),
+            topRight: const Radius.circular(10),
+          ),
+          _fill(t.m1),
+        );
+        for (final x in [32.0, 48.0, 64.0]) {
+          canvas.drawCircle(Offset(x, 62), 5, _fill(t.m3));
+        }
+        canvas.drawLine(
+          const Offset(32, 16),
+          const Offset(32, 30),
+          _stroke(t.m2, 4),
+        );
+        canvas.drawLine(
+          const Offset(64, 16),
+          const Offset(64, 30),
+          _stroke(t.m2, 4),
+        );
+      case 'bigsaver':
+        canvas.drawCircle(const Offset(48, 48), 36, _fill(t.m1));
+        canvas.drawCircle(const Offset(36, 36), 7, _fill(t.bg));
+        canvas.drawCircle(const Offset(60, 60), 7, _fill(t.bg));
+        canvas.drawLine(
+          const Offset(62, 32),
+          const Offset(34, 64),
+          _stroke(t.bg, 6),
+        );
+        canvas.drawCircle(const Offset(84, 12), 5, _fill(t.m2));
+        canvas.drawCircle(const Offset(10, 84), 4, _fill(t.m3));
+      case 'combo':
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(10, 30, 44, 44),
+            const Radius.circular(12),
+          ),
+          _fill(t.m1),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(42, 22, 44, 44),
+            const Radius.circular(12),
+          ),
+          _fill(t.m2),
+        );
+        canvas.drawLine(
+          const Offset(48, 74),
+          const Offset(48, 90),
+          _stroke(t.m3, 4),
+        );
+        canvas.drawLine(
+          const Offset(40, 82),
+          const Offset(56, 82),
+          _stroke(t.m3, 4),
+        );
+      case 'freeship':
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            const Rect.fromLTWH(6, 34, 52, 34),
+            const Radius.circular(5),
+          ),
+          _fill(t.m1),
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(58, 44)
+            ..lineTo(76, 44)
+            ..lineTo(90, 58)
+            ..lineTo(90, 68)
+            ..lineTo(58, 68)
+            ..close(),
+          _fill(t.m2),
+        );
+        canvas.drawCircle(const Offset(24, 72), 9, _fill(t.m3));
+        canvas.drawCircle(const Offset(72, 72), 9, _fill(t.m3));
+        canvas.drawCircle(const Offset(24, 72), 3.5, _fill(t.bg));
+        canvas.drawCircle(const Offset(72, 72), 3.5, _fill(t.bg));
+      case 'newin':
+        canvas.drawPath(
+          Path()
+            ..moveTo(46, 8)
+            ..lineTo(55, 34)
+            ..lineTo(84, 42)
+            ..lineTo(55, 50)
+            ..lineTo(46, 80)
+            ..lineTo(37, 50)
+            ..lineTo(8, 42)
+            ..lineTo(37, 34)
+            ..close(),
+          _fill(t.m1),
+        );
+        canvas.drawCircle(const Offset(82, 14), 5, _fill(t.m2));
+        canvas.drawCircle(const Offset(14, 78), 4, _fill(t.m3));
+        canvas.drawCircle(const Offset(80, 78), 3, _fill(t.m3));
     }
     canvas.restore();
   }
@@ -569,7 +795,7 @@ Map<String, FestivalTheme> festivalProductThemes(Iterable<Offer> offers) {
   final out = <String, FestivalTheme>{};
   for (final o in offers) {
     final t = festivalThemeOf(o.cardDesign);
-    if (t == null) continue;
+    if (t == null || !t.festive) continue;
     for (final id in o.productIds) {
       out.putIfAbsent(id, () => t);
     }
@@ -581,7 +807,7 @@ Map<String, FestivalTheme> festivalProductThemes(Iterable<Offer> offers) {
 FestivalTheme? festivalGreetingTheme(Iterable<Offer> offers) {
   for (final o in offers) {
     final t = festivalThemeOf(o.cardDesign);
-    if (t != null) return t;
+    if (t != null && t.festive) return t;
   }
   return null;
 }
@@ -595,8 +821,20 @@ class FestivalProductTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: theme.bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(festivalTags[theme.key] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.ink, fontSize: 9, fontWeight: FontWeight.w900)),
+      decoration: BoxDecoration(
+        color: theme.bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        festivalTags[theme.key] ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: theme.ink,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
@@ -617,8 +855,22 @@ class FestivalGreetingChip extends StatelessWidget {
           label: text,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: theme.bg, borderRadius: BorderRadius.circular(20)),
-            child: ExcludeSemantics(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: theme.ink, fontWeight: FontWeight.w800, fontSize: 13))),
+            decoration: BoxDecoration(
+              color: theme.bg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: ExcludeSemantics(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -636,7 +888,13 @@ class FestivalGlow extends ConsumerWidget {
     if (t == null) return const SizedBox.shrink();
     return IgnorePointer(
       child: DecoratedBox(
-        decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [t.bg.withValues(alpha: .55), t.bg.withValues(alpha: 0)])),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [t.bg.withValues(alpha: .55), t.bg.withValues(alpha: 0)],
+          ),
+        ),
       ),
     );
   }

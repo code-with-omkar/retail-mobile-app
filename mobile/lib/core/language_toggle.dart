@@ -24,8 +24,18 @@ class LanguageToggle extends ConsumerWidget {
             height: QC.minTap,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: on ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill)),
-            child: Text(label, style: TextStyle(color: on ? Pal.ink : Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+            decoration: BoxDecoration(
+              color: on ? Pal.yellow : Colors.transparent,
+              borderRadius: BorderRadius.circular(QC.rPill),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: on ? Pal.ink : Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
           ),
         ),
       );
@@ -33,8 +43,14 @@ class LanguageToggle extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: context.pal.dark ? const Color(0xFF0B0820) : Pal.ink, borderRadius: BorderRadius.circular(QC.rPill)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [seg('en', 'EN'), seg('mr', 'मराठी')]),
+      decoration: BoxDecoration(
+        color: context.pal.dark ? const Color(0xFF0A090D) : Pal.ink,
+        borderRadius: BorderRadius.circular(QC.rPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [seg('en', 'EN'), seg('mr', 'मराठी')],
+      ),
     );
   }
 }

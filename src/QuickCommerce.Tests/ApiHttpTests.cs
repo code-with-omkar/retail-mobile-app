@@ -408,13 +408,167 @@ public sealed class ApiHttpTests : IClassFixture<ApiHarness>
     }
 
     [Fact]
-    public async Task The_database_itself_refuses_a_card_design_that_is_not_one_of_the_eight()
+    public async Task An_administrator_adds_a_sub_category_and_its_products_show_under_the_main_category_and_under_itself_only()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        using var admin = await api.ClientAsync(ApiHarness.Admin);
+        using var staff = await api.ClientAsync(ApiHarness.StoreStaff);
+        using var guest = await api.ClientAsync(null);
+        try
+        {
+            using var refused = await staff.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "Http top " + tag });
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+
+            using var topResponse = await admin.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "Http top " + tag });
+            Assert.Equal(HttpStatusCode.Created, topResponse.StatusCode);
+            var top = Data(await topResponse.Content.ReadAsStringAsync()).GetProperty("id").GetGuid();
+            using var subResponse = await admin.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "Http sub " + tag, parentCategoryId = top });
+            var sub = Data(await subResponse.Content.ReadAsStringAsync()).GetProperty("id").GetGuid();
+            using var siblingResponse = await admin.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "Http sibling " + tag, parentCategoryId = top });
+            var sibling = Data(await siblingResponse.Content.ReadAsStringAsync()).GetProperty("id").GetGuid();
+
+            using var tooDeep = await admin.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "Too deep " + tag, parentCategoryId = sub });
+            Assert.Equal(HttpStatusCode.BadRequest, tooDeep.StatusCode);
+            using var repeated = await admin.PostAsJsonAsync("/api/admin/catalog/categories", new { name = "http SUB " + tag, parentCategoryId = top });
+            Assert.Equal(HttpStatusCode.Conflict, repeated.StatusCode);
+
+            using var listed = await admin.GetAsync("/api/admin/catalog/categories");
+            Assert.Contains(Data(await listed.Content.ReadAsStringAsync()).EnumerateArray(), item => item.GetProperty("id").GetGuid() == sub && item.GetProperty("parentCategoryId").GetGuid() == top);
+
+            using var product = await admin.PostAsJsonAsync("/api/admin/catalog/products", new { sku = "HTTP-" + tag, name = "Http product " + tag, description = "x", categoryId = sub, unitOfMeasure = "1 kg", price = 10 });
+            Assert.Equal(HttpStatusCode.Created, product.StatusCode);
+            var productId = Data(await product.Content.ReadAsStringAsync()).GetProperty("id").GetGuid();
+
+            async Task<bool> ListsAsync(Guid category)
+            {
+                using var page = await guest.GetAsync($"/api/catalog/products?categoryId={category}&pageSize=50");
+                Assert.Equal(HttpStatusCode.OK, page.StatusCode);
+                return Data(await page.Content.ReadAsStringAsync()).GetProperty("items").EnumerateArray().Any(item => item.GetProperty("id").GetGuid() == productId);
+            }
+
+            Assert.True(await ListsAsync(top));
+            Assert.True(await ListsAsync(sub));
+            Assert.False(await ListsAsync(sibling));
+        }
+        finally
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+            var sku = "HTTP-" + tag;
+            await db.ProductVariants.Where(variant => db.Products.Any(product => product.Id == variant.ProductId && product.Sku == sku)).ExecuteDeleteAsync();
+            await db.Products.Where(product => product.Sku == sku).ExecuteDeleteAsync();
+            await db.Categories.Where(category => category.Name.EndsWith(tag) && category.ParentCategoryId != null).ExecuteDeleteAsync();
+            await db.Categories.Where(category => category.Name.EndsWith(tag)).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
+    public async Task An_administrator_makes_an_ad_and_a_guest_sees_it_at_its_place_and_views_and_taps_are_counted()
+    {
+        if (Skip) { return; }
+        var store = await SomeStoreAsync();
+        var title = "HTTP ad " + Guid.NewGuid().ToString("N")[..8];
+        using var admin = await api.ClientAsync(ApiHarness.Admin);
+        using var staff = await api.ClientAsync(ApiHarness.StoreStaff);
+        using var guest = await api.ClientAsync(null);
+        Guid? id = null;
+        try
+        {
+            using var refused = await staff.PostAsJsonAsync("/api/admin/ads", new { placement = "home", imageUrl = "/media/offers/http-ad.png", title });
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            using var badPicture = await admin.PostAsJsonAsync("/api/admin/ads", new { placement = "home", imageUrl = "https://evil.example/a.png", title });
+            Assert.Equal(HttpStatusCode.BadRequest, badPicture.StatusCode);
+            using var badPlace = await admin.PostAsJsonAsync("/api/admin/ads", new { placement = "footer", imageUrl = "/media/offers/http-ad.png", title });
+            Assert.Equal(HttpStatusCode.BadRequest, badPlace.StatusCode);
+
+            using var created = await admin.PostAsJsonAsync("/api/admin/ads", new { placement = "home_middle", imageUrl = "/media/offers/http-ad.png", title, targetType = "Url", target = "https://example.com/sale", storeId = store, sortOrder = 0 });
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            var ad = Data(await created.Content.ReadAsStringAsync());
+            id = ad.GetProperty("id").GetGuid();
+            Assert.Equal("Live", ad.GetProperty("status").GetString());
+
+            // A guest (not signed in) sees it at its place, for its store, and not at another place or for no store.
+            using var seen = await guest.GetAsync($"/api/ads?placement=home_middle&storeId={store}");
+            Assert.Equal(HttpStatusCode.OK, seen.StatusCode);
+            Assert.Contains(Data(await seen.Content.ReadAsStringAsync()).EnumerateArray(), item => item.GetProperty("id").GetGuid() == id && item.GetProperty("targetType").GetString() == "Url");
+            using var elsewhere = await guest.GetAsync($"/api/ads?placement=cart&storeId={store}");
+            Assert.DoesNotContain(Data(await elsewhere.Content.ReadAsStringAsync()).EnumerateArray(), item => item.GetProperty("id").GetGuid() == id);
+            using var noStore = await guest.GetAsync("/api/ads?placement=home_middle");
+            Assert.DoesNotContain(Data(await noStore.Content.ReadAsStringAsync()).EnumerateArray(), item => item.GetProperty("id").GetGuid() == id);
+            using var unknown = await guest.GetAsync("/api/ads?placement=nowhere");
+            Assert.Empty(Data(await unknown.Content.ReadAsStringAsync()).EnumerateArray());
+
+            Assert.Equal(HttpStatusCode.NoContent, (await guest.PostAsync($"/api/ads/{id}/view", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await guest.PostAsync($"/api/ads/{id}/view", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await guest.PostAsync($"/api/ads/{id}/tap", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await guest.PostAsync($"/api/ads/{Guid.NewGuid()}/view", null)).StatusCode);
+
+            using var listed = await admin.GetAsync("/api/admin/ads");
+            var mine = Data(await listed.Content.ReadAsStringAsync()).EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == id);
+            Assert.Equal((2L, 1L), (mine.GetProperty("views").GetInt64(), mine.GetProperty("taps").GetInt64()));
+
+            using var off = await admin.PutAsJsonAsync($"/api/admin/ads/{id}", new { placement = "home_middle", imageUrl = "/media/offers/http-ad.png", title, isActive = false });
+            Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+            using var gone = await guest.GetAsync($"/api/ads?placement=home_middle&storeId={store}");
+            Assert.DoesNotContain(Data(await gone.Content.ReadAsStringAsync()).EnumerateArray(), item => item.GetProperty("id").GetGuid() == id);
+
+            Assert.Equal(HttpStatusCode.OK, (await admin.DeleteAsync($"/api/admin/ads/{id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/api/admin/ads/{id}")).StatusCode);
+            id = null;
+        }
+        finally
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>().Ads.Where(item => item.Title == title).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
+    public async Task The_database_refuses_an_ad_with_an_unknown_place_or_target()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        await using var scope = api.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+        var organization = await db.Organizations.Select(item => item.Id).FirstAsync();
+        var title = "HTTP db ad " + Guid.NewGuid().ToString("N")[..8];
+        try
+        {
+            db.Ads.Add(new QuickCommerce.Domain.Ad { OrganizationId = organization, Placement = "footer", ImageUrl = "/media/offers/x.png", Title = title });
+            await Assert.ThrowsAnyAsync<DbUpdateException>(() => db.SaveChangesAsync());
+            db.ChangeTracker.Clear();
+            db.Ads.Add(new QuickCommerce.Domain.Ad { OrganizationId = organization, Placement = "home", ImageUrl = "/media/offers/x.png", Title = title, TargetType = "Telephone" });
+            await Assert.ThrowsAnyAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        }
+        finally
+        {
+            db.ChangeTracker.Clear();
+            await db.Ads.Where(item => item.Title == title).ExecuteDeleteAsync();
+        }
+    }
+
+    [Fact]
+    public async Task The_database_itself_refuses_a_card_design_that_is_not_one_of_the_fourteen()
     {
         if (Skip) { return; }
         await api.PrepareAsync();
         await using var scope = api.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
         var title = "HTTP check " + Guid.NewGuid().ToString("N")[..8];
+
+        // Every one of the fourteen designs is stored; the database accepts the six everyday ones as well as the festivals.
+        foreach (var key in QuickCommerce.Application.Services.OfferCardDesigns.All)
+        {
+            db.Campaigns.Add(new QuickCommerce.Domain.Campaign { TitleEn = title, BodyEn = "x", CardDesign = key });
+        }
+
+        await db.SaveChangesAsync();
+        Assert.Equal(QuickCommerce.Application.Services.OfferCardDesigns.All.Length, await db.Campaigns.CountAsync(item => item.TitleEn == title));
+        await db.Campaigns.Where(item => item.TitleEn == title).ExecuteDeleteAsync();
+        db.ChangeTracker.Clear();
+
         db.Campaigns.Add(new QuickCommerce.Domain.Campaign { TitleEn = title, BodyEn = "x", CardDesign = "onam" });
         try
         {

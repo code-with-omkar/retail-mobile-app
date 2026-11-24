@@ -35,6 +35,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IPurchaseHistoryService, PurchaseHistoryService>();
         services.AddScoped<ICommissionService, CommissionService>();
         services.AddScoped<ICouponService, CouponService>();
+        services.AddScoped<IAdService, AdService>();
         services.AddScoped<ISlotService, SlotService>();
         services.AddScoped<ITodayService, TodayService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
@@ -43,6 +44,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IReplacementService, ReplacementService>();
         services.AddScoped<IRatingService, RatingService>();
         services.AddScoped<ICatalogAdminService, CatalogAdminService>();
+        services.AddScoped<ICategoryAdminService, CategoryAdminService>();
         services.AddScoped<IStockService, StockService>();
         services.AddScoped<IPlacementMaintenance, PlacementMaintenance>();
         services.AddScoped<IServiceabilityService, ServiceabilityService>();

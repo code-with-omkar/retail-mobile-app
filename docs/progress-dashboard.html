@@ -447,6 +447,25 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"37.3","t":"Categories rail, order cards and status pills, live order heading and bar, Profile","l":["M","Q"],"s":"L","d":"App tests and screenshots.","ac":[],"a":[],"dep":["37.1"],"st":"done"},
  {"id":"37.4","t":"Live tracking map half and the design icons","l":["M"],"s":"L","d":"Needs the Google Maps key fixed.","ac":[],"a":[],"dep":["37.3"],"st":"todo"},
  {"id":"37.5","t":"Check sign-in, search and checkout on the phone against the v4 look","l":["I","Q"],"s":"S","d":"Screenshots with a signed-in test customer.","ac":[],"a":[],"dep":["37.3"],"st":"todo"}
+ ]},
+{"id":"P38","name":"Ads, order cards and offer designs","goal":"Admin-set ads in the customer app, colourful order cards with ratings, more offer card designs.","deps":["P37"],"exit":["Admin places ads at seven places and sees views and taps","Order cards show state colours and ratings","Six everyday offer designs"],
+ "tasks":[
+ {"id":"38.1","t":"Ads server: entity, rules, admin API, public API with counters, migration AddAds, tests","l":["D","A","Q"],"s":"L","d":"Rules, service, HTTP and SQL tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.2","t":"Portal Ads screen: place, picture upload, tap target, store, dates, stats","l":["W","Q"],"s":"M","d":"243 portal tests.","ac":[],"a":[],"dep":["38.1"],"st":"done"},
+ {"id":"38.3","t":"App ad banner at seven places, view and tap counting, safe links","l":["M","Q"],"s":"L","d":"Ad tests; full app suite.","ac":[],"a":[],"dep":["38.1"],"st":"done"},
+ {"id":"38.4","t":"Order cards: colour band, tinted header, shop first, ratings (list carries the numbers), Rate button","l":["A","M","Q"],"s":"M","d":"Server and app tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.5","t":"Six everyday offer designs in server, portal and app; migration WidenOfferCardDesign","l":["D","A","W","M","Q"],"s":"M","d":"All three test suites.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.6","t":"Product page cart bar and cart button","l":["M","Q"],"s":"S","d":"App tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.7","t":"Apply AddAds and WidenOfferCardDesign to the dev database, restart APIs, rebuild the phone, walk section AC","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update.","ac":[],"a":[],"dep":["38.1","38.5"],"st":"todo"}
+ ]},
+{"id":"P39","name":"Design pass 2 and sub-categories","goal":"Dark theme in the v4 style, smaller nav, overlapping sheet, rounded line icons, sub-category chips.","deps":["P38"],"exit":["Dark theme matches v4","Lucide icons bundled","Admin builds sub-categories; the app shows chips"],
+ "tasks":[
+ {"id":"39.1","t":"Dark v4 theme, smaller nav and cart pill, 24 px overlapping sheet under the festival hero","l":["M","Q"],"s":"M","d":"Accessibility tests kept at 48 px targets.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.2","t":"Lucide rounded line icons bundled (184 replaced)","l":["M","Q"],"s":"M","d":"App suite 662.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.3","t":"Category admin API (tree rules) and parent lists children's products","l":["D","A","Q"],"s":"M","d":"Rules, service, HTTP and SQL tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.4","t":"Portal Categories screen","l":["W","Q"],"s":"M","d":"251 portal tests.","ac":[],"a":[],"dep":["39.3"],"st":"done"},
+ {"id":"39.5","t":"App sub-category chips on Categories, main categories only on Home","l":["M","Q"],"s":"S","d":"Chip and mapping tests.","ac":[],"a":[],"dep":["39.3"],"st":"done"},
+ {"id":"39.6","t":"Rebuild the phone and walk section AD","l":["I"],"s":"S","d":"Needs sub-categories created in the portal first.","ac":[],"a":[],"dep":["39.4","39.5"],"st":"todo"}
  ]}
 ],
 "backlog":["Push notifications (needs a Firebase project)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview"],

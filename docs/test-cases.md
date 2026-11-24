@@ -435,6 +435,46 @@ Compare each screen with the design file (Clean v4 FINAL). Rebuild the phone app
 | AB9 | Bottom bar. | Dark capsule with a yellow active icon and a yellow cart pill with items and total. | ☐ | |
 | AB10 | Product page. | Light green In stock pill, dark green You save, muted Marathi name. | ☐ | |
 
+## AC. Ads, order cards, offer designs and the product-page cart
+
+Needs the AddAds and WidenOfferCardDesign migrations applied to the dev database (ask me), the APIs restarted and the phone rebuilt. Portal: sign in as an administrator.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| AC1 | Portal: open **Ads**. | A form (place, title, store, order, dates, picture, tap target) and an empty list. | ☐ | |
+| AC2 | Upload a wide picture (about 1080 x 360), choose Home: top banner, tap target a category, Create ad. | "Ad created." The ad shows in the list as Live with 0 views. | ☐ | |
+| AC3 | App (any customer, or not signed in): open Home. | The picture appears under the delivery rows with a small "Ad" mark and the title; tapping it opens that category. | ☐ | |
+| AC4 | Portal: reload the list. | Views and taps went up (a view counts once per app start). | ☐ | |
+| AC5 | Make ads for Home: between rows, Categories, Search, Cart, Order, Product page. | Each shows in its own place: between Popular and Forgot something; above the products in a category; above search results; in the cart above the coupon; on Order placed and the order screen; under You might also like. | ☐ | |
+| AC6 | An ad for one store only; switch the app to another store. | It shows only at that store. | ☐ | |
+| AC7 | Switch an ad off, or set it to end in the past. | It disappears from the app; the list says Off or Ended. | ☐ | |
+| AC8 | Try an ad with a web link (https) as target; tap it. | It opens in the browser. A link starting http:// or javascript: is refused when saving. | ☐ | |
+| AC9 | Two ads at one place. | They can be swiped, with dots; the one in view is counted. | ☐ | |
+| AC10 | Orders tab (signed in, delivered order). | A coloured band and tinted header by state (blue, yellow, green, red), the shop first, then the order number and date, the items and a bold total, and a rating row. | ☐ | |
+| AC11 | A delivered order you rated. | "You rated" with stars (and the delivery stars); the shop's average (for example 4.6 with its count) on the left. | ☐ | |
+| AC12 | A delivered order not rated yet. | A yellow "Rate this order" button; tapping opens the order, where the rating form is. | ☐ | |
+| AC13 | Portal: Offers, New offer: pick Fresh picks, Weekend sale, Big saver, Combo deal, Free delivery or New in store. | A live preview with its own colours and artwork; the chip says SPECIAL OFFER. In the app the card looks the same; no Home greeting or product tags (those stay with festivals). | ☐ | |
+| AC14 | Product page: add items from You might also like. | A dark bar above Add shows the items and the total ("2 items · ₹90 · View cart") and moves with each add; there is also a cart button with a count at the top. | ☐ | |
+
 ---
 
 When you are done, tell me the IDs that failed with a short note each. I will fix them and add an automated test for every real bug.
+
+## AD. Design pass 2 and sub-categories
+
+Phone rebuilt. Sub-categories need no migration. Portal: sign in as an administrator.
+
+| ID | Steps | Expected | Pass | Note |
+| --- | --- | --- | --- | --- |
+| AD1 | App: open Home in dark mode (Profile, Appearance). | Near-black page, soft dark cards, white text, yellow buttons, no purple gradient. Light mode is unchanged. | ☐ | |
+| AD2 | Home with a festival on. | A rounded page-coloured sheet rises over the bottom of the festival banner (no hard edge). | ☐ | |
+| AD3 | Look at the bottom bar. | A slimmer pill with four icons and a smaller cart pill; every icon is easy to tap. | ☐ | |
+| AD4 | Look at icons on Home, Categories, Orders, Profile, Cart, Checkout. | Thin rounded line icons everywhere (stars and hearts stay solid). | ☐ | |
+| AD5 | Portal: open **Categories**. | The tree with product counts. | ☐ | |
+| AD6 | Add "Milk" under Dairy; add "Curd" under Dairy. | "Category added."; both show indented under Dairy; Dairy says 2 sub-categories. | ☐ | |
+| AD7 | Try a sub-category under Milk; try a second "milk" under Dairy; try making Dairy a child of Snacks. | Refused each time with a clear message (two levels only; name exists; Dairy has sub-categories). | ☐ | |
+| AD8 | Move a product into Milk (Catalog, edit product, category Milk). App: Categories, Dairy. | Chips All, Curd, Milk above the products (only sub-categories the shop carries). All shows Dairy and Milk products; Milk shows only Milk's. | ☐ | |
+| AD9 | A category with no sub-categories. | No chips. | ☐ | |
+| AD10 | Switch the app to Marathi. | The first chip reads सर्व. | ☐ | |
+| AD11 | Home category tiles. | Main categories only (no sub-categories). | ☐ | |
+| AD12 | Switch Milk off in the portal. | It disappears from the chips and Home. | ☐ | |

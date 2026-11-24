@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -119,18 +120,18 @@ final offersProvider = AsyncNotifierProvider<OffersNotifier, bool>(OffersNotifie
 
 /// The icon for a notification: by what happened to the order, and for offers and payments by their category.
 IconData notificationIcon(AppNotification n) {
-  if (n.category == 'Offer') return Icons.local_offer_outlined;
+  if (n.category == 'Offer') return LucideIcons.tag;
   return switch (n.type) {
-    'OrderPlaced' => Icons.receipt_long_outlined,
-    'OrderAccepted' => Icons.storefront_outlined,
-    'OrderPacking' => Icons.inventory_2_outlined,
-    'OutForDelivery' => Icons.delivery_dining_outlined,
-    'OrderDelivered' => Icons.check_circle_outline,
-    'OrderRejected' => Icons.block,
-    'OrderCancelled' => Icons.cancel_outlined,
-    _ when n.title == 'Order cancelled' => Icons.cancel_outlined,
-    _ when n.category == 'Payment' => Icons.account_balance_wallet_outlined,
-    _ => Icons.receipt_long_outlined,
+    'OrderPlaced' => LucideIcons.receiptText,
+    'OrderAccepted' => LucideIcons.store,
+    'OrderPacking' => LucideIcons.package,
+    'OutForDelivery' => LucideIcons.bike,
+    'OrderDelivered' => LucideIcons.circleCheck,
+    'OrderRejected' => LucideIcons.ban,
+    'OrderCancelled' => LucideIcons.circleX,
+    _ when n.title == 'Order cancelled' => LucideIcons.circleX,
+    _ when n.category == 'Payment' => LucideIcons.wallet,
+    _ => LucideIcons.receiptText,
   };
 }
 

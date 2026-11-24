@@ -433,6 +433,39 @@ public sealed class DeliveryTests
         Assert.Null((await customerView.GetDetailsAsync(order.Id))!.DeliveryOtp);
     }
 
+    private sealed class FakeRatings(Dictionary<Guid, OrderRating> given, Dictionary<Guid, (decimal, int)> averages) : IOrderRatingLookup
+    {
+        public Task<IReadOnlyDictionary<Guid, OrderRating>> ForOrdersAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, OrderRating>>(given.Where(item => orderIds.Contains(item.Key)).ToDictionary(item => item.Key, item => item.Value));
+
+        public Task<IReadOnlyDictionary<Guid, (decimal Average, int Count)>> StoreAveragesAsync(IReadOnlyCollection<Guid> storeIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, (decimal Average, int Count)>>(averages.Where(item => storeIds.Contains(item.Key)).ToDictionary(item => item.Key, item => item.Value));
+    }
+
+    [Fact]
+    public async Task The_order_list_carries_the_stars_the_customer_gave_and_the_shops_average_for_the_order_cards()
+    {
+        var rig = Create();
+        var rated = AddOrder(rig, OrderStatus.Delivered);
+        var unrated = AddOrder(rig, OrderStatus.Delivered);
+        var ratings = new FakeRatings(
+            new Dictionary<Guid, OrderRating> { [rated.Id] = new OrderRating { OrderId = rated.Id, StoreId = rated.StoreId, StoreStars = 5, DeliveryStars = 4 } },
+            new Dictionary<Guid, (decimal, int)> { [rated.StoreId] = (4.6m, 18) });
+        var view = new CustomerOrderService(rig.Data, new FixedUser(new UserContext(rig.Customer.Id, rig.Organization, null, Role.Customer)), rig.Data, ratings: ratings);
+
+        var history = (await view.GetHistoryAsync())!;
+
+        var mine = history.Single(item => item.Id == rated.Id);
+        Assert.Equal((5, 4, 4.6m, 18), (mine.MyStoreStars, mine.MyDeliveryStars, mine.StoreRating, mine.StoreRatingCount));
+        var none = history.Single(item => item.Id == unrated.Id);
+        Assert.Equal((null, null), (none.MyStoreStars, none.MyDeliveryStars));
+        Assert.Equal((4.6m, 18), (none.StoreRating, none.StoreRatingCount)); // the shop's average is the same on every order of that shop
+
+        // Without a rating source the fields are simply empty and the list still works.
+        var plain = new CustomerOrderService(rig.Data, new FixedUser(new UserContext(rig.Customer.Id, rig.Organization, null, Role.Customer)), rig.Data);
+        Assert.All((await plain.GetHistoryAsync())!, item => Assert.Null(item.StoreRating));
+    }
+
     [Fact]
     public async Task The_code_is_never_part_of_what_staff_or_other_customers_get()
     {

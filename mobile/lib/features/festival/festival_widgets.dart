@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -106,7 +107,7 @@ class _FestivalBannerState extends ConsumerState<FestivalBanner> with TickerProv
                       animation: _pulse,
                       builder: (_, _) {
                         final phase = (_pulse.value + i * .27) % 1.0;
-                        return Opacity(opacity: .25 + .6 * (1 - (phase - .5).abs() * 2), child: Icon(Icons.auto_awesome, size: 10.0 + 4 * (i % 2), color: Colors.white));
+                        return Opacity(opacity: .25 + .6 * (1 - (phase - .5).abs() * 2), child: Icon(LucideIcons.sparkles, size: 10.0 + 4 * (i % 2), color: Colors.white));
                       },
                     ),
                   ),

@@ -51,3 +51,11 @@ public interface IRatingStore
     Task<IReadOnlyList<RatingRow>> RecentAsync(Guid organizationId, IReadOnlyCollection<Guid>? storeIds, DateTime fromUtc, DateTime toUtc, int take, CancellationToken cancellationToken = default);
     Task<bool> StoreExistsAsync(Guid organizationId, Guid storeId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>What an order card needs: the stars the customer gave each order, and each shop's average with how many ratings it rests on.</summary>
+public interface IOrderRatingLookup
+{
+    Task<IReadOnlyDictionary<Guid, OrderRating>> ForOrdersAsync(IReadOnlyCollection<Guid> orderIds, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<Guid, (decimal Average, int Count)>> StoreAveragesAsync(IReadOnlyCollection<Guid> storeIds, CancellationToken cancellationToken = default);
+}

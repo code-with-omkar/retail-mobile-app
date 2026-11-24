@@ -55,11 +55,14 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPlacementLookup>(provider => provider.GetRequiredService<IPlacementStore>());
         services.AddScoped<IDeliveryStore, EfDeliveryStore>();
         services.AddScoped<ICatalogAdminStore, EfCatalogAdminStore>();
+        services.AddScoped<ICategoryAdminStore, EfCategoryAdminStore>();
         services.AddScoped<IReportStore, EfReportStore>();
         services.AddScoped<IFavouriteStore, EfFavouriteStore>();
         services.AddScoped<IPurchaseHistoryStore, EfPurchaseHistoryStore>();
         services.AddScoped<ICommissionStore, EfCommissionStore>();
         services.AddScoped<ICouponStore, EfCouponStore>();
+        services.AddScoped<IAdStore, EfAdStore>();
+        services.AddScoped<IOrderRatingLookup, EfOrderRatingLookup>();
         services.AddScoped<ISlotStore, EfSlotStore>();
         services.AddScoped<ITodayStore, EfTodayStore>();
         services.AddScoped<IAnalyticsStore, EfAnalyticsStore>();

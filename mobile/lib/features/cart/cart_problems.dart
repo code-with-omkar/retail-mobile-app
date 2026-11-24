@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,7 +32,7 @@ class CartProblemsCard extends ConsumerWidget {
         color: Pal.pink,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.error_outline, color: Colors.white),
+            const Icon(LucideIcons.circleAlert, color: Colors.white),
             const SizedBox(width: 10),
             Expanded(child: Text(context.tr('Some items need your attention'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15))),
           ]),
@@ -75,7 +76,7 @@ class CartNoticeCard extends ConsumerWidget {
       child: Surface(
         color: Pal.yellow,
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.info_outline, color: Pal.ink),
+          const Icon(LucideIcons.info, color: Pal.ink),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -86,7 +87,7 @@ class CartNoticeCard extends ConsumerWidget {
               ],
             ]),
           ),
-          IconButton(tooltip: context.tr('Dismiss'), onPressed: ref.read(cartNoticeProvider.notifier).dismiss, icon: const Icon(Icons.close, color: Pal.ink)),
+          IconButton(tooltip: context.tr('Dismiss'), onPressed: ref.read(cartNoticeProvider.notifier).dismiss, icon: const Icon(LucideIcons.x, color: Pal.ink)),
         ]),
       ),
     );
