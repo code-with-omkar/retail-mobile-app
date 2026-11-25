@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using QuickCommerce.Domain;
 
 namespace QuickCommerce.Application.DTOs;
@@ -12,6 +13,7 @@ public sealed record AuthorizationRoleResponse(
     bool IsActive,
     IReadOnlyList<AuthorizationPermissionResponse> Permissions);
 
+/// <summary>The portal sends and reads the role and staff category by name ("StoreStaff", "StoreManager"); numbers are still accepted.</summary>
 public sealed record ManagedUserResponse(
     Guid Id,
     string FirstName,
@@ -21,8 +23,8 @@ public sealed record ManagedUserResponse(
     Guid OrganizationId,
     Guid? StoreId,
     IReadOnlyList<Guid> StoreIds,
-    Role Role,
-    StaffCategory? StaffCategory,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] Role Role,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] StaffCategory? StaffCategory,
     bool IsActive,
     IReadOnlyList<AuthorizationPermissionResponse> Permissions);
 
@@ -32,18 +34,18 @@ public sealed record CreateManagedUserRequest(
     string Email,
     Guid OrganizationId,
     Guid? StoreId,
-    Role Role,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] Role Role,
     bool IsActive,
-    StaffCategory? StaffCategory = null,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] StaffCategory? StaffCategory = null,
     IReadOnlyList<Guid>? StoreIds = null);
 
 public sealed record UpdateManagedUserRequest(
     string FirstName,
     string LastName,
     Guid? StoreId,
-    Role Role,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] Role Role,
     bool IsActive,
-    StaffCategory? StaffCategory = null,
+    [property: JsonConverter(typeof(JsonStringEnumConverter))] StaffCategory? StaffCategory = null,
     IReadOnlyList<Guid>? StoreIds = null);
 
 public sealed record UpdateRolePermissionsRequest(IReadOnlyList<Guid> PermissionIds);

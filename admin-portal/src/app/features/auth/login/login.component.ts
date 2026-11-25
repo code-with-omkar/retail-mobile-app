@@ -6,6 +6,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../shared/services/toast.service';
+import { Role } from '../../../core/models/domain.model';
 
 @Component({
   selector: 'app-login',
@@ -162,7 +163,9 @@ export class LoginComponent {
     this.auth.login(this.loginForm.value).subscribe({
       next: () => {
         this.toast.success('Login successful');
-        this.router.navigate(['/admin/dashboard']);
+        // The admin dashboard route is for administrators; store staff start on their own overview.
+        const staff = this.auth.userContext?.()?.role === Role.StoreStaff;
+        this.router.navigate([staff ? '/dashboard' : '/admin/dashboard']);
       },
       error: (error: any) => {
         this.toast.error(error.message || 'Login failed');

@@ -20,6 +20,11 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P40 Portal sign-in and user saving fixes (built, tested; NO migration)
+- Saving a user in User Master always failed with 400: the portal sends role and staff category by name and the API only read numbers. The user endpoints now read and return names (numbers still accepted). A non-staff user keeps only the primary store.
+- Portal sign-in: delivery partner and customer accounts are refused on the login page with a message naming their app (nothing stored, server session closed; a saved one is dropped). Store staff land on /dashboard (they were sent to the admin-only page and saw Access Denied).
+- The header greeting follows the time of day.
+
 ## P39 Design pass 2 and sub-categories (built, tested, not committed; NO migration; phone rebuilt with all but the chips)
 - **Look**: full dark theme in the v4 style (near-black page, no gradient, soft dark tiles, white text, yellow actions; the old purple literals are gone); bottom nav and cart pill smaller (60 px capsule, 48 px tap targets kept for accessibility); a 24 px rounded page-coloured sheet overlaps the bottom of the festival hero.
 - **Icons**: 184 Material icons replaced by Lucide rounded-stroke icons (package `lucide_icons_flutter`, bundled, works offline). Stars, hearts, radio buttons and the Apple mark stay Material (Lucide has no filled forms). Tests use the same icons.

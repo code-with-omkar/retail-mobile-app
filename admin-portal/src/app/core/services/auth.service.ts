@@ -6,6 +6,17 @@ import { ApiResponse, AuthenticationUser, LoginRequest, LoginResponse } from '..
 import { StorageService } from './storage.service';
 import { ConfigService } from './config.service';
 
+/** The roles that work in this portal. Delivery partners and customers have their own apps. */
+export const PORTAL_ROLES: readonly Role[] = [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff];
+
+/** Why an account cannot sign in to the portal, or null when it can. */
+export function portalRefusal(role: Role | undefined): string | null {
+  if (role && PORTAL_ROLES.includes(role)) return null;
+  if (role === Role.DeliveryPartner) return 'This is a delivery partner account. Sign in with the QuickCart delivery app.';
+  if (role === Role.Customer) return 'This is a customer account. Sign in with the QuickCart app.';
+  return 'This account cannot use the operations console.';
+}
+
 /**
  * Authentication service managing login state and JWT tokens.
  */
@@ -41,7 +52,10 @@ export class AuthService {
   private initializeFromStorage(): void {
     const token = this.storage.getToken();
     const userContext = this.storage.getUserContext();
-    if (token && userContext) {
+    // A saved session of an account that does not belong here (signed in before this rule) is dropped, so the login page shows.
+    if (token && userContext && portalRefusal(userContext.role)) {
+      this.storage.clear();
+    } else if (token && userContext) {
       this.userContextSignal.set(userContext);
       this.isAuthenticatedSignal.set(true);
     }
@@ -61,6 +75,12 @@ export class AuthService {
       tap(response => {
         if (response.success && response.data) {
           const userContext = this.toUserContext(response.data.user);
+          const refusal = portalRefusal(userContext.role);
+          if (refusal) {
+            // Nothing is kept here, and the session the server just opened is closed again.
+            this.http.post(this.config.getUrl('/auth/logout'), { refreshToken: response.data.refreshToken }).subscribe({ error: () => {} });
+            throw new Error(refusal);
+          }
           this.storage.setToken(response.data.accessToken);
           this.storage.setRefreshToken(response.data.refreshToken);
           this.storage.setUserContext(userContext);
@@ -73,7 +93,7 @@ export class AuthService {
       }),
       map(response => response.data!),
       catchError(error => {
-        this.errorSignal.set(error.error?.message || 'Login failed');
+        this.errorSignal.set(error.error?.message || error.message || 'Login failed');
         this.loadingSignal.set(false);
         throw error;
       })

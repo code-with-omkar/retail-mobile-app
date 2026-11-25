@@ -284,7 +284,8 @@ export class UserMasterComponent implements OnInit {
       email: values.email.trim(),
       organizationId: values.organizationId,
       storeId: values.storeId || undefined,
-      storeIds: values.storeIds,
+      // Only store staff have the list of stores; anyone else is assigned to the primary store alone.
+      storeIds: values.role === Role.StoreStaff ? values.storeIds : values.storeId ? [values.storeId] : [],
       role: values.role,
       staffCategory: values.role === Role.StoreStaff ? values.staffCategory ?? undefined : undefined,
       status: values.status,

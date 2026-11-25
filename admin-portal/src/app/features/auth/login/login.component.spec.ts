@@ -5,12 +5,12 @@ import { LoginComponent } from './login.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../shared/services/toast.service';
 
-function open(login: (...a: any[]) => Observable<unknown>) {
+function open(login: (...a: any[]) => Observable<unknown>, role?: string) {
   const toast = { success: vi.fn(), error: vi.fn() };
   const navigate = vi.fn();
   TestBed.configureTestingModule({
     providers: [
-      { provide: AuthService, useValue: { login } },
+      { provide: AuthService, useValue: { login, userContext: () => (role ? { role } : null) } },
       { provide: ToastService, useValue: toast },
       { provide: Router, useValue: { navigate } },
     ],
@@ -43,6 +43,15 @@ describe('LoginComponent', () => {
     expect(login).toHaveBeenCalledWith({ username: 'asha', password: 'secret1' });
     expect(toast.success).toHaveBeenCalledWith('Login successful');
     expect(navigate).toHaveBeenCalledWith(['/admin/dashboard']);
+  });
+
+  it('store staff start on their overview, not the administrators page that would deny them', () => {
+    const { c, navigate } = open(() => of({}), 'StoreStaff');
+
+    c.loginForm.setValue({ username: 'asha', password: 'secret1' });
+    c.onSubmit();
+
+    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
   });
 
   it('a failed sign-in shows the server message and lets the user try again', () => {

@@ -2,6 +2,12 @@ import { Component, Input, Output, EventEmitter, computed, inject } from '@angul
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
 
+/** The greeting for the time of day on this computer. */
+export function greetingFor(time: Date): string {
+  const hour = time.getHours();
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+}
+
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -10,7 +16,7 @@ import { AuthService } from '../../core/services/auth.service';
     <header class="topbar">
       <div class="header-left">
         <p class="eyebrow">{{ dateLabel }}</p>
-        <h1>Good morning, {{ userName() }} <span>✦</span></h1>
+        <h1>{{ greeting() }}, {{ userName() }} <span>✦</span></h1>
       </div>
       <div class="top-actions">
         <div class="status" [class.online]="isOnline">
@@ -153,6 +159,8 @@ export class HeaderComponent {
   @Output() onNotifications = new EventEmitter<void>();
   @Output() onUserMenu = new EventEmitter<void>();
   @Output() onLogout = new EventEmitter<void>();
+
+  greeting(): string { return greetingFor(new Date()); }
 
   readonly userName = computed(() => this.authService.userContext()?.displayName || 'User');
   readonly userInitials = computed(() => {

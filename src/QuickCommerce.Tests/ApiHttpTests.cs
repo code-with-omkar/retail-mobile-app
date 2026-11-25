@@ -465,6 +465,41 @@ public sealed class ApiHttpTests : IClassFixture<ApiHarness>
     }
 
     [Fact]
+    public async Task The_portal_can_give_a_user_a_store_sending_the_role_and_staff_category_as_names()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        var first = await SomeStoreAsync();
+        using var admin = await api.ClientAsync(ApiHarness.Admin);
+        await using var scope = api.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<QuickCommerceDbContext>();
+        var organization = await db.Stores.AsNoTracking().Where(store => store.Id == first).Select(store => store.OrganizationId).SingleAsync();
+        var second = await db.Stores.AsNoTracking().Where(store => store.IsActive && store.OrganizationId == organization && store.Id != first).Select(store => store.Id).FirstAsync();
+        var email = $"http-user-{Guid.NewGuid():N}@example.test";
+        try
+        {
+            using var created = await admin.PostAsJsonAsync("/api/users", new { firstName = "Http", lastName = "Partner", email, organizationId = organization, storeId = first, storeIds = new[] { first }, role = "DeliveryPartner", isActive = true });
+            Assert.True(created.StatusCode == HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+            var id = Data(await created.Content.ReadAsStringAsync()).GetProperty("id").GetGuid();
+
+            using var updated = await admin.PutAsJsonAsync($"/api/users/{id}", new { firstName = "Http", lastName = "Staff", storeId = second, storeIds = new[] { second }, role = "StoreStaff", staffCategory = "StoreManager", isActive = true });
+            Assert.True(updated.StatusCode == HttpStatusCode.OK, await updated.Content.ReadAsStringAsync());
+            var saved = Data(await updated.Content.ReadAsStringAsync());
+            Assert.Equal("StoreStaff", saved.GetProperty("role").GetString());
+            Assert.Equal("StoreManager", saved.GetProperty("staffCategory").GetString());
+            Assert.Equal([second], saved.GetProperty("storeIds").EnumerateArray().Select(item => item.GetGuid()));
+        }
+        finally
+        {
+            var ids = await db.Users.Where(user => user.Email == email).Select(user => user.Id).ToListAsync();
+            await db.Set<QuickCommerce.Domain.UserStoreAssignment>().Where(row => ids.Contains(row.UserId)).ExecuteDeleteAsync();
+            await db.Set<QuickCommerce.Domain.UserRole>().Where(row => ids.Contains(row.UserId)).ExecuteDeleteAsync();
+            await db.Users.Where(user => user.Email == email).ExecuteDeleteAsync();
+        }
+    }
+
+
+    [Fact]
     public async Task An_administrator_makes_an_ad_and_a_guest_sees_it_at_its_place_and_views_and_taps_are_counted()
     {
         if (Skip) { return; }
