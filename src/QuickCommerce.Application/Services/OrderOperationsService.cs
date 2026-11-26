@@ -30,7 +30,9 @@ public sealed class OrderOperationsService(
         }
 
         var storeId = context.Role == Role.StoreStaff ? await StaffStoreScope.ForOrderAsync(context, orderId, data, cancellationToken) : context.StoreId;
-        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, storeId, request.Status, cancellationToken);
+        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, storeId, request.Status,
+            request.Status == OrderStatus.Rejected ? new OrderRejection(request.Reason!, string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(), context.UserId) : null,
+            cancellationToken);
         return result.Status switch
         {
             OrderLifecycleStatus.Succeeded => OrderOperationResult.Succeeded(result.Order!),

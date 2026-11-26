@@ -1,12 +1,18 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
+import { PhonePreviewComponent } from '../../shared/components/phone-preview/phone-preview.component';
+import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
+import { DEFAULT_PAGE_SIZE, PaginationComponent, pageCount } from '../../shared/components/pagination/pagination.component';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfigService } from '../../core/services/config.service';
 import { Role, Store } from '../../core/models/domain.model';
 import { OfferCardComponent } from '../../shared/components/offer-card/offer-card.component';
 import { OFFER_CARD_DESIGNS, designOf } from '../../shared/components/offer-card/offer-card-designs';
+import { CARD_ANIMATIONS, animationName } from '../../shared/components/offer-card/card-extras';
 
 interface StartPayment { keyId: string; providerOrderId: string; amountPaise: number; currency: string; orderNumber: string; }
 interface OfferFees { defaultPaise: number; loadPaise: number; stores: { storeId: string; name: string; overridePaise: number | null; effectivePaise: number }[]; }
@@ -15,6 +21,8 @@ declare const Razorpay: any;
 interface Campaign {
   id: string;
   cardDesign?: string | null;
+  ribbon?: string | null;
+  animation?: string | null;
   titleEn: string;
   bodyEn: string;
   titleMr?: string | null;
@@ -44,7 +52,7 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
 @Component({
   selector: 'app-campaigns',
   standalone: true,
-  imports: [CommonModule, FormsModule, OfferCardComponent],
+  imports: [CommonModule, FormsModule, OfferCardComponent, FileUploadComponent, PhonePreviewComponent, DataTableComponent, CellDirective, PaginationComponent, SidePanelComponent],
   template: `
     <section class="page">
       <h2>Offers</h2>
@@ -55,9 +63,23 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
         <p class="muted-card">What a store pays to publish an offer (0 is free). A store with its own fee pays that; every other store pays the default. Offers from the business (you) are always free.</p>
         <div class="fee-row"><strong>Default for every store</strong><input type="number" min="0" step="1" name="feeDefault" [(ngModel)]="defaultRupees" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveDefault()">Save</button></div>
         <div class="fee-row"><strong>Extra fee to also show an offer when the app opens</strong><input type="number" min="0" step="1" name="feeLoad" [(ngModel)]="loadRupees" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveLoad()">Save</button></div>
-        <div class="fee-row" *ngFor="let s of fees()!.stores"><span>{{ s.name }}</span><input type="number" min="0" step="1" [name]="'fee-' + s.storeId" [ngModel]="storeRupees()[s.storeId]" (ngModelChange)="setStoreRupees(s.storeId, $event)" [placeholder]="'default ' + (fees()!.defaultPaise / 100)" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button><button type="button" class="act ghost" *ngIf="s.overridePaise !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button></div>
+        <button type="button" class="fee-toggle" [attr.aria-expanded]="showStoreFees()" (click)="showStoreFees.set(!showStoreFees())">
+          <span>Store fees <small>{{ ownFeeCount() }} of {{ fees()!.stores.length }} stores have their own fee</small></span><span>{{ showStoreFees() ? 'Hide ▲' : 'Show ▼' }}</span>
+        </button>
+        <ng-container *ngIf="showStoreFees()">
+          <div class="fee-filters">
+            <input type="search" name="feeSearch" placeholder="Search a store" [ngModel]="feeSearch()" (ngModelChange)="feeSearch.set($event)" />
+            <select name="feeFilter" [ngModel]="feeFilter()" (ngModelChange)="feeFilter.set($event)"><option value="all">All stores</option><option value="own">With own fee</option><option value="default">Paying the default</option></select>
+            <small>{{ shownFeeStores().length }} shown</small>
+          </div>
+          <div class="fee-list">
+            <div class="fee-row" *ngFor="let s of shownFeeStores(); let i = index; trackBy: trackFee"><span class="no">{{ i + 1 }}</span><span class="store">{{ s.name }}<small>{{ s.overridePaise === null ? 'default' : 'own fee' }}</small></span><input type="number" min="0" step="1" [name]="'fee-' + s.storeId" [ngModel]="storeRupees()[s.storeId]" (ngModelChange)="setStoreRupees(s.storeId, $event)" [placeholder]="'default ' + (fees()!.defaultPaise / 100)" /><span>₹</span><button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button><button type="button" class="act ghost" *ngIf="s.overridePaise !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button></div>
+            <p class="muted-card" *ngIf="!shownFeeStores().length">No store matches.</p>
+          </div>
+        </ng-container>
       </section>
 
+      <div class="with-preview">
       <form class="card" (ngSubmit)="create()" #f="ngForm">
         <h3>New offer</h3>
         <label>Title (English)<input name="titleEn" [(ngModel)]="titleEn" maxlength="160" required /></label>
@@ -80,8 +102,7 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
         </fieldset>
         <fieldset class="stores">
           <legend>Card picture (optional, shown on the home screen and when the offer is opened). With a card design it replaces the built-in artwork; the best size is 700 × 352 px (2:1), JPEG, PNG or WebP up to 2 MB.</legend>
-          <div class="fee-row"><input type="file" accept="image/jpeg,image/png,image/webp" (change)="pickImage($event)" /><button type="button" class="act" [disabled]="busy() || !uploadFile" (click)="uploadImage()">Upload</button><button type="button" class="act ghost" *ngIf="imageUrl()" (click)="imageUrl.set(null)">Remove</button></div>
-          <img class="banner" *ngIf="imageUrl() && !cardDesign" [src]="img(imageUrl())" alt="" />
+          <app-file-upload label="" [previewUrl]="imageUrl() && !cardDesign ? img(imageUrl()) : null" [busy]="busy()" (fileSelected)="takeImage($event)" (removed)="imageUrl.set(null)"></app-file-upload>
           <app-offer-card *ngIf="cardDesign" [designKey]="cardDesign" [title]="titleEn || null" [imageUrl]="imageUrl() ? img(imageUrl()) : null" [endsAt]="endsAt ? endsAtIso() : null"></app-offer-card>
         </fieldset>
         <fieldset class="stores">
@@ -92,6 +113,10 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
           <div class="chips"><span class="chip on" *ngFor="let p of pickedProductList()">{{ p.name }} <button type="button" class="x" (click)="removeProduct(p.id)">×</button></span></div>
           <p class="muted-card">The discount is on from the start time until the end time. Where two offers cover a product, the bigger discount is used (they do not add up).</p>
         </fieldset>
+        <fieldset class="stores designs" *ngIf="isAdmin()">
+          <legend>Ribbon and animation (optional)</legend>
+          <div class="fee-row"><label>Ribbon (up to 20 characters)<input name="ribbon" [(ngModel)]="ribbon" maxlength="20" placeholder="e.g. HOT DEAL" /></label><label>Animation when the offer is opened<select name="animation" [(ngModel)]="animation"><option value="">None</option><option *ngFor="let a of animations" [value]="a.key">{{ a.name }}</option></select></label></div>
+        </fieldset>
         <label class="check"><input type="checkbox" name="showOnLoad" [(ngModel)]="showOnLoad" /> Also show this offer as a pop-up when customers open the app<span *ngIf="fee() && fee()!.loadPaise > 0"> (extra {{ rupees(fee()!.loadPaise) }})</span></label>
         <label>Send at (leave empty to send now)<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
         <p class="muted-card" *ngIf="totalFee() > 0">Publishing fee: <strong>{{ rupees(totalFee()) }}</strong>. You pay online first, then the offer goes live at its start time. Cancel before it is sent and the fee is refunded.</p>
@@ -100,57 +125,79 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
         <p *ngIf="notice()" class="notice">{{ notice() }}</p>
         <button class="primary" type="submit" [disabled]="busy() || f.invalid || (totalFee() > 0 && !fee()!.paymentsAvailable)">{{ busy() ? 'Saving…' : (totalFee() > 0 ? 'Create and pay ' + rupees(totalFee()) : 'Create offer') }}</button>
       </form>
+        <app-phone-preview [offer]="{ titleEn: titleEn, titleMr: titleMr, bodyEn: bodyEn, bodyMr: bodyMr, discountPercent: +(discountPercent || 0), design: cardDesign, imageUrl: imageUrl() ? img(imageUrl()) : null, endsAt: endsAt ? endsAtIso() : null, popup: showOnLoad, ribbon: ribbon, animation: animation }"></app-phone-preview>
+      </div>
 
       <p *ngIf="loading()">Loading offers…</p>
       <p *ngIf="!loading() && campaigns().length === 0">No offers yet.</p>
-      <div class="table" *ngIf="campaigns().length">
-        <div class="row head"><span>Offer</span><span>Stores</span><span>Send at</span><span>Status</span><span>Sent to</span><span>Action</span></div>
-        <div class="row" *ngFor="let c of campaigns()">
-          <span><img class="thumb" *ngIf="c.imageUrl" [src]="img(c.imageUrl)" alt="" /><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small><small *ngIf="c.discountPercent > 0">{{ c.discountPercent }}% off {{ productNames(c) }}, until {{ c.endsAt | date:'short' }}</small><small *ngIf="c.showOnLoad">Shown when the app opens</small><small *ngIf="c.cardDesign">Card design: {{ designName(c.cardDesign) }}</small><small *ngIf="!c.notify">No notification (quiet discount)</small></span>
-          <span>{{ c.allStores ? 'All stores' : storeNames(c) }}</span>
-          <span>{{ c.startsAt | date:'short' }}</span>
-          <span class="badge" [ngClass]="'badge-' + c.status.toLowerCase()">{{ c.status === 'AwaitingPayment' ? 'Awaiting payment' : c.status }}</span>
-          <span>{{ c.status === 'Sent' && c.notify ? c.recipientCount + ' customers' : '—' }}</span>
-          <span class="actions"><button class="act" *ngIf="isRunning(c) && canCancel(c)" [disabled]="busy()" (click)="endDiscount(c)">End discount now</button><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button><button class="act" *ngIf="isAdmin() && c.status !== 'Cancelled'" [disabled]="busy()" (click)="startEdit(c)">Change card</button></span>
-          <div class="edit-card" *ngIf="editing()?.id === c.id">
+      <ng-container *ngIf="campaigns().length">
+        <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="900px">
+          <ng-template appCell="offer" let-c><img class="thumb" *ngIf="c.imageUrl" [src]="img(c.imageUrl)" alt="" /><strong>{{ c.titleEn }}</strong><small>{{ c.bodyEn }}</small><small *ngIf="c.discountPercent > 0">{{ c.discountPercent }}% off {{ productNames(c) }}, until {{ c.endsAt | date:'short' }}</small><small *ngIf="c.showOnLoad">Shown when the app opens</small><small *ngIf="c.cardDesign">Card design: {{ designName(c.cardDesign) }}</small><small *ngIf="c.ribbon">Ribbon: {{ c.ribbon }}</small><small *ngIf="c.animation">Animation: {{ animationLabel(c.animation) }}</small><small *ngIf="!c.notify">No notification (quiet discount)</small></ng-template>
+          <ng-template appCell="shops" let-c>{{ c.allStores ? 'All stores' : storeNames(c) }}</ng-template>
+          <ng-template appCell="when" let-c>{{ c.startsAt | date:'short' }}</ng-template>
+          <ng-template appCell="status" let-c><span class="badge" [ngClass]="'badge-' + c.status.toLowerCase()">{{ c.status === 'AwaitingPayment' ? 'Awaiting payment' : c.status }}</span></ng-template>
+          <ng-template appCell="sent" let-c>{{ c.status === 'Sent' && c.notify ? c.recipientCount + ' customers' : '—' }}</ng-template>
+          <ng-template appCell="action" let-c><span class="actions"><button class="act" *ngIf="isRunning(c) && canCancel(c)" [disabled]="busy()" (click)="endDiscount(c)">End discount now</button><button class="act pay" *ngIf="c.status === 'AwaitingPayment' && canCancel(c)" [disabled]="busy()" (click)="pay(c)">Pay {{ rupees(c.feePaise) }}</button><button class="act" *ngIf="(c.status === 'Scheduled' || c.status === 'AwaitingPayment') && canCancel(c)" [disabled]="busy()" (click)="cancel(c)">Cancel</button><button class="act" *ngIf="isAdmin() && c.status !== 'Cancelled'" [disabled]="busy()" (click)="startEdit(c)">Change card</button></span></ng-template>
+        </app-data-table>
+        <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="campaigns().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+      </ng-container>
+      <app-side-panel [open]="!!editing()" [title]="'Change card · ' + (editing()?.titleEn ?? '')" (closed)="editing.set(null)">
+        <div class="edit-card" *ngIf="editing() as c">
             <label>Card design <select [(ngModel)]="editDesign" name="editDesign"><option value="">Plain banner</option><option *ngFor="let d of designs" [value]="d.key">{{ d.name }}</option></select></label>
             <label *ngIf="c.imageUrl"><input type="checkbox" [(ngModel)]="editKeepPicture" name="editKeepPicture" /> Keep the uploaded picture</label>
             <app-offer-card *ngIf="editDesign" [designKey]="editDesign" [title]="c.titleEn" [imageUrl]="editKeepPicture && c.imageUrl ? img(c.imageUrl) : null" [endsAt]="c.endsAt || null"></app-offer-card>
+            <label>Ribbon <input [(ngModel)]="editRibbon" name="editRibbon" maxlength="20" /></label>
+            <label>Animation <select [(ngModel)]="editAnimation" name="editAnimation"><option value="">None</option><option *ngFor="let a of animations" [value]="a.key">{{ a.name }}</option></select></label>
             <button class="act" [disabled]="busy()" (click)="saveCard()">Save card</button> <button class="act" [disabled]="busy()" (click)="editing.set(null)">Close</button>
-          </div>
         </div>
-      </div>
+      </app-side-panel>
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
+    app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+    .edit-card{display:grid!important;gap:12px}
+
+    .with-preview{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+    .with-preview>app-phone-preview{position:sticky;top:0}
+    @media(max-width:1100px){.with-preview{grid-template-columns:1fr}.with-preview>app-phone-preview{position:static}}
+
+    :host{display:block;font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    h2{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:var(--ink)}
     h3{margin:0 0 8px;color:var(--on-card,#141118);font-size:16px}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
-    .page{max-width:1000px}
-    .card{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:20px;display:grid;gap:12px;margin-bottom:24px;color:var(--on-card,#141118)}
+    .muted{color:var(--muted);font-size:12px;margin:0 0 20px}
+    .page{max-width:1280px}
+    .card{background:var(--card-bg,#F5F5F7);border-radius:24px;padding:20px;display:grid;gap:12px;margin-bottom:24px;color:var(--on-card,#141118)}
     label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--on-card-muted,#5E5A66)}
     input,textarea{border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:10px 12px;font:inherit;background:#fff;color:#141118}
-    .primary{justify-self:start;border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Inter',sans-serif;cursor:pointer}
+    .primary{justify-self:start;border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
     .primary:disabled{opacity:.5;cursor:default}
     .error{color:#B00060;margin:0;font-weight:700}
     .notice{color:#04782F;margin:0;font-weight:700}
-    .table{background:var(--card-bg,#EAE4FF);border-radius:24px;overflow:auto}
+    .table{background:var(--card-bg,#F5F5F7);border-radius:24px;overflow:auto}
     .row{display:grid;grid-template-columns:2.2fr 1.4fr 1.1fr .9fr .9fr .8fr;gap:12px;padding:14px 18px;border-top:1px solid rgba(20,17,24,.12);min-width:900px;font-size:12px;color:var(--on-card-muted,#5E5A66);align-items:center}
     .row strong{display:block;color:var(--on-card,#141118)}
     .row small{display:block;margin-top:2px}
     .head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
-    .badge{justify-self:start;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;background:#C9C2F0;color:#141118}
+    .badge{justify-self:start;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;background:#ECECF0;color:#141118}
     .badge-sent{background:#02F34C}
     .badge-scheduled{background:#FFD400}
-    .badge-cancelled{background:#FB1A8E}
+    .badge-cancelled{background:#C42F1D}
     .badge-awaitingpayment{background:#FFB020}
     .act.pay{background:#02F34C;color:#141118}
     .act.ghost{background:transparent;color:#141118;border:1px solid rgba(20,17,24,.35)}
     .fee-row{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--on-card,#141118)}
     .fee-row>strong,.fee-row>span:first-child{flex:1}
     .fee-row input{width:110px}
-    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    .fee-toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:11px 14px;font:800 13px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer;text-align:left}
+    .fee-toggle small,.fee-list .store small{display:block;font-size:11px;font-weight:600;color:var(--muted)}
+    .fee-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .fee-filters input{min-width:220px}
+    .fee-list{max-height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:14px;padding:0 12px}
+    .fee-list .fee-row{padding:8px 0;border-top:1px solid var(--line)}
+    .fee-list .fee-row:first-child{border-top:0}
+    .fee-list .no{flex:0 0 28px;color:var(--muted);font-size:11px;text-align:right}
+    .fee-list .store{flex:1}
+    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:#EEEAFF;color:#141118}
     .act:disabled{opacity:.5;cursor:default}
     .stores{border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:10px 14px;display:grid;gap:6px;max-height:180px;overflow:auto}
     .stores legend{font-size:12px;font-weight:700;padding:0 6px}
@@ -165,7 +212,7 @@ interface ProductChoice { id: string; name: string; price: number; imageUrl?: st
     .swatch.plain{background:repeating-linear-gradient(45deg,#fff,#fff 3px,#E9E4FF 3px,#E9E4FF 6px)}
     .thumb{width:48px;height:32px;object-fit:cover;border-radius:6px;display:block;margin-bottom:4px}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;padding:4px 10px;font:700 11px 'Inter',sans-serif;background:#fff;color:#141118;cursor:pointer}
+    .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;padding:4px 10px;font:700 11px 'Plus Jakarta Sans',sans-serif;background:#fff;color:#141118;cursor:pointer}
     .chip.on{background:#FFD400;cursor:default}
     .chip .x{border:0;background:transparent;font-weight:900;cursor:pointer}
   `],
@@ -176,6 +223,12 @@ export class CampaignsComponent implements OnInit {
   private config = inject(ConfigService);
 
   readonly campaigns = signal<Campaign[]>([]);
+  readonly columns: DataColumn[] = [{ key: 'offer', label: 'Offer' }, { key: 'shops', label: 'Stores' }, { key: 'when', label: 'Send at' }, { key: 'status', label: 'Status' }, { key: 'sent', label: 'Sent to' }, { key: 'action', label: 'Action' }];
+  readonly page = signal(1);
+  readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
+  /** The page asked for, or the last one there is after the list shrinks. */
+  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.campaigns().length, this.pageSize())));
+  readonly pageRows = computed(() => this.campaigns().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
   readonly loading = signal(false);
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
@@ -183,6 +236,17 @@ export class CampaignsComponent implements OnInit {
   readonly stores = signal<Store[]>([]);
   readonly fee = signal<{ feePaise: number; paymentsAvailable: boolean; loadPaise: number } | null>(null);
   readonly fees = signal<OfferFees | null>(null);
+  readonly showStoreFees = signal(false);
+  readonly feeSearch = signal('');
+  readonly feeFilter = signal('all');
+  ownFeeCount() { return this.fees()?.stores.filter(s => s.overridePaise !== null).length ?? 0; }
+  shownFeeStores() {
+    const text = this.feeSearch().trim().toLowerCase(), wanted = this.feeFilter();
+    return (this.fees()?.stores ?? [])
+      .filter(s => (wanted === 'all' || (s.overridePaise !== null) === (wanted === 'own')) && (!text || s.name.toLowerCase().includes(text)))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+  trackFee = (_: number, s: { storeId: string }) => s.storeId;
   readonly storeRupees = signal<Record<string, string>>({});
   defaultRupees = '0';
   loadRupees = '0';
@@ -317,6 +381,9 @@ export class CampaignsComponent implements OnInit {
     this.pickedProducts.set(next);
   }
 
+  /** The upload card hands over a checked picture, which is sent at once. */
+  takeImage(file: File) { this.uploadFile = file; this.uploadImage(); }
+
   pickImage(event: Event) { this.uploadFile = (event.target as HTMLInputElement).files?.[0] ?? null; }
 
   uploadImage() {
@@ -348,18 +415,22 @@ export class CampaignsComponent implements OnInit {
   readonly editing = signal<Campaign | null>(null);
   editDesign = '';
   editKeepPicture = true;
+  editRibbon = '';
+  editAnimation = '';
 
   startEdit(c: Campaign) {
     this.editing.set(c);
     this.editDesign = c.cardDesign ?? '';
     this.editKeepPicture = true;
+    this.editRibbon = c.ribbon ?? '';
+    this.editAnimation = c.animation ?? '';
   }
 
   saveCard() {
     const c = this.editing();
     if (!c || this.busy()) return;
     this.busy.set(true); this.error.set(null); this.notice.set(null);
-    const body = { cardDesign: this.editDesign || null, imageUrl: this.editKeepPicture ? (c.imageUrl ?? null) : null };
+    const body = { cardDesign: this.editDesign || null, imageUrl: this.editKeepPicture ? (c.imageUrl ?? null) : null, ribbon: this.editRibbon.trim() || null, animation: this.editAnimation || null };
     this.api.put<Campaign>('/admin/campaigns/' + c.id + '/card', body).subscribe({
       next: () => { this.busy.set(false); this.editing.set(null); this.notice.set('Card changed.'); this.load(); },
       error: e => { this.busy.set(false); this.error.set(e?.message ?? 'Could not change the card.'); },
@@ -369,6 +440,10 @@ export class CampaignsComponent implements OnInit {
   titleEn = '';
   /** The festival card design key, or empty for the plain banner. Only administrators see the choice. */
   cardDesign = '';
+  ribbon = '';
+  animation = '';
+  readonly animations = CARD_ANIMATIONS;
+  animationLabel(key: string) { return animationName(key) || key; }
   readonly designs = OFFER_CARD_DESIGNS;
   designName(key: string | null | undefined): string { return designOf(key)?.name ?? ''; }
   /** The picked end time (a local date and time) as the ISO text the card's countdown reads. */
@@ -413,6 +488,8 @@ export class CampaignsComponent implements OnInit {
       showOnLoad: this.showOnLoad,
       imageUrl: this.imageUrl(),
       cardDesign: this.isAdmin() && this.cardDesign ? this.cardDesign : null,
+      ribbon: this.isAdmin() ? this.ribbon.trim() || null : null,
+      animation: this.isAdmin() ? this.animation || null : null,
       discountPercent: this.discountPercent ?? 0,
       endsAt: this.discountPercent && this.endsAt ? new Date(this.endsAt).toISOString() : null,
       productIds: this.discountPercent ? [...this.pickedProducts().keys()] : [],
@@ -430,7 +507,7 @@ export class CampaignsComponent implements OnInit {
         this.titleEn = this.bodyEn = this.titleMr = this.bodyMr = this.startsAt = this.endsAt = this.productSearch = '';
         this.notify = true; this.showOnLoad = false; this.discountPercent = null;
         this.imageUrl.set(null); this.productResults.set([]); this.pickedProducts.set(new Map());
-        this.cardDesign = '';
+        this.cardDesign = ''; this.ribbon = ''; this.animation = '';
         this.picked.set(new Set());
         this.load();
       },

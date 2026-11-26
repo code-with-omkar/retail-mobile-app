@@ -8,7 +8,7 @@ namespace QuickCommerce.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability, QuickCommerce.Application.Services.PricingSettings? pricing = null) : ControllerBase
+public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability, QuickCommerce.Application.Services.PricingSettings? pricing = null, ICurrentUserContextResolver? users = null) : ControllerBase
 {
     [HttpGet("categories")]
     public async Task<IActionResult> Categories(CancellationToken cancellationToken) => Ok(new { success = true, data = await catalogService.GetCategoriesAsync(cancellationToken) });
@@ -121,6 +121,12 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
         var scope = await scopeService.ResolveAsync(cancellationToken);
         if (scope is null) return Forbid();
         var stores = await data.GetScopedStoresAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        // Store staff see the stores they work in: a manager all of theirs, anyone else the primary one.
+        if (users is not null && await users.ResolveAsync(cancellationToken) is { Role: QuickCommerce.Domain.Role.StoreStaff } staff)
+        {
+            stores = stores.Where(store => staff.OrderStoreIds.Contains(store.Id)).ToArray();
+        }
+
         return Ok(new { success = true, data = stores.Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive)).ToArray() });
     }
 

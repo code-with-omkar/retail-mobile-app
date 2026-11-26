@@ -14,7 +14,7 @@ import { ButtonComponent } from '../../shared/components/button/button.component
         <h1>Access Denied</h1>
         <p>You don't have permission to access this resource.</p>
         <app-button
-          label="Go to Dashboard"
+          label="Go to Today"
           variant="primary"
           (onClick)="goHome()"
         ></app-button>
@@ -63,6 +63,6 @@ export class UnauthorizedComponent {
   private router = inject(Router);
 
   goHome(): void {
-    this.router.navigate(['/dashboard']);
+    this.router.navigate(['/today']);
   }
 }

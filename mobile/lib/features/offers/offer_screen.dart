@@ -10,6 +10,7 @@ import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../stores/stores_screen.dart';
+import 'card_extras.dart';
 import 'festival_card.dart';
 import 'offers_controller.dart';
 import 'offers_widgets.dart';
@@ -51,7 +52,7 @@ class _Body extends ConsumerWidget {
     final here = offer.stores.isEmpty ? serviceable : serviceable.where((s) => offer.stores.any((o) => o.id == s.id)).toList();
     final selectedHasIt = selected != null && (offer.stores.isEmpty || offer.stores.any((s) => s.id == selected.id));
     return ListView(padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 24), children: [
-      if (festivalThemeOf(offer.cardDesign) != null) FestivalCard(offer, height: 176) else OfferImage(offer.imageUrl, height: 190),
+      CelebrateOnce(offer.animation, child: Ribbon(offer.ribbon, child: festivalThemeOf(offer.cardDesign) != null ? FestivalCard(offer, height: 176) : OfferImage(offer.imageUrl, height: 190))),
       const SizedBox(height: 14),
       Text(offer.titleIn(marathi), style: TextStyle(color: context.pal.onGround, fontSize: 24, fontWeight: FontWeight.w900, height: 1.15)),
       const SizedBox(height: 8),

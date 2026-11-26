@@ -29,7 +29,7 @@ interface OrganizationList { homeOrganizationId: string; currentOrganizationId: 
     </div>
   `,
   styles: [`
-    .org { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; color: #fff; font-size: 13px; font-weight: 700; }
+    .org { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; color:var(--ink); font-size: 13px; font-weight: 700; }
     select { margin-left: 8px; padding: 6px 10px; border-radius: 10px; border: 0; font-weight: 700; }
     .readonly { background: #FFD400; color: #141118; padding: 6px 12px; border-radius: 12px; }
     .error { background: #FFE1E1; color: #7A0010; padding: 6px 12px; border-radius: 12px; }

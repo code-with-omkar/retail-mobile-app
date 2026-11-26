@@ -1,7 +1,9 @@
+import { rejectionName } from '../../shared/utils/rejections';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { storeChoices } from '../../shared/utils/stores';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfigService } from '../../core/services/config.service';
@@ -18,7 +20,8 @@ interface PartnerRating { partnerId: string; partner: string; count: number; ave
 interface RatingSummary { count: number; averageStore: number; averageDelivery: number | null; stars: number[]; partners: PartnerRating[]; }
 interface RatingRow { orderId: string; orderNumber: string; store: string; storeStars: number; deliveryStars: number | null; comment: string | null; createdAt: string; }
 interface Ratings { summary: RatingSummary; recent: RatingRow[]; }
-interface Report { from: string; to: string; storeId: string | null; storeName: string | null; totals: Totals; days: Day[]; hours: Hour[]; topProducts: Product[]; stores: StoreRow[]; lowStock: LowStock[]; income: Income | null; earnings?: EarningsRow[]; }
+interface Report { from: string; to: string; storeId: string | null; storeName: string | null; totals: Totals; days: Day[]; hours: Hour[]; topProducts: Product[]; stores: StoreRow[]; lowStock: LowStock[]; income: Income | null; earnings?: EarningsRow[]; rejections?: RejectionRow[] | null; }
+interface RejectionRow { storeId: string; store: string; orders: number; rejected: number; percent: number; reasons: { reason: string; count: number }[]; }
 interface EarningsRow { storeId: string; store: string; orders: number; sales: number; commission: number; fees: number; net: number; }
 
 /** Today's date in India as yyyy-mm-dd, whatever the computer's own time zone is. */
@@ -49,7 +52,7 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
         </div>
         <label *ngIf="preset === 'custom'">From<input type="date" name="from" [(ngModel)]="from" /></label>
         <label *ngIf="preset === 'custom'">To<input type="date" name="to" [(ngModel)]="to" /></label>
-        <label *ngIf="isAdmin()">Store
+        <label *ngIf="canChooseStore()">Store
           <select name="store" [(ngModel)]="storeId" (ngModelChange)="load()"><option value="">All stores</option><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select>
         </label>
         <button class="primary" type="button" [disabled]="loading()" (click)="load()">Show</button>
@@ -106,6 +109,11 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
             <div class="row" *ngFor="let e of r.earnings"><strong>{{ e.store }}<small> {{ e.orders }} orders</small></strong><span>{{ e.sales | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ e.commission | currency:'INR':'symbol':'1.2-2' }}<small>store keeps {{ e.net | currency:'INR':'symbol':'1.0-0' }}</small></span></div>
             <div class="row" *ngIf="r.earnings!.length > 1"><strong>All shops</strong><span>{{ sumOf(r.earnings!, 'sales') | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ sumOf(r.earnings!, 'commission') | currency:'INR':'symbol':'1.2-2' }}</span></div>
           </section>
+          <section class="card" *ngIf="r.rejections?.length">
+            <h3>Rejected orders by store <small>(share of the store's orders)</small></h3>
+            <div class="row head"><span>Store</span><span>Rejected</span><span>Why</span></div>
+            <div class="row" *ngFor="let x of r.rejections"><strong>{{ x.store }}</strong><span>{{ x.rejected }} of {{ x.orders }} ({{ x.percent }}%)</span><span>{{ reasonsLine(x.reasons) }}</span></div>
+          </section>
           <section class="card" *ngIf="r.income as i">
             <h3>Platform income</h3>
             <div class="row"><strong>Offer fees paid</strong><span></span><span>{{ i.offerFeesPaid | currency:'INR':'symbol':'1.0-0' }}</span></div>
@@ -143,37 +151,37 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
-    h3{margin:20px 0 8px;font-size:15px;color:#fff}
+    :host{display:block;font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    h2{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:var(--ink)}
+    h3{margin:20px 0 8px;font-size:15px;color:var(--ink)}
     .card h3{color:var(--on-card,#141118);margin-top:0}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 16px}
+    .muted{color:var(--muted);font-size:12px;margin:0 0 16px}
     .muted-dark{color:var(--on-card-muted,#5E5A66);font-size:12px}
     .page{max-width:1200px}
     .bar{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
     .presets{display:flex;gap:6px;flex-wrap:wrap}
-    .presets button{border:0;border-radius:999px;padding:8px 14px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:rgba(255,255,255,.18);color:#fff}
+    .presets button{border:0;border-radius:999px;padding:8px 14px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:rgba(20,17,24,0.09);color:var(--ink)}
     .presets button.on{background:#FFD400;color:#141118}
-    label{display:grid;gap:4px;font-size:11px;font-weight:700;color:#E9E4FF}
+    label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--muted)}
     input,select{border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:7px 10px;font:inherit;background:#fff;color:#141118}
-    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:9px 18px;font:800 12px 'Inter',sans-serif;cursor:pointer}
-    .act{border:0;border-radius:999px;padding:9px 16px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:9px 18px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+    .act{border:0;border-radius:999px;padding:9px 16px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:#EEEAFF;color:#141118}
     .primary:disabled,.act:disabled{opacity:.5;cursor:default}
     .error{color:#FFC6E2;font-weight:700}
-    .scope{color:#E9E4FF;font-weight:700;font-size:13px}
+    .scope{color:var(--muted);font-weight:700;font-size:13px}
     .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
     .kpi{border-radius:24px;padding:16px;color:#141118;display:grid;gap:2px}
     .kpi p{margin:0;font-size:11px;font-weight:700;text-transform:uppercase}
-    .kpi strong{font-family:'Space Grotesk',sans-serif;font-size:26px}
+    .kpi strong{font-family:'Bricolage Grotesque',sans-serif;font-size:26px}
     .kpi small{font-size:11px;opacity:.75}
-    .yellow{background:#FFF1A8}.green{background:#B9FFCF}.lavender{background:#EAE4FF}.pink{background:#FFC6E2}
-    .chart{display:flex;gap:3px;align-items:flex-end;height:150px;background:var(--card-bg,#EAE4FF);border-radius:24px;padding:14px 14px 22px;overflow-x:auto}
+    .yellow{background:#FFF1A8}.green{background:#B9FFCF}.lavender{background:#F5F5F7}.pink{background:#FFC6E2}
+    .chart{display:flex;gap:3px;align-items:flex-end;height:150px;background:var(--card-bg,#F5F5F7);border-radius:24px;padding:14px 14px 22px;overflow-x:auto}
     .col{flex:1;min-width:8px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
     .col small{position:absolute;bottom:-18px;font-size:9px;color:var(--on-card-muted,#5E5A66);white-space:nowrap}
     .bar-fill{display:block;width:100%;min-height:2px;border-radius:6px 6px 2px 2px;background:#141118}
-    .bar-fill.alt{background:#FB1A8E}
+    .bar-fill.alt{background:#C42F1D}
     .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:20px}
-    .card{background:var(--card-bg,#EAE4FF);color:var(--on-card,#141118);border-radius:24px;padding:18px}
+    .card{background:var(--card-bg,#F5F5F7);color:var(--on-card,#141118);border-radius:24px;padding:18px}
     .wide{margin-top:12px}
     .row{display:grid;grid-template-columns:2fr 1.4fr 1fr;gap:10px;padding:8px 0;border-top:1px solid rgba(20,17,24,.12);font-size:12px;color:var(--on-card-muted,#5E5A66)}
     .row.low{grid-template-columns:2fr 1fr 1.4fr .8fr .8fr}
@@ -181,7 +189,7 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
     .row.head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
     .zero{color:#B00060;font-weight:800}
     .rate-head{display:flex;gap:28px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-    .rate-head .big{font-family:'Space Grotesk',sans-serif;font-size:32px;margin-right:8px}
+    .rate-head .big{font-family:'Bricolage Grotesque',sans-serif;font-size:32px;margin-right:8px}
     .stars{color:#E8A400;letter-spacing:1px}
     .rate-head small{display:block;color:var(--on-card-muted,#5E5A66);font-size:11px}
     .spread{display:grid;gap:3px;min-width:220px;flex:1;max-width:340px}
@@ -218,11 +226,16 @@ export class ReportsComponent implements OnInit {
   to = iso(indiaToday());
   storeId = '';
 
+  /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
+
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
 
   ngOnInit() {
-    if (this.isAdmin()) this.api.get<Store[]>('/stores').subscribe({ next: r => this.stores.set((r.data ?? []).filter(s => s.isActive)), error: () => {} });
-    this.load();
+    this.api.get<Store[]>('/stores').subscribe({
+      next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
+      error: () => this.load(),
+    });
   }
 
   choose(key: string) {
@@ -236,18 +249,18 @@ export class ReportsComponent implements OnInit {
 
   private params(): HttpParams {
     let params = new HttpParams().set('from', this.from).set('to', this.to);
-    if (this.isAdmin() && this.storeId) params = params.set('storeId', this.storeId);
+    if (this.storeId) params = params.set('storeId', this.storeId);
     return params;
   }
 
   load() {
     if (!this.from || !this.to) { this.error.set('Choose both dates.'); return; }
     this.loading.set(true); this.error.set(null);
-    this.api.get<Report>('/reports', { params: { from: this.from, to: this.to, storeId: this.isAdmin() && this.storeId ? this.storeId : null } }).subscribe({
+    this.api.get<Report>('/reports', { params: { from: this.from, to: this.to, storeId: this.storeId || null } }).subscribe({
       next: r => { this.report.set(r.data ?? null); this.loading.set(false); },
       error: e => { this.report.set(null); this.ratings.set(null); this.error.set(e?.message ?? 'Could not load the report.'); this.loading.set(false); },
     });
-    this.api.get<Ratings>('/reports/ratings', { params: { from: this.from, to: this.to, storeId: this.isAdmin() && this.storeId ? this.storeId : null } }).subscribe({
+    this.api.get<Ratings>('/reports/ratings', { params: { from: this.from, to: this.to, storeId: this.storeId || null } }).subscribe({
       next: r => this.ratings.set(r.data ?? null),
       error: () => this.ratings.set(null),
     });
@@ -271,6 +284,8 @@ export class ReportsComponent implements OnInit {
   /** Five characters of stars for a whole or fractional average: filled up to the nearest whole star. */
   stars(value: number): string { const n = Math.max(0, Math.min(5, Math.round(value))); return '★'.repeat(n) + '☆'.repeat(5 - n); }
   share(summary: RatingSummary, star: number): number { return summary.count === 0 ? 0 : Math.round((summary.stars[star - 1] * 100) / summary.count); }
+
+  reasonsLine(reasons: { reason: string; count: number }[]): string { return reasons.map(x => rejectionName(x.reason) + ' ' + x.count).join(', '); }
 
   lostPercent(r: Report): number { return r.totals.orders === 0 ? 0 : Math.round(((r.totals.cancelled + r.totals.rejected) * 100) / r.totals.orders); }
   maxRevenue(r: Report): number { return Math.max(...r.days.map(d => d.revenue), 0); }

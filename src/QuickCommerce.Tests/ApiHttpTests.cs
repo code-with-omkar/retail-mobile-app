@@ -488,6 +488,15 @@ public sealed class ApiHttpTests : IClassFixture<ApiHarness>
             Assert.Equal("StoreStaff", saved.GetProperty("role").GetString());
             Assert.Equal("StoreManager", saved.GetProperty("staffCategory").GetString());
             Assert.Equal([second], saved.GetProperty("storeIds").EnumerateArray().Select(item => item.GetGuid()));
+
+            // The new role is really theirs: one active role link, with that role's permissions, and again after changing back.
+            async Task<string[]> ActiveRolesAsync() => await db.Set<QuickCommerce.Domain.UserRole>().AsNoTracking().Where(link => link.UserId == id && link.IsActive).Select(link => link.Role.Code).ToArrayAsync();
+            Assert.Equal(["StoreStaff"], await ActiveRolesAsync());
+            Assert.NotEmpty(saved.GetProperty("permissions").EnumerateArray());
+
+            using var back = await admin.PutAsJsonAsync($"/api/users/{id}", new { firstName = "Http", lastName = "Partner", storeId = first, storeIds = new[] { first }, role = "DeliveryPartner", isActive = true });
+            Assert.True(back.StatusCode == HttpStatusCode.OK, await back.Content.ReadAsStringAsync());
+            Assert.Equal(["DeliveryPartner"], await ActiveRolesAsync());
         }
         finally
         {
@@ -498,6 +507,54 @@ public sealed class ApiHttpTests : IClassFixture<ApiHarness>
         }
     }
 
+
+    [Fact]
+    public async Task Staff_read_the_order_list_a_page_at_a_time_and_a_guest_may_not()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        using var admin = await api.ClientAsync(ApiHarness.Admin);
+        using var staff = await api.ClientAsync(ApiHarness.StoreStaff);
+        using var guest = await api.ClientAsync(null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await guest.GetAsync("/api/orders/paged")).StatusCode);
+        foreach (var client in new[] { admin, staff })
+        {
+            using var response = await client.GetAsync("/api/orders/paged?page=1&pageSize=5&status=0&search=a");
+            Assert.True(response.StatusCode == HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+            var page = Data(await response.Content.ReadAsStringAsync());
+            Assert.True(page.GetProperty("items").GetArrayLength() <= 5);
+            Assert.Equal(5, page.GetProperty("pageSize").GetInt32());
+            Assert.NotEmpty(page.GetProperty("stores").EnumerateArray());
+        }
+    }
+
+    [Fact]
+    public async Task An_administrator_reads_users_a_page_at_a_time_with_filters_and_staff_may_not()
+    {
+        if (Skip) { return; }
+        await api.PrepareAsync();
+        using var admin = await api.ClientAsync(ApiHarness.Admin);
+        using var staff = await api.ClientAsync(ApiHarness.StoreStaff);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/users/paged")).StatusCode);
+        async Task<JsonElement> PageAsync(string query)
+        {
+            using var response = await admin.GetAsync("/api/users/paged" + query);
+            Assert.True(response.StatusCode == HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+            return Data(await response.Content.ReadAsStringAsync());
+        }
+
+        var first = await PageAsync("?pageSize=2&sort=name");
+        Assert.True(first.GetProperty("items").GetArrayLength() <= 2);
+        Assert.True(first.GetProperty("allCount").GetInt32() >= first.GetProperty("activeCount").GetInt32());
+        var staffOnly = await PageAsync("?role=StoreStaff&active=true&pageSize=50");
+        Assert.All(staffOnly.GetProperty("items").EnumerateArray(), user => Assert.Equal("StoreStaff", user.GetProperty("role").GetString()));
+        foreach (var sort in new[] { "name-desc", "email", "newest" })
+        {
+            await PageAsync($"?sort={sort}&search=a&role=ApplicationAdmin");
+        }
+    }
 
     [Fact]
     public async Task An_administrator_makes_an_ad_and_a_guest_sees_it_at_its_place_and_views_and_taps_are_counted()

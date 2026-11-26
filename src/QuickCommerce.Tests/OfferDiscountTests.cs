@@ -666,6 +666,10 @@ public sealed class OfferDiscountTests
         var picture = (await rig.Admin.UploadImageAsync(new MemoryStream(Png()), Png().Length)).Value!;
 
         var set = await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest(" Holi ", picture));
+        var dressed = await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("holi", picture, " NEW ", "Sparkle"));
+        Assert.Equal(("NEW", "sparkle"), (dressed.Value!.Ribbon, dressed.Value.Animation));
+        Assert.Equal(CampaignOperationStatus.InvalidRequest, (await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("holi", picture, Animation: "fire"))).Status);
+        Assert.Equal(CampaignOperationStatus.InvalidRequest, (await rig.Admin.UpdateCardAsync(made.Id, new CampaignCardRequest("holi", picture, new string('x', 21)))).Status);
         Assert.Equal(CampaignOperationStatus.Succeeded, set.Status);
         Assert.Equal("holi", set.Value!.CardDesign);
         Assert.Equal(picture, set.Value.ImageUrl);

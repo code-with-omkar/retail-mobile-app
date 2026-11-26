@@ -68,6 +68,21 @@ public static class ReportMath
         return days;
     }
 
+    /// <summary>The stores that declined any order, worst rate first.</summary>
+    public static IReadOnlyList<RejectionRow> Rejections(IReadOnlyCollection<ReportOrderRow> rows, IReadOnlyDictionary<Guid, string> names) => rows
+        .GroupBy(row => row.StoreId)
+        .Select(group =>
+        {
+            var rejected = group.Where(row => row.Status == OrderStatus.Rejected).ToArray();
+            return new RejectionRow(group.Key, names.GetValueOrDefault(group.Key) ?? string.Empty, group.Count(), rejected.Length, decimal.Round(100m * rejected.Length / group.Count(), 1),
+                rejected.GroupBy(row => row.RejectionReason ?? OrderRejections.NotRecorded)
+                    .Select(reason => new ReasonCount(reason.Key, reason.Count()))
+                    .OrderByDescending(reason => reason.Count).ThenBy(reason => reason.Reason).ToArray());
+        })
+        .Where(row => row.Rejected > 0)
+        .OrderByDescending(row => row.Percent).ThenByDescending(row => row.Rejected)
+        .ToArray();
+
     public static IReadOnlyList<ReportHour> Hours(IReadOnlyCollection<ReportOrderRow> rows)
     {
         var counts = rows.GroupBy(row => ToIndia(row.CreatedAt).Hour).ToDictionary(group => group.Key, group => group.Count());
@@ -139,7 +154,7 @@ public sealed class ReportService(IReportStore store, ICurrentUserContextResolve
         if (context.Role == Role.StoreStaff)
         {
             return context.StoreId is { } own
-                ? (context.OrganizationId, [own], false, null)
+                ? (context.OrganizationId, [requested is { } asked && context.OrderStoreIds.Contains(asked) ? asked : own], false, null)
                 : (Guid.Empty, null, false, ReportResult<SalesReport>.Fail(ReportStatus.Forbidden, "Store staff must be assigned to a store."));
         }
 
@@ -184,7 +199,8 @@ public sealed class ReportService(IReportStore store, ICurrentUserContextResolve
             stores is null ? ReportMath.Stores(rows, names) : [],
             await store.GetLowStockAsync(organization, stores, 50, cancellationToken),
             admin && stores is null ? await store.GetIncomeAsync(organization, fromUtc, toUtc, cancellationToken) : null,
-            ReportMath.Earnings(rows, names));
+            ReportMath.Earnings(rows, names),
+            admin ? ReportMath.Rejections(rows, names) : null);
         return ReportResult<SalesReport>.Ok(report);
     }
 

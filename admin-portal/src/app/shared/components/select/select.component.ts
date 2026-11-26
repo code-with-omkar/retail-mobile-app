@@ -25,7 +25,8 @@ export interface SelectOption {
         class="select-field"
       >
         <option *ngIf="placeholder" value="">{{ placeholder }}</option>
-        <option *ngFor="let opt of options" [value]="opt.value" [disabled]="opt.disabled">
+        <option *ngFor="let opt of options" [value]="opt.value" [disabled]="opt.disabled"
+          [selected]="opt.value === value">
           {{ opt.label }}
         </option>
       </select>
@@ -33,15 +34,15 @@ export interface SelectOption {
     </div>
   `,
   styles: [`
-    .select-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Inter',sans-serif}
-    label{font-size:11px;font-weight:700;color:#E9E4FF;text-transform:uppercase;letter-spacing:.5px}
-    .select-field{padding:12px 36px 12px 14px;border:2px solid #FFD400;border-radius:14px;font-size:12px;font-family:'Inter',sans-serif;background-color:#EAE4FF;color:#141118;cursor:pointer;transition:box-shadow .2s,border-color .2s;appearance:none;
+    .select-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Plus Jakarta Sans',sans-serif}
+    label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .select-field{padding:12px 36px 12px 14px;border:1.5px solid #D9D7DF;border-radius:14px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;background-color:#F5F5F7;color:#141118;cursor:pointer;transition:box-shadow .2s,border-color .2s;appearance:none;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23141118' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 14px center}
-    .select-field option{background:#EAE4FF;color:#141118}
-    .select-field:focus{outline:none;box-shadow:0 0 0 3px rgba(255,212,0,.3)}
-    .select-field:disabled{background-color:#D9D3F5;border-color:#C9C2F0;color:#5E5A66;cursor:not-allowed}
-    .error-text{color:#FB1A8E;font-size:10px;font-weight:700}
+    .select-field option{background:#F5F5F7;color:#141118}
+    .select-field:focus{outline:none;border-color:#141118;box-shadow:0 0 0 3px rgba(255,212,0,.45)}
+    .select-field:disabled{background-color:#ECECF0;border-color:#ECECF0;color:#5E5A66;cursor:not-allowed}
+    .error-text{color:#C42F1D;font-size:10px;font-weight:700}
   `],
   providers: [
     {
@@ -59,11 +60,23 @@ export class SelectComponent implements ControlValueAccessor {
   @Input() disabled = false;
   @Input() error?: string;
   @Input() ariaLabel?: string;
+  /** With no value yet, take the first choice (for lists where "nothing chosen" makes no sense). */
+  @Input() defaultFirst = false;
   @Output() onChange = new EventEmitter<any>();
 
   @Input() value: any = '';
   private onChange$: (val: any) => void = () => {};
   private onTouched$ = () => {};
+
+  ngDoCheck(): void {
+    if (this.defaultFirst && !this.value && this.options.length) {
+      const first = this.options.find(option => !option.disabled);
+      if (!first) return;
+      this.value = first.value;
+      // after this check, so the form is not changed while it is being drawn
+      queueMicrotask(() => { this.onChange$(this.value); this.onChange.emit(this.value); });
+    }
+  }
 
   onSelectChange(event: Event): void {
     const target = event.target as HTMLSelectElement;

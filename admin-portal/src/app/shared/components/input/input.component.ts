@@ -25,15 +25,15 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
     </div>
   `,
   styles: [`
-    .input-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Inter',sans-serif}
-    label{font-size:11px;font-weight:700;color:#E9E4FF;text-transform:uppercase;letter-spacing:.5px}
-    .input-field{padding:12px 14px;border:2px solid #FFD400;border-radius:14px;font-size:12px;font-family:'Inter',sans-serif;background:#EAE4FF;color:#141118;transition:box-shadow .2s,border-color .2s}
+    .input-wrapper{display:flex;flex-direction:column;gap:6px;font-family:'Plus Jakarta Sans',sans-serif}
+    label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+    .input-field{padding:12px 14px;border:1.5px solid #D9D7DF;border-radius:14px;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;background:#F5F5F7;color:#141118;transition:box-shadow .2s,border-color .2s}
     .input-field::placeholder{color:#5E5A66}
-    .input-field:focus{outline:none;box-shadow:0 0 0 3px rgba(255,212,0,.3)}
-    .input-field.invalid{border-color:#FB1A8E}
-    .input-field.invalid:focus{box-shadow:0 0 0 3px rgba(251,26,142,.3)}
-    .input-field:disabled{background:#D9D3F5;border-color:#C9C2F0;color:#5E5A66;cursor:not-allowed}
-    .error-text{color:#FB1A8E;font-size:10px;font-weight:700}
+    .input-field:focus{outline:none;border-color:#141118;box-shadow:0 0 0 3px rgba(255,212,0,.45)}
+    .input-field.invalid{border-color:#C42F1D}
+    .input-field.invalid:focus{box-shadow:0 0 0 3px rgba(196,47,29,.3)}
+    .input-field:disabled{background:#ECECF0;border-color:#ECECF0;color:#5E5A66;cursor:not-allowed}
+    .error-text{color:#C42F1D;font-size:10px;font-weight:700}
   `],
   providers: [
     {

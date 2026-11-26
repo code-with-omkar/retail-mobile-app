@@ -64,6 +64,19 @@ describe('CampaignsComponent', () => {
     expect(c.storeRupees()).toEqual({ s1: '', s2: '30' });
   });
 
+  it('store fees stay folded, and can be searched and filtered when there are many', () => {
+    const { c } = open(Role.Admin, apiWith({ get: baseGet() }));
+
+    expect(c.showStoreFees()).toBe(false);
+    expect(c.ownFeeCount()).toBe(1);
+    expect(c.shownFeeStores().map(s => s.name)).toEqual(['Kharghar', 'Panvel']);
+    c.feeFilter.set('own');
+    expect(c.shownFeeStores().map(s => s.name)).toEqual(['Panvel']);
+    c.feeFilter.set('all');
+    c.feeSearch.set('khar');
+    expect(c.shownFeeStores().map(s => s.name)).toEqual(['Kharghar']);
+  });
+
   it('store staff do not load fees or stores', () => {
     const api = apiWith({ get: baseGet() });
     const { c } = open(Role.StoreStaff, api);
@@ -288,7 +301,7 @@ describe('CampaignsComponent', () => {
     expect(c.editDesign).toBe('');
     c.editDesign = 'holi';
     c.saveCard();
-    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: 'holi', imageUrl: '/media/o.jpg' });
+    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: 'holi', imageUrl: '/media/o.jpg', ribbon: null, animation: null });
     expect(c.notice()).toBe('Card changed.');
     expect(c.editing()).toBeNull();
 
@@ -296,7 +309,7 @@ describe('CampaignsComponent', () => {
     c.editDesign = '';
     c.editKeepPicture = false;
     c.saveCard();
-    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: null, imageUrl: null });
+    expect(api.put).toHaveBeenLastCalledWith('/admin/campaigns/c1/card', { cardDesign: null, imageUrl: null, ribbon: null, animation: null });
   });
 
   it('a failed card change shows the error and keeps the editor open', () => {

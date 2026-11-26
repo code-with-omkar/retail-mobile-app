@@ -364,6 +364,8 @@ class _DetailState extends ConsumerState<_Detail> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (order.stage == OrderStage.rejected && _rejectionWhy(context, order.rejectionReason) != null)
+                            Text(_rejectionWhy(context, order.rejectionReason)!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           Text(
                             order.stage == OrderStage.cancelled
                                 ? context.tr('This order was cancelled.')
@@ -1200,3 +1202,12 @@ class _ReplacementCardState extends ConsumerState<_ReplacementCard> {
     );
   }
 }
+
+/// The store's reason in the customer's words. "Other" and unknown reasons say nothing more.
+String? _rejectionWhy(BuildContext context, String? reason) => switch (reason) {
+  'OutOfStock' => context.tr('Some items are out of stock.'),
+  'StoreClosed' => context.tr('The store is closed right now.'),
+  'TooBusy' => context.tr('The store is too busy right now.'),
+  'AddressProblem' => context.tr('The store could not deliver to your address.'),
+  _ => null,
+};

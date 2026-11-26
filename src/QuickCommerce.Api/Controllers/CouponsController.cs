@@ -21,6 +21,11 @@ public sealed class CouponsController(ICouponService coupons) : ControllerBase
     [Authorize(Policy = SecurityPolicies.AdminManagement)]
     public async Task<IActionResult> Update(Guid id, SaveCouponRequest request, CancellationToken cancellationToken) => Respond(await coupons.UpdateAsync(id, request, cancellationToken));
 
+    /// <summary>The coupons the app lists at a store (those marked to be shown). Open to anyone.</summary>
+    [HttpGet("api/offers/coupons")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Featured([FromQuery] Guid storeId, CancellationToken cancellationToken) => Respond(await coupons.FeaturedAsync(storeId, cancellationToken));
+
     /// <summary>The customer's cart with a typed code: the discount and new total, or why the code cannot be used (still 200, with <c>valid: false</c>).</summary>
     [HttpPost("api/carts/{storeId:guid}/coupon")]
     [Authorize(Policy = SecurityPolicies.Orders)]

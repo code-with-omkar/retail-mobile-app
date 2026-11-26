@@ -23,7 +23,7 @@ class Offer {
     this.running = true,
     this.productIds = const [],
     this.stores = const [],
-    this.cardDesign,
+    this.cardDesign, this.ribbon, this.animation,
   });
 
   final String id, title;
@@ -44,6 +44,12 @@ class Offer {
 
   /// The festival card design the administrator chose (diwali, ganesh, ...); null is the plain banner.
   final String? cardDesign;
+
+  /// A few words across the corner of its card.
+  final String? ribbon;
+
+  /// Played when the offer is shown opened; null for none.
+  final String? animation;
 
   String titleIn(bool marathi) => marathi && (titleMr?.isNotEmpty ?? false) ? titleMr! : title;
   String? bodyIn(bool marathi) => marathi && (bodyMr?.isNotEmpty ?? false) ? bodyMr : body;
@@ -86,6 +92,8 @@ Offer offerFromJson(Map<String, dynamic> j, {String? imageBase}) {
     showOnLoad: j['showOnLoad'] == true,
     running: j['running'] != false,
     cardDesign: (j['cardDesign'] as String?)?.isEmpty == true ? null : j['cardDesign'] as String?,
+    ribbon: j['ribbon'] as String?,
+    animation: j['animation'] as String?,
     productIds: [for (final id in (j['productIds'] as List? ?? const [])) '$id'],
     stores: [for (final s in (j['stores'] as List? ?? const [])) OfferStore((s as Map)['id'] as String, (s['name'] as String?) ?? '')],
   );

@@ -687,4 +687,17 @@ const marathi = <String, String>{
   'Finding the address…': 'पत्ता शोधत आहे…',
   'No address found here. You can still use this spot.':
       'येथे पत्ता सापडला नाही. तरीही तुम्ही ही जागा वापरू शकता.',
+  'Free delivery': 'मोफत डिलिव्हरी',
+  '{amount} off': '{amount} सूट',
+  'Up to {amount}': '{amount} पर्यंत',
+  'Minimum order {amount}': 'किमान ऑर्डर {amount}',
+  'First order only': 'फक्त पहिल्या ऑर्डरसाठी',
+  'Use code {code}': '{code} कोड वापरा',
+  'Applied': 'लागू झाले',
+  'Coupons for you': 'तुमच्यासाठी कूपन',
+  'Use {code} in your cart.': 'तुमच्या कार्टमध्ये {code} वापरा.',
+  'Some items are out of stock.': 'काही वस्तू संपल्या आहेत.',
+  'The store is closed right now.': 'दुकान सध्या बंद आहे.',
+  'The store is too busy right now.': 'दुकान सध्या खूप व्यस्त आहे.',
+  'The store could not deliver to your address.': 'दुकान तुमच्या पत्त्यावर डिलिव्हरी करू शकले नाही.',
 };

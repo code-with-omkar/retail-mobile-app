@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../offers/card_extras.dart';
 import 'coupon_controller.dart';
 
 /// Where the customer types a coupon code, and sees it applied. Used in the cart.
@@ -33,6 +34,13 @@ class _CouponBoxState extends ConsumerState<CouponBox> {
   Widget build(BuildContext context) {
     final p = context.pal;
     final s = ref.watch(couponProvider);
+    // The coupon's animation plays when it becomes applied, not when the same one is checked again.
+    ref.listen(couponProvider, (before, after) {
+      if (!after.applied || after.busy) return;
+      final had = before?.preview;
+      if (had != null && had.valid && had.code == after.preview!.code) return;
+      playCelebration(context, after.preview!.animation);
+    });
     if (s.applied) {
       return Surface(
         child: Row(children: [

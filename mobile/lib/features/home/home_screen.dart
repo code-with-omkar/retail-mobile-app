@@ -20,6 +20,7 @@ import '../notifications/notifications_controller.dart';
 import '../festival/festival.dart';
 import '../../data/repositories/ads_repository.dart';
 import '../ads/ad_banner.dart';
+import '../cart/featured_coupons.dart';
 import '../offers/festival_card.dart';
 import '../offers/offers_controller.dart';
 import '../offers/offers_widgets.dart';
@@ -36,6 +37,15 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  /// Pop-ups wait for each other, and one is only shown while Home is what the customer is looking at.
+  Future<void> _popUps = Future.value();
+
+  void _popUp(Future<void> Function() show) {
+    _popUps = _popUps.then((_) async {
+      if (mounted && (ModalRoute.of(context)?.isCurrent ?? true)) await show();
+    }).catchError((Object _) {});
+  }
+
   static const _searchDebounce = Duration(milliseconds: 350);
 
   final _controller = TextEditingController();
@@ -108,8 +118,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final offers = after.value;
       if (offers != null && offers.any((o) => o.showOnLoad))
         WidgetsBinding.instance.addPostFrameCallback(
-          (_) => mounted ? showLoadOfferIfAny(context, ref, offers) : null,
+          (_) => _popUp(() => showLoadOfferIfAny(context, ref, offers)),
         );
+    });
+    // So does a coupon, once for each customer.
+    ref.listen(featuredCouponsProvider, (before, after) {
+      final coupons = after.value;
+      if (coupons != null && coupons.any((c) => c.showAsPopup)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _popUp(() => showCouponPopupIfAny(context, ref, coupons)));
+      }
     });
     // The bell is checked every minute while Home is in front (not in the background, not on another tab).
     // The festival of the day (if any) takes over the top of Home; searching puts the plain header back so results have room.

@@ -11,6 +11,7 @@ import '../../data/models.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/offers_repository.dart';
 import '../stores/stores_screen.dart';
+import 'card_extras.dart';
 import 'festival_card.dart';
 import 'offers_controller.dart';
 
@@ -91,7 +92,7 @@ class OffersRail extends ConsumerWidget {
                     child: SizedBox(
                       width: width,
                       height: _offerCardHeight(offer),
-                      child: festivalThemeOf(offer.cardDesign) != null
+                      child: Ribbon(offer.ribbon, child: festivalThemeOf(offer.cardDesign) != null
                           ? FestivalCard(offer)
                           : slim
                           ? _SlimOffer(offer, i)
@@ -166,7 +167,7 @@ class OffersRail extends ConsumerWidget {
                                   ),
                                 ),
                               ],
-                            ),
+                            )),
                     ),
                   ),
                 ),
@@ -429,6 +430,11 @@ Future<void> showLoadOfferIfAny(
   if (next == null) return;
   ref.read(shownLoadOffersProvider.notifier).mark(next.id);
   final marathi = context.isMarathi;
+  if (next.animation != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) playCelebration(context, next.animation);
+    });
+  }
   final open = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => Dialog(
@@ -447,7 +453,7 @@ Future<void> showLoadOfferIfAny(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                OfferImage(next.imageUrl, height: 190, radius: 0),
+                Ribbon(next.ribbon, child: OfferImage(next.imageUrl, height: 190, radius: 0)),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(

@@ -127,4 +127,18 @@ describe('CouponsComponent', () => {
     expect(api.post).not.toHaveBeenCalled();
     expect(api.put).not.toHaveBeenCalled();
   });
+
+  it('sends the look: design, picture, ribbon and animation; a pop-up is shown in the cart too, and switching off keeps it all', () => {
+    const { c, api } = open();
+    c.code = 'FEST'; c.kind = 'Flat'; c.value = 20;
+    c.design = 'diwali'; c.imageUrl.set('/media/offers/a.png'); c.ribbon = ' NEW '; c.showAsPopup = true; c.animation = 'confetti';
+    c.save();
+    expect(api.post).toHaveBeenLastCalledWith('/admin/coupons', expect.objectContaining({
+      design: 'diwali', imageUrl: '/media/offers/a.png', ribbon: 'NEW', showInApp: true, showAsPopup: true, animation: 'confetti',
+    }));
+    expect(c.design).toBe('');
+
+    c.toggle(coupon({ design: 'holi', showInApp: true, animation: 'gift' }) as never);
+    expect(api.put).toHaveBeenLastCalledWith('/admin/coupons/c1', expect.objectContaining({ design: 'holi', showInApp: true, animation: 'gift' }));
+  });
 });

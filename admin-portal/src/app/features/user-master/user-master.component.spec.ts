@@ -16,12 +16,13 @@ const users = [
 ];
 
 type Call = (...a: any[]) => Observable<any>;
-type Svc = Partial<Record<'getUsers' | 'getOrganizations' | 'getStores' | 'createUser' | 'updateUser' | 'toggleUserStatus' | 'getRoles' | 'getPermissions', Call>>;
+type Svc = Partial<Record<'getUsersPage' | 'getOrganizations' | 'getStores' | 'createUser' | 'updateUser' | 'toggleUserStatus' | 'getRoles' | 'getPermissions', Call>>;
 const ok = (data: unknown) => () => of({ success: true, data });
+const page = (items: unknown[], over: Record<string, unknown> = {}) => ({ items, totalCount: items.length, page: 1, pageSize: 20, allCount: 3, activeCount: 2, roleCount: 2, ...over });
 
 function open(over: Svc = {}) {
   const svc = {
-    getUsers: ok(users),
+    getUsersPage: vi.fn(ok(page(users))),
     getOrganizations: ok([{ id: 'o1', name: 'QuickCart' }, { id: 'o2', name: 'Other' }]),
     getStores: ok([{ id: 's1', name: 'Kharghar' }]),
     getRoles: ok([{ id: 'r1', code: Role.StoreStaff, name: 'Store Staff', isActive: true, permissions: [{ id: 'p1', code: 'orders:read' }] }]),
@@ -42,73 +43,54 @@ function open(over: Svc = {}) {
 const validForm = (c: UserMasterComponent) => c.form.patchValue({ firstName: 'Meena', lastName: 'Joshi', email: 'meena@shop.in', organizationId: 'o1', role: Role.Customer });
 
 describe('UserMasterComponent', () => {
-  it('loads the users with their full names, plus organisations and roles', () => {
+  it('loads a page of users with their full names and the totals, plus organisations and roles', () => {
     const { c } = open();
 
     expect(c.users().map(u => u.fullName)).toEqual(['Asha Patil', 'Ravi Kale', 'Bina Shah']);
     expect(c.organizations()).toHaveLength(2);
     expect(c.roleOptions()).toEqual([{ value: Role.StoreStaff, label: 'Store Staff' }]);
+    expect(c.roleFilterOptions()[0]).toEqual({ value: 'all', label: 'All roles' });
+    expect([c.total(), c.allCount(), c.activeCount(), c.roleCount()]).toEqual([3, 3, 2, 2]);
     expect(c.isLoading()).toBe(false);
-    expect(c.activeCount()).toBe(2);
-    expect(c.inactiveCount()).toBe(1);
-    expect(c.roleCount()).toBe(2);
   });
 
   it('shows the server message when users cannot be loaded, or the reply says no', () => {
-    const failed = open({ getUsers: () => throwError(() => ({ message: 'Denied' })) }).c;
+    const failed = open({ getUsersPage: () => throwError(() => ({ message: 'Denied' })) }).c;
     expect(failed.apiError()).toBe('Denied');
     expect(failed.isLoading()).toBe(false);
     TestBed.resetTestingModule();
-    expect(open({ getUsers: () => of({ success: false, message: 'Not yours' }) }).c.apiError()).toBe('Not yours');
+    expect(open({ getUsersPage: () => of({ success: false, message: 'Not yours' }) }).c.apiError()).toBe('Not yours');
   });
 
-  it('search, status, role and organisation filters narrow the list', () => {
-    const { c } = open();
+  it('asks the server for the filtered page, starting again at page 1 when a filter changes', () => {
+    const { c, svc } = open();
+    const asked = () => (svc.getUsersPage as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0];
 
-    c.searchTerm.set('RAVI');
-    expect(c.filteredUsers().map(u => u.id)).toEqual(['u2']);
-    c.searchTerm.set('');
-
+    expect(asked()).toEqual({ search: '', role: 'all', status: 'all', sort: 'name', page: 1, pageSize: 20 });
+    c.goTo(3);
+    expect(asked().page).toBe(3);
+    c.searchTerm.set('  ravi ');
     c.onStatusFilterChange(UserStatus.Inactive);
-    expect(c.filteredUsers().map(u => u.id)).toEqual(['u2']);
-    c.onStatusFilterChange('all');
-
     c.onRoleFilterChange(Role.Customer);
-    expect(c.filteredUsers().map(u => u.id).sort()).toEqual(['u2', 'u3']);
-    c.onRoleFilterChange('all');
-
-    c.onOrganizationFilterChange('o1');
-    expect(c.filteredUsers().map(u => u.id).sort()).toEqual(['u1', 'u3']);
+    expect(asked()).toEqual({ search: 'ravi', role: Role.Customer, status: UserStatus.Inactive, sort: 'name', page: 1, pageSize: 20 });
   });
 
-  it('sorts by name, flips on a second click, and goes back to page 1', () => {
+  it('numbers the rows and marks the user being edited', () => {
+    const { f, c } = open();
+    c.openEditForm(c.users()[1]);
+    f.detectChanges();
+    const rows = (f.nativeElement as HTMLElement).querySelectorAll('tbody tr');
+
+    expect(rows).toHaveLength(3);
+    expect(rows[1].classList.contains('active')).toBe(true);
+    expect(rows[0].querySelector('.index')?.textContent).toBe('1');
+  });
+
+  it('keeps an administrator role selectable so saving does not change it', () => {
     const { c } = open();
+    c.openEditForm(user({ role: Role.Admin, staffCategory: null }) as never);
 
-    expect(c.filteredUsers().map(u => u.firstName)).toEqual(['Asha', 'Bina', 'Ravi']);
-    c.page.set(3);
-    c.sortHeader('fullName');
-    expect(c.sortOrder()).toBe('desc');
-    expect(c.page()).toBe(1);
-    expect(c.filteredUsers().map(u => u.firstName)).toEqual(['Ravi', 'Bina', 'Asha']);
-    expect(c.sortMark('fullName')).toBe('▼');
-    expect(c.sortMark('email')).toBe('');
-
-    c.sortHeader('email');
-    expect(c.sortOrder()).toBe('asc');
-  });
-
-  it('pages of 10, and the page number stays within the first and last page', () => {
-    const many = Array.from({ length: 25 }, (_, i) => user({ id: 'x' + i, firstName: 'U' + String(i).padStart(2, '0'), lastName: 'X', email: i + '@x.in' }));
-    const { c } = open({ getUsers: ok(many) });
-
-    expect(c.totalPages()).toBe(3);
-    expect(c.paginatedUsers()).toHaveLength(10);
-    c.onPageChange(3);
-    expect(c.paginatedUsers()).toHaveLength(5);
-    c.onPageChange(99);
-    expect(c.page()).toBe(3);
-    c.onPageChange(-4);
-    expect(c.page()).toBe(1);
+    expect(c.roleOptions().at(-1)).toEqual({ value: Role.Admin, label: 'Administrator' });
   });
 
   it('creating: the form starts empty as a Customer, and an invalid form is not sent', () => {
@@ -136,8 +118,8 @@ describe('UserMasterComponent', () => {
   });
 
   it('a valid new user is sent trimmed, the form closes and the list is read again', () => {
-    const getUsers = vi.fn(ok(users));
-    const { c, svc } = open({ getUsers });
+    const getUsersPage = vi.fn(ok(page(users)));
+    const { c, svc } = open({ getUsersPage });
     c.openCreateForm();
     validForm(c);
     c.form.patchValue({ firstName: '  Meena ' });
@@ -146,7 +128,7 @@ describe('UserMasterComponent', () => {
 
     expect(svc.createUser).toHaveBeenCalledWith(expect.objectContaining({ firstName: 'Meena', email: 'meena@shop.in', storeId: undefined, staffCategory: undefined, role: Role.Customer }));
     expect(c.isFormVisible()).toBe(false);
-    expect(getUsers).toHaveBeenCalledTimes(2);
+    expect(getUsersPage).toHaveBeenCalledTimes(2);
     expect(c.isLoading()).toBe(false);
   });
 
@@ -233,14 +215,14 @@ describe('UserMasterComponent', () => {
   });
 
   it('switching a user on or off sends the opposite status and reads the list again', () => {
-    const getUsers = vi.fn(ok(users));
-    const { c, svc } = open({ getUsers });
+    const getUsersPage = vi.fn(ok(page(users)));
+    const { c, svc } = open({ getUsersPage });
 
     c.toggleUserStatus(c.users()[0]);
     expect(svc.toggleUserStatus).toHaveBeenCalledWith('u1', UserStatus.Inactive);
     c.toggleUserStatus(c.users()[1]);
     expect(svc.toggleUserStatus).toHaveBeenLastCalledWith('u2', UserStatus.Active);
-    expect(getUsers).toHaveBeenCalledTimes(3);
+    expect(getUsersPage).toHaveBeenCalledTimes(3);
   });
 
   it('a failed status change shows the message', () => {

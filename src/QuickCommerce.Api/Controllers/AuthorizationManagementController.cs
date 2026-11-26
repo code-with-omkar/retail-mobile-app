@@ -14,6 +14,11 @@ public sealed class AuthorizationManagementController(IAuthorizationManagementSe
     [HttpGet("users")]
     public async Task<IActionResult> Users(CancellationToken cancellationToken) => Ok(new { success = true, data = await service.GetUsersAsync(cancellationToken) });
 
+    /// <summary>The portal's user list, a page at a time.</summary>
+    [HttpGet("users/paged")]
+    public async Task<IActionResult> UsersPage([FromQuery] string? search, [FromQuery] string? role, [FromQuery] bool? active, [FromQuery] string? sort, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) =>
+        Ok(new { success = true, data = await service.GetUsersPageAsync(new ManagedUserQuery(search, role, active, sort, page, pageSize), cancellationToken) });
+
     [HttpGet("users/{id:guid}")]
     public async Task<IActionResult> GetUser(Guid id, CancellationToken cancellationToken) => await service.GetUserAsync(id, cancellationToken) is { } user
         ? Ok(new { success = true, data = user })

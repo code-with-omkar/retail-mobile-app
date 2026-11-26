@@ -185,6 +185,18 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             user.StoreAssignments.Where(row => row.IsActive && row.EffectiveFrom <= DateTime.UtcNow && (row.EffectiveTo == null || row.EffectiveTo > DateTime.UtcNow)).Select(row => row.StoreId).ToList()))
         .FirstOrDefault());
 
+    public async Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var all = (await GetScopedOrderSummariesAsync(organizationId, storeIds, isApplicationAdmin, cancellationToken))
+            .Where(order => query.Status is null || order.Status == query.Status)
+            .Where(order => query.StoreId is null || order.StoreId == query.StoreId)
+            .Where(order => query.Search is null || order.OrderNumber.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || order.Customer.Contains(query.Search, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(order => order.CreatedAt).ThenByDescending(order => order.Id)
+            .ToArray();
+        return (all.Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToArray(), all.Length);
+    }
+
     public Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Orders.FirstOrDefault(order => order.Id == orderId)?.StoreId);
 
@@ -762,7 +774,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
-    public Task<Campaign?> TrySetCardAsync(Guid id, string? cardDesign, string? imageUrl, CancellationToken cancellationToken = default)
+    public Task<Campaign?> TrySetCardAsync(Guid id, string? cardDesign, string? imageUrl, string? ribbon, string? animation, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
         {
@@ -771,6 +783,8 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             {
                 campaign.CardDesign = cardDesign;
                 campaign.ImageUrl = imageUrl;
+                campaign.Ribbon = ribbon;
+                campaign.Animation = animation;
             }
 
             return Task.FromResult(campaign);
@@ -820,7 +834,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             return Task.FromResult<IReadOnlyList<ActiveOffer>>(Campaigns
                 .Where(campaign => OfferRules.ShowsAsBanner(campaign, now) && OfferRules.AppliesToStore(campaign, storeId))
                 .OrderByDescending(campaign => campaign.StartsAt)
-                .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad, campaign.CardDesign))
+                .Select(campaign => new ActiveOffer(campaign.Id, campaign.TitleEn, string.IsNullOrEmpty(campaign.BodyEn) ? null : campaign.BodyEn, campaign.TitleMr, campaign.BodyMr, campaign.ImageUrl, campaign.DiscountPercent, campaign.EndsAt, campaign.Products.Select(link => link.ProductId).ToArray(), campaign.ShowOnLoad, campaign.CardDesign, campaign.Ribbon, campaign.Animation))
                 .ToArray());
         }
     }
@@ -1051,7 +1065,7 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
-    public Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default)
+    public Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, OrderRejection? rejection = null, CancellationToken cancellationToken = default)
     {
         lock (SyncRoot)
         {
@@ -1074,6 +1088,9 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
             order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
             if (targetStatus == OrderStatus.Rejected)
             {
+                order.RejectionReason = rejection?.Reason;
+                order.RejectionNote = rejection?.Note;
+                order.RejectedBy = rejection?.RejectedBy;
                 EndPayment(order, wasAwaitingPayment: false);
                 foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
                 {

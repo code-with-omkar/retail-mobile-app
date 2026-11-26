@@ -104,6 +104,18 @@ public sealed class CampaignAdminService(
             return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator can choose a card design");
         }
 
+        if (CardExtras.Problem(request.Ribbon, request.Animation) is { } extras)
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: extras);
+        }
+
+        var ribbon = CardExtras.NormalizeRibbon(request.Ribbon);
+        var animation = CardExtras.NormalizeAnimation(request.Animation);
+        if ((ribbon is not null || animation is not null) && !actor.Admin)
+        {
+            return new(CampaignOperationStatus.Unauthorized, Message: "Only an administrator can add a ribbon or an animation");
+        }
+
         if (request.ImageUrl is not null && !OfferImages.IsOwnPath(request.ImageUrl))
         {
             return new(CampaignOperationStatus.InvalidRequest, Message: "Upload the picture first and use the path it returns");
@@ -160,6 +172,8 @@ public sealed class CampaignAdminService(
             EndsAt = endsAt,
             ImageUrl = request.ImageUrl,
             CardDesign = design,
+            Ribbon = ribbon,
+            Animation = animation,
             Products = request.DiscountPercent > 0 ? productIds.Select(id => new CampaignProduct { ProductId = id }).ToList() : []
         };
         await store.AddCampaignAsync(campaign, cancellationToken);
@@ -186,6 +200,11 @@ public sealed class CampaignAdminService(
             return new(CampaignOperationStatus.InvalidRequest, Message: "The picture must be one uploaded here");
         }
 
+        if (CardExtras.Problem(request.Ribbon, request.Animation) is { } extras)
+        {
+            return new(CampaignOperationStatus.InvalidRequest, Message: extras);
+        }
+
         var existing = await store.GetCampaignAsync(id, cancellationToken);
         if (existing is null)
         {
@@ -198,7 +217,7 @@ public sealed class CampaignAdminService(
         }
 
         var image = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl;
-        var updated = await store.TrySetCardAsync(id, design, image, cancellationToken) ?? existing;
+        var updated = await store.TrySetCardAsync(id, design, image, CardExtras.NormalizeRibbon(request.Ribbon), CardExtras.NormalizeAnimation(request.Animation), cancellationToken) ?? existing;
         return new(CampaignOperationStatus.Succeeded, CampaignMapping.ToResponse(updated, await store.GetProductNamesAsync(updated.Products.Select(link => link.ProductId).ToArray(), cancellationToken)));
     }
 

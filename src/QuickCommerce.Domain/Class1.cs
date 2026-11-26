@@ -429,6 +429,15 @@ public sealed class Order
 	public decimal? CommissionPercent { get; set; }
 	public decimal? CommissionAmount { get; set; }
 
+	/// <summary>Why the store declined the order. Null unless rejected, and on orders rejected before reasons were kept.</summary>
+	public string? RejectionReason { get; set; }
+
+	/// <summary>The store's remark about the rejection, for the team only.</summary>
+	public string? RejectionNote { get; set; }
+
+	/// <summary>The staff member or administrator who rejected it.</summary>
+	public Guid? RejectedBy { get; set; }
+
 	/// <summary>What the customer wrote for the store (up to 200 characters); erased when the account is deleted.</summary>
 	public string? OrderNote { get; set; }
 
@@ -690,6 +699,12 @@ public sealed class Campaign
 
 	/// <summary>The festival card design the administrator chose (diwali, ganesh, navratri, holi, sankranti, padwa, eid or christmas). Null is the plain banner.</summary>
 	public string? CardDesign { get; set; }
+
+	/// <summary>A few words across the corner of the offer's card.</summary>
+	public string? Ribbon { get; set; }
+
+	/// <summary>Played in the app when the offer is shown opened. Null is none.</summary>
+	public string? Animation { get; set; }
 
 	/// <summary>The products the discount is for.</summary>
 	public List<CampaignProduct> Products { get; set; } = [];

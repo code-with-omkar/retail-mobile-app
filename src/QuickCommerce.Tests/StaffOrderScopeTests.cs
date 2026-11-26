@@ -185,6 +185,34 @@ public sealed class StaffOrderScopeTests
     }
 
     [Fact]
+    public async Task The_paged_list_keeps_to_the_callers_stores_filters_searches_and_pages_newest_first()
+    {
+        var rig = Create(manager: true);
+        var newer = NewOrder(rig.Data, rig.Primary);
+        newer.CreatedAt = DateTime.UtcNow.AddMinutes(5);
+        var elsewhere = NewOrder(rig.Data, rig.Data.Stores[2]);
+        var organization = rig.Data.Organizations.Single().Id;
+        var mine = new HashSet<Guid> { rig.Primary.Id, rig.Other.Id };
+        Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> Page(AdminOrderQuery query) => rig.Data.GetScopedOrderPageAsync(organization, mine, false, query);
+
+        var first = await Page(new AdminOrderQuery(PageSize: 2));
+        var second = await Page(new AdminOrderQuery(Page: 2, PageSize: 2));
+        var oneStore = await Page(new AdminOrderQuery(StoreId: rig.Other.Id));
+        var notMine = await Page(new AdminOrderQuery(StoreId: rig.Data.Stores[2].Id));
+        var found = await Page(new AdminOrderQuery(Search: newer.OrderNumber[^8..]));
+        var delivered = await Page(new AdminOrderQuery(Status: OrderStatus.Delivered));
+
+        Assert.Equal((3, 2, 1), (first.TotalCount, first.Items.Count, second.Items.Count));
+        Assert.Equal(newer.Id, first.Items[0].Id);
+        Assert.DoesNotContain(first.Items.Concat(second.Items), order => order.Id == elsewhere.Id);
+        Assert.Equal([rig.OtherOrder.Id], oneStore.Items.Select(order => order.Id));
+        Assert.Empty(notMine.Items);
+        Assert.Equal([newer.Id], found.Items.Select(order => order.Id));
+        Assert.Equal(0, delivered.TotalCount);
+        Assert.Equal((1, 100), (new AdminOrderQuery(Page: -3, PageSize: 5000).Clamped().Page, new AdminOrderQuery(PageSize: 5000).Clamped().PageSize));
+    }
+
+    [Fact]
     public async Task An_application_admin_still_sees_every_store()
     {
         var rig = Create(admin: true);

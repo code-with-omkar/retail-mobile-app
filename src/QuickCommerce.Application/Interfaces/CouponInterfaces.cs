@@ -22,7 +22,13 @@ public sealed record CouponResponse(
     bool IsActive,
     int UsedCount,
     decimal DiscountGiven,
-    string Status);
+    string Status,
+    string? Design = null,
+    string? ImageUrl = null,
+    string? Ribbon = null,
+    bool ShowInApp = false,
+    bool ShowAsPopup = false,
+    string? Animation = null);
 
 /// <summary>What an administrator sends to make or change a coupon. Times are UTC.</summary>
 public sealed record SaveCouponRequest(
@@ -37,13 +43,36 @@ public sealed record SaveCouponRequest(
     int? PerCustomerLimit = null,
     bool FirstOrderOnly = false,
     bool IsActive = true,
-    string? Description = null);
+    string? Description = null,
+    string? Design = null,
+    string? ImageUrl = null,
+    string? Ribbon = null,
+    bool ShowInApp = false,
+    bool ShowAsPopup = false,
+    string? Animation = null);
+
+/// <summary>A coupon the app lists to customers. No limits or usage figures: those are the business's.</summary>
+public sealed record FeaturedCoupon(
+    Guid Id,
+    string Code,
+    string? Description,
+    string Kind,
+    decimal Value,
+    decimal? MaxDiscount,
+    decimal MinSubtotal,
+    DateTime? EndsAt,
+    bool FirstOrderOnly,
+    string? Design,
+    string? ImageUrl,
+    string? Ribbon,
+    bool ShowAsPopup,
+    string? Animation);
 
 public sealed record CouponPreviewRequest(string? Code);
 
 /// <summary>What the cart shows for a typed code. When not valid, <see cref="Discount"/> is 0 and <see cref="Message"/> says why.</summary>
 /// <param name="Reason">When not valid, the kind of refusal (NotFound, Inactive, Expired, BelowMinimum, CustomerLimitReached ...); null when valid. For counting, not for showing.</param>
-public sealed record CouponPreviewResponse(bool Valid, string Code, decimal Discount, string Message, decimal Total, string? Reason = null);
+public sealed record CouponPreviewResponse(bool Valid, string Code, decimal Discount, string Message, decimal Total, string? Reason = null, string? Animation = null);
 
 public sealed record CouponSummary(Coupon Coupon, decimal DiscountGiven);
 
@@ -58,6 +87,12 @@ public interface ICouponStore
 
     /// <summary>Saves changes to a coupon already loaded; false when the new code collides with another.</summary>
     Task<bool> SaveAsync(Coupon coupon, CancellationToken cancellationToken = default);
+
+    /// <summary>The organisation an active store belongs to; null when there is no such store.</summary>
+    Task<Guid?> GetStoreOrganizationAsync(Guid storeId, CancellationToken cancellationToken = default);
+
+    /// <summary>The coupons marked to be shown in the app that are running and not used up.</summary>
+    Task<IReadOnlyList<Coupon>> ListShownAsync(Guid organizationId, DateTime now, CancellationToken cancellationToken = default);
 
     /// <summary>How many of the coupon's uses (not given back) are this customer's.</summary>
     Task<int> UsesByUserAsync(Guid couponId, Guid userId, CancellationToken cancellationToken = default);
@@ -78,6 +113,9 @@ public interface ICouponService
     Task<CouponResult<CouponResponse>> CreateAsync(SaveCouponRequest request, CancellationToken cancellationToken = default);
 
     Task<CouponResult<CouponResponse>> UpdateAsync(Guid id, SaveCouponRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>The coupons to list at a store. Anyone may ask; a signed-in customer is not shown one they can no longer use.</summary>
+    Task<CouponResult<IReadOnlyList<FeaturedCoupon>>> FeaturedAsync(Guid storeId, CancellationToken cancellationToken = default);
 
     /// <summary>The customer's cart with a typed code: what it would take off, or why it cannot be used.</summary>
     Task<CouponResult<CouponPreviewResponse>> PreviewAsync(Guid storeId, string? code, CancellationToken cancellationToken = default);

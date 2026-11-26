@@ -25,6 +25,8 @@ public sealed class CampaignConfiguration : IEntityTypeConfiguration<Campaign>
         builder.Property(campaign => campaign.EndsAt).HasColumnType("datetime2");
         builder.Property(campaign => campaign.ImageUrl).HasMaxLength(200);
         builder.Property(campaign => campaign.CardDesign).HasMaxLength(20);
+        builder.Property(campaign => campaign.Ribbon).HasMaxLength(20);
+        builder.Property(campaign => campaign.Animation).HasMaxLength(20);
         // The sender looks for campaigns that are due and not sent yet.
         builder.HasIndex(campaign => campaign.StartsAt).HasFilter("[PublishedAt] IS NULL AND [IsActive] = 1");
         builder.ToTable(table =>

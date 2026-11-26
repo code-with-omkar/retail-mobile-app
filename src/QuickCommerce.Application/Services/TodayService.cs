@@ -23,13 +23,13 @@ public sealed class TodayService(
         Guid chosen;
         if (context.Role == Role.StoreStaff)
         {
-            // Staff see their own store only, whatever they ask for.
             if (context.StoreId is not { } own)
             {
                 return new(TodayStatus.Forbidden, Message: "Store staff must be assigned to a store.");
             }
 
-            chosen = own;
+            // Staff see a store of their own: a manager may ask for any of theirs, otherwise it is the primary one.
+            chosen = storeId is { } asked && context.OrderStoreIds.Contains(asked) ? asked : own;
         }
         else if (storeId is { } named)
         {

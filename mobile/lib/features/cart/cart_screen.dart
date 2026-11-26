@@ -15,6 +15,7 @@ import '../../data/models.dart';
 import '../../data/providers.dart';
 import 'cart_controller.dart';
 import 'coupon_box.dart';
+import 'featured_coupons.dart';
 import 'coupon_controller.dart';
 import 'cart_problems.dart';
 
@@ -94,6 +95,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                   AdPlace.cart,
                   padding: EdgeInsets.only(bottom: 12),
                 ),
+                const FeaturedCoupons(),
                 const CouponBox(),
                 const SizedBox(height: 16),
                 Surface(

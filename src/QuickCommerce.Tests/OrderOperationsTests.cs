@@ -48,7 +48,7 @@ public sealed class OrderOperationsTests
         var order = CreateOrder(data, store.Id);
         var service = CreateService(data);
 
-        var rejected = await service.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Rejected));
+        var rejected = await service.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Rejected, "OutOfStock"));
         var invalid = await service.ChangeStatusAsync(order.Id, new ChangeOrderStatusRequest(OrderStatus.Accepted));
 
         Assert.Equal(OrderOperationStatus.Succeeded, rejected.Status);

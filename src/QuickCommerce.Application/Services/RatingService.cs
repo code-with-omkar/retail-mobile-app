@@ -119,7 +119,7 @@ public sealed partial class RatingService(
                 return RatingResult<RatingReport>.Fail(RatingStatus.Forbidden, "Store staff must be assigned to a store.");
             }
 
-            stores = [own];
+            stores = [storeId is { } asked && context.OrderStoreIds.Contains(asked) ? asked : own];
         }
         else if (storeId is { } chosen)
         {

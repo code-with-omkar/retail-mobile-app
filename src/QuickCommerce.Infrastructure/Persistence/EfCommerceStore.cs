@@ -181,7 +181,46 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             .ThenBy(row => row.order.DeliverySlotStart == null ? 0 : 1)
             .ThenBy(row => row.order.DeliverySlotStart)
             .ThenByDescending(row => row.order.CreatedAt)
-            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd)).ToListAsync(cancellationToken);
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd, row.order.RejectionReason, row.order.RejectionNote, db.Users.Where(user => user.Id == row.order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var orders = db.Orders.AsNoTracking()
+            .Where(order => order.Status != OrderStatus.AwaitingPayment && db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
+        if (!isApplicationAdmin)
+        {
+            orders = orders.Where(order => storeIds.Contains(order.StoreId));
+        }
+
+        if (query.Status is { } status)
+        {
+            orders = orders.Where(order => order.Status == status);
+        }
+
+        if (query.StoreId is { } storeId)
+        {
+            orders = orders.Where(order => order.StoreId == storeId);
+        }
+
+        if (query.Search is { } search)
+        {
+            orders = orders.Where(order => order.OrderNumber.Contains(search) || db.Users.Any(user => user.Id == order.UserId && user.DisplayName.Contains(search)));
+        }
+
+        var total = await orders.CountAsync(cancellationToken);
+        var items = await orders.OrderByDescending(order => order.CreatedAt).ThenByDescending(order => order.Id)
+            .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId,
+                db.Users.Where(user => user.Id == order.UserId).Select(user => user.DisplayName).FirstOrDefault()!, order.StoreId,
+                db.Stores.Where(store => store.Id == order.StoreId).Select(store => store.Name).FirstOrDefault()!,
+                order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId,
+                db.Users.Where(partner => partner.Id == order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(),
+                order.OrderNote, order.OutOfStockChoice, order.DeliverySlotStart, order.DeliverySlotEnd, order.RejectionReason, order.RejectionNote,
+                db.Users.Where(user => user.Id == order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+        return (items, total);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
@@ -625,7 +664,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order), Replayed: true);
     }
 
-    public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default)
+    public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, OrderRejection? rejection = null, CancellationToken cancellationToken = default)
     {
         var order = await db.Orders
             .Include(currentOrder => currentOrder.Items)
@@ -649,6 +688,9 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
         if (targetStatus == OrderStatus.Rejected)
         {
+            order.RejectionReason = rejection?.Reason;
+            order.RejectionNote = rejection?.Note;
+            order.RejectedBy = rejection?.RejectedBy;
             // A paid order the shop declines is refunded in full, and the stock it took goes back to the store (as when the customer cancels).
             await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
             await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);

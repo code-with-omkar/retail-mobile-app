@@ -23,12 +23,6 @@ export function greetingFor(time: Date): string {
           <i [class.online]="isOnline"></i>
           {{ isOnline ? 'API connected' : 'Demo mode' }}
         </div>
-        <button class="icon-button" type="button" (click)="onSearch.emit()" title="Search">
-          ⌕
-        </button>
-        <button class="icon-button" type="button" (click)="onNotifications.emit()" title="Notifications">
-          ♧
-        </button>
         <button class="logout-button" type="button" (click)="onLogout.emit()">
           Logout
         </button>
@@ -43,18 +37,18 @@ export function greetingFor(time: Date): string {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 38px;
+      margin-bottom: 18px;
     }
 
     .header-left { flex: 1; }
 
     .eyebrow {
       margin: 0 0 7px;
-      color: #E9E4FF;
+      color:var(--muted);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       text-transform: uppercase;
     }
 
@@ -62,9 +56,9 @@ export function greetingFor(time: Date): string {
       margin: 0;
       font-size: 25px;
       letter-spacing: -0.8px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       font-weight: 800;
-      color: #fff;
+      color:var(--ink);
     }
 
     h1 span { color: #FFD400; font-size: 20px; }
@@ -73,7 +67,7 @@ export function greetingFor(time: Date): string {
 
     .status {
       color: #141118;
-      background: #02F34C;
+      background: #D9F7E3;
       border-radius: 999px;
       padding: 8px 14px;
       font-size: 11px;
@@ -81,7 +75,7 @@ export function greetingFor(time: Date): string {
       display: flex;
       align-items: center;
       gap: 7px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .status i { display: inline-block; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
@@ -90,7 +84,7 @@ export function greetingFor(time: Date): string {
 
     .icon-button {
       border: 0;
-      background: #EAE4FF;
+      background: #F5F5F7;
       color: #141118;
       cursor: pointer;
       width: 36px;
@@ -106,8 +100,8 @@ export function greetingFor(time: Date): string {
     .icon-button:hover { background: #FFF1A8; }
 
     .logout-button {
-      border: 0;
-      background: #EAE4FF;
+      border: 1px solid #D9D7DF;
+      background: #fff;
       color: #141118;
       cursor: pointer;
       min-height: 36px;
@@ -115,11 +109,11 @@ export function greetingFor(time: Date): string {
       border-radius: 999px;
       font-size: 11px;
       font-weight: 800;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       transition: background .2s;
     }
 
-    .logout-button:hover { background: #FB1A8E; }
+    .logout-button:hover { background: #FFF1A8; }
 
     .mini-avatar {
       display: grid;
@@ -133,7 +127,7 @@ export function greetingFor(time: Date): string {
       font-size: 11px;
       cursor: pointer;
       transition: transform .2s;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .mini-avatar:hover { transform: scale(1.06); }

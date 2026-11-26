@@ -370,6 +370,56 @@ public sealed class CouponEfTests
         }
     }
 
+    [Fact]
+    public async Task Coupons_marked_for_the_app_are_listed_with_their_look()
+    {
+        if (ConnectionString is null) { return; }
+        await using var world = await World.CreateAsync(1, 10);
+        var code = ("T" + Guid.NewGuid().ToString("N")[..8]).ToUpperInvariant();
+        var hidden = "H" + code[1..];
+        try
+        {
+            await using var db = world.Db();
+            var organizationId = await db.Stores.Where(store => store.Id == world.Store.Id).Select(store => store.OrganizationId).SingleAsync();
+            var (userId, _) = await UserOf(world, world.CustomerIds[0]);
+            var customer = new FixedContext(new UserContext(userId, organizationId, null, Role.Customer));
+            var service = new CouponService(new EfCouponStore(db), new FixedScope(true, organizationId), customer, new FixedCart(await CartOf(world, world.CustomerIds[0])));
+            const string picture = "/media/offers/abc.png";
+
+            Assert.Equal(CouponServiceStatus.Invalid, (await service.CreateAsync(new SaveCouponRequest(code, CouponKinds.Flat, 5, Design: "onam"))).Status);
+            Assert.Equal(CouponServiceStatus.Invalid, (await service.CreateAsync(new SaveCouponRequest(code, CouponKinds.Flat, 5, ImageUrl: "https://evil.example/a.png"))).Status);
+            Assert.Equal(CouponServiceStatus.Invalid, (await service.CreateAsync(new SaveCouponRequest(code, CouponKinds.Flat, 5, Ribbon: new string('x', 21)))).Status);
+            Assert.Equal(CouponServiceStatus.Invalid, (await service.CreateAsync(new SaveCouponRequest(code, CouponKinds.Flat, 5, Animation: "fire"))).Status);
+
+            // A pop-up is always listed too.
+            var made = await service.CreateAsync(new SaveCouponRequest(code, CouponKinds.Flat, 5, PerCustomerLimit: 1, Design: " Diwali ", ImageUrl: picture, Ribbon: " NEW ", ShowAsPopup: true, Animation: "Confetti"));
+            Assert.Equal(CouponServiceStatus.Succeeded, made.Status);
+            Assert.True(made.Value!.ShowInApp);
+            Assert.Equal(("diwali", "NEW", "confetti"), (made.Value.Design, made.Value.Ribbon, made.Value.Animation));
+            Assert.Equal(CouponServiceStatus.Succeeded, (await service.CreateAsync(new SaveCouponRequest(hidden, CouponKinds.Flat, 5))).Status);
+
+            var listed = (await service.FeaturedAsync(world.Store.Id)).Value!;
+            var shown = Assert.Single(listed, item => item.Code == code);
+            Assert.Equal((picture, true, "confetti"), (shown.ImageUrl, shown.ShowAsPopup, shown.Animation));
+            Assert.DoesNotContain(listed, item => item.Code == hidden);
+            Assert.Equal("confetti", (await service.PreviewAsync(world.Store.Id, code)).Value!.Animation);
+            Assert.Equal(CouponServiceStatus.NotFound, (await service.FeaturedAsync(Guid.NewGuid())).Status);
+
+            // Once this customer has used their share it is no longer shown to them.
+            var order = await db.Orders.AsNoTracking().Where(item => !db.CouponRedemptions.Any(use => use.OrderId == item.Id)).Select(item => item.Id).FirstOrDefaultAsync();
+            if (order == Guid.Empty) { return; }
+            db.CouponRedemptions.Add(new CouponRedemption { CouponId = made.Value.Id, OrderId = order, UserId = userId, Kind = CouponKinds.Flat, Value = 5, Amount = 5 });
+            await db.SaveChangesAsync();
+            Assert.DoesNotContain((await service.FeaturedAsync(world.Store.Id)).Value!, item => item.Code == code);
+        }
+        finally
+        {
+            await using var cleanup = world.Db();
+            await cleanup.CouponRedemptions.Where(use => cleanup.Coupons.Any(item => item.Id == use.CouponId && (item.Code == code || item.Code == hidden))).ExecuteDeleteAsync();
+            await cleanup.Coupons.Where(item => item.Code == code || item.Code == hidden).ExecuteDeleteAsync();
+        }
+    }
+
     private static async Task<CartResponse> CartOf(World world, Guid customerId)
     {
         await using var db = world.Db();

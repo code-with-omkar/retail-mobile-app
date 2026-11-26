@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
+import { DEFAULT_PAGE_SIZE, PaginationComponent } from '../../shared/components/pagination/pagination.component';
 
 interface StoreCommission { storeId: string; name: string; overridePercent: number | null; effectivePercent: number; }
 interface CommissionData { defaultPercent: number; stores: StoreCommission[]; }
@@ -13,50 +15,102 @@ interface CommissionData { defaultPercent: number; stores: StoreCommission[]; }
 @Component({
   selector: 'app-commission',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent],
   template: `
     <section class="page">
-      <h2>Commission</h2>
-      <p class="muted">What we earn from each store's sales. Changing a percent affects new orders only; orders already placed keep theirs.</p>
-      <p *ngIf="error()" class="error">{{ error() }}</p>
-      <p *ngIf="notice()" class="notice">{{ notice() }}</p>
-      <section class="card" *ngIf="data()">
-        <div class="row"><strong>Default for every store</strong><input type="number" min="0" max="100" step="0.01" name="def" [(ngModel)]="defaultPercent" /><span>%</span><button type="button" class="act" [disabled]="busy()" (click)="saveDefault()">Save</button></div>
-        <div class="row" *ngFor="let s of data()!.stores">
-          <span>{{ s.name }}<small *ngIf="s.overridePercent === null"> (default {{ data()!.defaultPercent }}%)</small></span>
-          <input type="number" min="0" max="100" step="0.01" [name]="'c-' + s.storeId" [ngModel]="storePercent()[s.storeId]" (ngModelChange)="setStore(s.storeId, $event)" [placeholder]="'default ' + data()!.defaultPercent" />
-          <span>%</span>
-          <button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button>
-          <button type="button" class="act ghost" *ngIf="s.overridePercent !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button>
-        </div>
-      </section>
+      <header>
+        <h2>Commission</h2>
+        <p class="muted">What we earn from each store's sales. Changing a percent affects new orders only; orders already placed keep theirs.</p>
+      </header>
+
+      <div class="tiles" *ngIf="data() as d">
+        <article class="tile hero">
+          <p>Default for every store</p>
+          <div class="edit"><input type="number" min="0" max="100" step="0.01" name="def" aria-label="Default percent" [(ngModel)]="defaultPercent" (keyup.enter)="saveDefault()" /><span>%</span><button type="button" class="act dark" [disabled]="busy()" (click)="saveDefault()">Save</button></div>
+        </article>
+        <article class="tile"><p>Stores with their own percent</p><strong>{{ ownCount() }}</strong><small>of {{ d.stores.length }} stores</small></article>
+        <article class="tile"><p>Highest in force</p><strong>{{ highest() }}%</strong><small>lowest {{ lowest() }}%</small></article>
+      </div>
+
+      <div class="filters">
+        <label>Search<input type="search" name="search" placeholder="Store name" [ngModel]="search()" (ngModelChange)="search.set($event); page.set(1)" /></label>
+        <label>Show<select name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event); page.set(1)"><option value="all">All stores</option><option value="own">With own percent</option><option value="default">Using the default</option></select></label>
+      </div>
+
+      <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
+      <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
+
+      <app-data-table [fill]="true" [columns]="columns" [rows]="pageRows()" [loading]="!data() && !error()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No store matches.">
+        <ng-template appCell="store" let-s><strong>{{ s.name }}</strong><small>{{ s.overridePercent === null ? '(default ' + (data()?.defaultPercent ?? 0) + '%)' : 'own percent' }}</small></ng-template>
+        <ng-template appCell="force" let-s><div class="meter"><span class="bar"><i [style.width.%]="s.effectivePercent ?? 0"></i></span><b>{{ s.effectivePercent ?? 0 }}%</b></div></ng-template>
+        <ng-template appCell="own" let-s><span class="edit"><input type="number" min="0" max="100" step="0.01" [name]="'c-' + s.storeId" [attr.aria-label]="'Percent for ' + s.name" [ngModel]="storePercent()[s.storeId]" (ngModelChange)="setStore(s.storeId, $event)" (keyup.enter)="saveStore(s.storeId)" [placeholder]="'default ' + (data()?.defaultPercent ?? 0)" /><span>%</span></span></ng-template>
+        <ng-template appCell="action" let-s>
+          <span class="actions">
+            <button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button>
+            <button type="button" class="act ghost" *ngIf="s.overridePercent !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button>
+          </span>
+        </ng-template>
+      </app-data-table>
+
+      <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
-    .page{max-width:900px}
-    .card{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:20px;display:grid;gap:12px;color:var(--on-card,#141118)}
-    .row{display:flex;gap:10px;align-items:center;font-size:13px}
-    .row>strong,.row>span:first-child{flex:1}
-    .row small{color:var(--on-card-muted,#5E5A66)}
-    input{width:110px;border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:8px 10px;font:inherit;background:#fff;color:#141118}
-    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    :host{display:flex;flex-direction:column;color:var(--ink)}
+    .page{max-width:1100px;width:100%;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+    h2{font-family:var(--display);font-size:28px;letter-spacing:-1px;margin:0 0 4px}
+    .muted{color:var(--muted);font-size:12px;margin:0}
+    .tiles{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px}
+    .tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:grid;gap:4px}
+    .tile.hero{background:var(--yellow);border-color:var(--yellow)}
+    .tile p{margin:0;font-size:11px;font-weight:700}
+    .tile strong{font-family:var(--display);font-size:28px;letter-spacing:-1px}
+    small{display:block;color:var(--muted);font-size:11px}
+    .edit{display:flex;gap:8px;align-items:center}
+    .filters{display:flex;gap:10px;flex-wrap:wrap}
+    label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--muted)}
+    input,select{border:1.5px solid #D9D7DF;border-radius:12px;padding:8px 11px;font:inherit;font-size:12px;background:#fff;color:var(--ink);min-width:0}
+    .hero input{font-size:20px;font-weight:800;width:130px}
+    .filters input{min-width:240px}
+    .edit input[type=number]{width:120px}
+    .meter{display:flex;gap:10px;align-items:center}
+    .bar{width:150px;height:10px;border-radius:999px;background:var(--card);overflow:hidden;border:1px solid var(--line)}
+    .bar i{display:block;height:100%;background:linear-gradient(90deg,#8B7CF6,#F59ACB);border-radius:999px}
+    .actions{display:flex;gap:6px;flex-wrap:wrap}
+    .act{border:1px solid #D5CEF5;border-radius:999px;background:var(--soft);padding:6px 13px;font:800 11px 'Plus Jakarta Sans',sans-serif;color:var(--ink);cursor:pointer}
+    .act.dark{background:#fff;border-color:#fff}
+    .act.ghost{background:#fff;border-color:#D9D7DF}
     .act:disabled{opacity:.5;cursor:default}
-    .act.ghost{background:transparent;color:#141118;border:1px solid rgba(20,17,24,.35)}
-    .error{color:#FFB3D9;font-weight:700}
-    .notice{color:#02F34C;font-weight:700}
+    .error{color:var(--danger);font-weight:700;font-size:12px;margin:0}
+    .notice{color:var(--success);font-weight:700;font-size:12px;margin:0}
+    @media(max-width:800px){.tiles{grid-template-columns:1fr}.bar{width:80px}}
   `],
 })
 export class CommissionComponent implements OnInit {
   private api = inject(ApiService);
+  readonly columns: DataColumn[] = [{ key: 'store', label: 'Store' }, { key: 'force', label: 'In force' }, { key: 'own', label: 'Own percent' }, { key: 'action', label: 'Action' }];
   readonly data = signal<CommissionData | null>(null);
   readonly storePercent = signal<Record<string, string>>({});
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
+  readonly search = signal('');
+  readonly kind = signal('all');
+  readonly page = signal(1);
+  readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
+  readonly changedId = signal<string | null>(null);
   defaultPercent = '0';
+
+  readonly shown = computed(() => {
+    const text = this.search().trim().toLowerCase(), kind = this.kind();
+    return [...(this.data()?.stores ?? [])]
+      .filter(s => (!text || s.name.toLowerCase().includes(text)) && (kind === 'all' || (s.overridePercent !== null) === (kind === 'own')))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+  readonly pageRows = computed(() => this.shown().slice((this.page() - 1) * this.pageSize(), this.page() * this.pageSize()).map(s => ({ ...s, id: s.storeId })));
+  readonly ownCount = computed(() => this.data()?.stores.filter(s => s.overridePercent !== null).length ?? 0);
+  readonly highest = computed(() => Math.max(0, ...(this.data()?.stores.map(s => s.effectivePercent ?? 0) ?? [])));
+  readonly lowest = computed(() => (this.data()?.stores.length ? Math.min(...this.data()!.stores.map(s => s.effectivePercent ?? 0)) : 0));
 
   ngOnInit() {
     this.api.get<CommissionData>('/admin/commission').subscribe({ next: r => this.show(r.data), error: e => this.error.set(e?.message ?? 'Could not load commission.') });
@@ -83,6 +137,6 @@ export class CommissionComponent implements OnInit {
   }
 
   saveDefault() { this.save('/admin/commission/default', this.defaultPercent); }
-  saveStore(id: string) { this.save('/admin/commission/stores/' + id, this.storePercent()[id] ?? ''); }
-  clearStore(id: string) { this.save('/admin/commission/stores/' + id, null); }
+  saveStore(id: string) { this.changedId.set(id); this.save('/admin/commission/stores/' + id, this.storePercent()[id] ?? ''); }
+  clearStore(id: string) { this.changedId.set(id); this.save('/admin/commission/stores/' + id, null); }
 }

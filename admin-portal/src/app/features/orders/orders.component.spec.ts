@@ -14,7 +14,9 @@ function apiWith(routes: { get?: Record<string, unknown>; post?: Record<string, 
   const reply = (table: Record<string, unknown> = {}, url: string) => {
     const hit = table[url];
     if (hit instanceof Error) return throwError(() => ({ message: hit.message }));
-    return of({ success: true, data: hit ?? null });
+    // tests give the list as an array; the server sends it as a page
+    const data = url === '/orders/paged' && Array.isArray(hit) ? { items: hit, totalCount: hit.length, page: 1, pageSize: 20, stores: [{ id: 's1', name: 'Kharghar' }, { id: 's2', name: 'Panvel' }] } : hit;
+    return of({ success: true, data: data ?? null });
   };
   return {
     get: vi.fn(((url: string) => reply(routes.get, url.split('?')[0])) as Call),
@@ -36,22 +38,23 @@ describe('OrdersComponent', () => {
   afterEach(() => vi.useRealTimers());
 
   it('lists the orders and turns the status number into its name', async () => {
-    const f = await open(apiWith({ get: { '/orders': [order(), order({ id: 'o2', orderNumber: 'ORD-2', status: 2 })] } }));
+    const f = await open(apiWith({ get: { '/orders/paged': [order(), order({ id: 'o2', orderNumber: 'ORD-2', status: 2 })] } }));
 
     expect(f.componentInstance.orders().map(o => o.status)).toEqual(['Pending', 'Preparing']);
     expect(text(f)).toContain('ORD-1');
     expect(text(f)).toContain('NEW'); // only the pending one
     expect(text(f)).toContain('Packing'); // Preparing is shown as Packing
+    expect(Array.from((f.nativeElement as HTMLElement).querySelectorAll('tbody td.index')).map(td => td.textContent)).toEqual(['1', '2']);
   });
 
   it('says so when there are no orders, and shows the message when loading fails', async () => {
-    expect(text(await open(apiWith({ get: { '/orders': [] } })))).toContain('No orders found.');
+    expect(text(await open(apiWith({ get: { '/orders/paged': [] } })))).toContain('No orders found.');
     TestBed.resetTestingModule();
-    expect(text(await open(apiWith({ get: { '/orders': new Error('Boom') } })))).toContain('Boom');
+    expect(text(await open(apiWith({ get: { '/orders/paged': new Error('Boom') } })))).toContain('Boom');
   });
 
   it('shows the customer note and what to do when an item is out of stock', async () => {
-    const f = await open(apiWith({ get: { '/orders': [order({ note: 'Ring twice', outOfStockChoice: 'Replace' })] } }));
+    const f = await open(apiWith({ get: { '/orders/paged': [order({ note: 'Ring twice', outOfStockChoice: 'Replace' })] } }));
 
     expect(text(f)).toContain('Note: Ring twice');
     expect(text(f)).toContain('replace with a similar item');
@@ -60,7 +63,7 @@ describe('OrdersComponent', () => {
   });
 
   it('offers the next step for each status and no Complete once a partner has the order', async () => {
-    const f = await open(apiWith({ get: { '/orders': [] } }));
+    const f = await open(apiWith({ get: { '/orders/paged': [] } }));
     const c = f.componentInstance;
 
     expect(c.stepsFor(order({ status: 'Pending' }) as never).map(s => s.label)).toEqual(['Accept', 'Reject']);
@@ -71,18 +74,38 @@ describe('OrdersComponent', () => {
   });
 
   it('a step posts the status code, says it is done and reads the list again', async () => {
-    const api = apiWith({ get: { '/orders': [order()] }, post: { '/operations/orders/o1/status': {} } });
+    const api = apiWith({ get: { '/orders/paged': [order()] }, post: { '/operations/orders/o1/status': {} } });
     const f = await open(api);
 
     f.componentInstance.change(f.componentInstance.orders()[0], { label: 'Accept', code: 1 });
 
     expect(api.post).toHaveBeenCalledWith('/operations/orders/o1/status', { status: 1 });
     expect(f.componentInstance.notice()).toBe('ORD-1: Accept done.');
-    expect(api.get.mock.calls.filter(c => c[0] === '/orders')).toHaveLength(2);
+    expect(api.get.mock.calls.filter(c => c[0] === '/orders/paged')).toHaveLength(2);
+  });
+
+  it('Reject asks for a reason first, and sends it with the remark; Other needs a remark', async () => {
+    const api = apiWith({ get: { '/orders/paged': [order()] }, post: { '/operations/orders/o1/status': {} } });
+    const f = await open(api);
+    const c = f.componentInstance;
+
+    c.change(c.orders()[0], { label: 'Reject', code: 5 });
+    expect(api.post).not.toHaveBeenCalled();
+    expect(c.rejectReason()).toBe('OutOfStock');
+
+    c.rejectReason.set('Other');
+    c.reject(c.rejecting()!);
+    expect(api.post).not.toHaveBeenCalled();
+
+    c.rejectNote.set(' Power cut ');
+    c.reject(c.rejecting()!);
+    expect(api.post).toHaveBeenCalledWith('/operations/orders/o1/status', { status: 5, reason: 'Other', note: 'Power cut' });
+    expect(c.rejecting()).toBeNull();
+    expect(c.notice()).toBe('ORD-1: rejected.');
   });
 
   it('a failed step shows the server message', async () => {
-    const api = apiWith({ get: { '/orders': [order()] }, post: { '/operations/orders/o1/status': new Error('Already accepted') } });
+    const api = apiWith({ get: { '/orders/paged': [order()] }, post: { '/operations/orders/o1/status': new Error('Already accepted') } });
     const f = await open(api);
 
     f.componentInstance.change(f.componentInstance.orders()[0], { label: 'Accept', code: 1 });
@@ -92,7 +115,7 @@ describe('OrdersComponent', () => {
   });
 
   it('for a Ready order it loads that store\'s delivery partners, and Give needs one chosen', async () => {
-    const api = apiWith({ get: { '/orders': [order({ status: 3 })], '/delivery/partners': [{ id: 'd1', name: 'Rina', activeDeliveries: 1 }] }, post: { '/operations/orders/o1/assign': {} } });
+    const api = apiWith({ get: { '/orders/paged': [order({ status: 3 })], '/delivery/partners': [{ id: 'd1', name: 'Rina', activeDeliveries: 1 }] }, post: { '/operations/orders/o1/assign': {} } });
     const f = await open(api);
     const c = f.componentInstance;
 
@@ -115,7 +138,7 @@ describe('OrdersComponent', () => {
     ];
     const opened = async (extraPost: Record<string, unknown> = {}) => {
       const api = apiWith({
-        get: { '/orders': [order({ status: 2 })], '/orders/o1': { items }, '/operations/orders/o1/replacements': [] },
+        get: { '/orders/paged': [order({ status: 2 })], '/orders/o1': { items }, '/operations/orders/o1/replacements': [] },
         post: { '/operations/orders/o1/change': { newTotal: 86, change: { refundAmount: 68 } }, ...extraPost },
       });
       const f = await open(api);
@@ -185,10 +208,41 @@ describe('OrdersComponent', () => {
     });
   });
 
+  it('asks the server for one page, and starts at page 1 again when the search or a filter changes', async () => {
+    const api = apiWith({ get: { '/orders/paged': [order()] } });
+    const f = await open(api);
+    const c = f.componentInstance;
+    const asked = () => api.get.mock.calls.filter(call => call[0] === '/orders/paged').at(-1)![1];
+
+    expect(asked()).toEqual({ params: { page: 1, pageSize: 20 } });
+    c.goTo(3);
+    expect(asked()).toEqual({ params: { page: 3, pageSize: 20 } });
+    c.search.set('  asha '); c.status.set('0'); c.storeFilter.set('s2'); c.filter();
+    expect(asked()).toEqual({ params: { page: 1, pageSize: 20, search: 'asha', status: '0', storeId: 's2' } });
+  });
+
+  it('the order acted on stays in its row with its new status even when the filter would drop it, and goes on a new search', async () => {
+    const first = [order({ id: 'o1', orderNumber: 'ORD-1' }), order({ id: 'o2', orderNumber: 'ORD-2' })];
+    const routes: { get: Record<string, unknown>; post: Record<string, unknown> } = { get: { '/orders/paged': first }, post: { '/operations/orders/o1/status': {} } };
+    const f = await open(apiWith(routes));
+    const c = f.componentInstance;
+
+    routes.get['/orders/paged'] = [first[1]]; // filtered to new orders: the accepted one is no longer sent
+    c.change(c.orders()[0], { label: 'Accept', code: 1 });
+    f.detectChanges();
+
+    expect(c.orders().map(o => [o.id, o.status])).toEqual([['o1', 'Accepted'], ['o2', 'Pending']]);
+    expect((f.nativeElement as HTMLElement).querySelector('tbody tr.active')?.textContent).toContain('ORD-1');
+
+    c.filter();
+    expect(c.orders().map(o => o.id)).toEqual(['o2']);
+    expect(c.changedId()).toBeNull();
+  });
+
   it('a scheduled order shows its window in India time, and an order for now shows none', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-02T04:30:00Z')); // 10:00 in India
-    const f = await open(apiWith({ get: { '/orders': [
+    const f = await open(apiWith({ get: { '/orders/paged': [
       order({ id: 'o1', orderNumber: 'ORD-1', deliverySlotStart: '2026-11-02T08:30:00Z', deliverySlotEnd: '2026-11-02T09:30:00Z' }),
       order({ id: 'o2', orderNumber: 'ORD-2', deliverySlotStart: '2026-11-03T03:30:00Z', deliverySlotEnd: '2026-11-03T04:30:00Z' }),
       order({ id: 'o3', orderNumber: 'ORD-3' }),
@@ -204,9 +258,9 @@ describe('OrdersComponent', () => {
 
   it('the list is read again every 15 seconds while the page is in front, and stops when it is closed', async () => {
     vi.useFakeTimers();
-    const api = apiWith({ get: { '/orders': [] } });
+    const api = apiWith({ get: { '/orders/paged': [] } });
     const f = await open(api);
-    const reads = () => api.get.mock.calls.filter(c => c[0] === '/orders').length;
+    const reads = () => api.get.mock.calls.filter(c => c[0] === '/orders/paged').length;
 
     expect(reads()).toBe(1);
     vi.advanceTimersByTime(15000);

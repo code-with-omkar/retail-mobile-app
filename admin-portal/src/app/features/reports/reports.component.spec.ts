@@ -42,7 +42,7 @@ describe('ReportsComponent', () => {
     const f = open(Role.StoreStaff, get);
     const c = f.componentInstance;
 
-    expect(get).toHaveBeenCalledWith('/reports', { params: { from: c.from, to: c.to, storeId: null } });
+    expect(get).toHaveBeenCalledWith('/reports', { params: { from: c.from, to: c.to, storeId: 's1' } });
     expect(get).toHaveBeenCalledWith('/reports/ratings', expect.anything());
     expect(c.report()?.totals.orders).toBe(10);
     expect(c.ratings()?.summary.count).toBe(4);
@@ -81,22 +81,21 @@ describe('ReportsComponent', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('an administrator gets the active stores and can narrow the report to one; others never send a store', () => {
+  it('starts on the first store, an administrator can go back to all stores, and staff choose only among what the server gave them', () => {
     const get = vi.fn(answer);
     const c = open(Role.Admin, get).componentInstance;
 
     expect(c.stores().map(s => s.name)).toEqual(['Kharghar']);
-    c.storeId = 's1';
+    expect(c.storeId).toBe('s1');
+    c.storeId = '';
     c.load();
-    expect(get).toHaveBeenLastCalledWith('/reports/ratings', { params: expect.objectContaining({ storeId: 's1' }) });
+    expect(get).toHaveBeenLastCalledWith('/reports/ratings', { params: expect.objectContaining({ storeId: null }) });
 
     const staff = vi.fn(answer);
     TestBed.resetTestingModule();
     const s = open(Role.StoreStaff, staff).componentInstance;
-    s.storeId = 's1';
-    s.load();
-    expect(staff).toHaveBeenLastCalledWith('/reports/ratings', { params: expect.objectContaining({ storeId: null }) });
-    expect(staff).not.toHaveBeenCalledWith('/stores');
+    expect(staff).toHaveBeenCalledWith('/stores');
+    expect(s.canChooseStore()).toBe(false); // one store: nothing to choose
   });
 
   it('a failed load clears the report and shows the message; failing ratings alone stay quiet', () => {

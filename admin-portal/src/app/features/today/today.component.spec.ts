@@ -39,22 +39,21 @@ describe('TodayComponent', () => {
   it('store staff see their store at once, with the counts', () => {
     const { f, api } = open(Role.StoreStaff, answer());
 
-    expect(api.get).toHaveBeenCalledWith('/store-today', { params: { storeId: null } });
+    expect(api.get).toHaveBeenCalledWith('/store-today', { params: { storeId: 's1' } });
     expect(text(f)).toContain('Today · Kharghar');
     expect(text(f)).toContain('of 12 placed today');
     expect(text(f)).toContain('₹5,400');
   });
 
-  it('an administrator loads the active stores first and sees nothing until one is chosen', () => {
-    const { f, c, api } = open(Role.Admin, answer());
+  it('an administrator starts on the first store by name and can pick another', () => {
+    const get: Call = url => of({ success: true, data: url === '/stores' ? [{ id: 's3', name: 'Panvel', isActive: true }, { id: 's1', name: 'Belapur', isActive: true }, { id: 's2', name: 'Closed', isActive: false }] : summary() });
+    const { c, api } = open(Role.Admin, get);
 
-    expect(c.stores().map(s => s.name)).toEqual(['Kharghar']);
-    expect(api.get).not.toHaveBeenCalledWith('/store-today', expect.anything());
-    expect(text(f)).toContain('Choose a store to see its day.');
+    expect(c.stores().map(s => s.name)).toEqual(['Belapur', 'Panvel']);
+    expect(api.get).toHaveBeenCalledWith('/store-today', { params: { storeId: 's1' } });
 
-    c.choose('s1');
-    expect(api.get).toHaveBeenLastCalledWith('/store-today', { params: { storeId: 's1' } });
-    expect(c.summary()?.storeName).toBe('Kharghar');
+    c.choose('s3');
+    expect(api.get).toHaveBeenLastCalledWith('/store-today', { params: { storeId: 's3' } });
   });
 
   it('says nothing needs attention when there are no alerts, and quotes the limits', () => {
@@ -105,9 +104,9 @@ describe('TodayComponent', () => {
     expect(reads()).toBe(2);
   });
 
-  it('an administrator is not refreshed until a store is chosen', () => {
+  it('with no store to show, an administrator reads nothing and is not refreshed', () => {
     vi.useFakeTimers();
-    const { api } = open(Role.Admin, answer());
+    const { api } = open(Role.Admin, url => of({ success: true, data: url === '/stores' ? [] : summary() }));
     vi.advanceTimersByTime(60000);
     expect(api.get.mock.calls.filter(x => x[0] === '/store-today')).toHaveLength(0);
   });

@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { storeChoices } from '../../shared/utils/stores';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Role, Store } from '../../core/models/domain.model';
@@ -38,7 +39,7 @@ declare const Razorpay: any;
       <section class="card">
         <h3>Find a pincode</h3>
         <div class="fee-row"><input name="pincode" [(ngModel)]="pincode" maxlength="6" placeholder="e.g. 410209" /><button class="primary" type="button" [disabled]="busy() || pincode.length !== 6" (click)="loadMarket()">Show weeks</button></div>
-        <label *ngIf="isAdmin()">Bid for store
+        <label *ngIf="canChooseStore()">Bid for store
           <select name="store" [(ngModel)]="storeId"><option value="">Choose a store</option><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select>
         </label>
         <p class="error" *ngIf="error()">{{ error() }}</p>
@@ -76,35 +77,35 @@ declare const Razorpay: any;
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
+    :host{display:block;font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    h2{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:var(--ink)}
     h3{margin:0 0 8px;color:var(--on-card,#141118);font-size:16px}
-    .list-title{color:#fff;margin-top:8px}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
+    .list-title{color:var(--ink);margin-top:8px}
+    .muted{color:var(--muted);font-size:12px;margin:0 0 20px}
     .page{max-width:1100px}
-    .card{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:20px;display:grid;gap:12px;margin-bottom:24px;color:var(--on-card,#141118)}
+    .card{background:var(--card-bg,#F5F5F7);border-radius:24px;padding:20px;display:grid;gap:12px;margin-bottom:24px;color:var(--on-card,#141118)}
     label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--on-card-muted,#5E5A66)}
     input,select{border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:8px 12px;font:inherit;background:#fff;color:#141118;max-width:220px}
     .check{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--on-card,#141118)}
     .check input{max-width:none}
     .fee-row{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--on-card,#141118)}
     .fee-row>span:first-child{flex:1}
-    .primary{justify-self:start;border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Inter',sans-serif;cursor:pointer}
+    .primary{justify-self:start;border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
     .primary:disabled{opacity:.5;cursor:default}
     .error{color:#B00060;margin:0;font-weight:700}
     .notice{color:#04782F;margin:0;font-weight:700}
-    .table{background:var(--card-bg,#EAE4FF);border-radius:24px;overflow:auto}
-    .card .table{background:rgba(255,255,255,.55)}
+    .table{background:var(--card-bg,#F5F5F7);border-radius:24px;overflow:auto}
+    .card .table{background:rgba(20,17,24,0.28)}
     .row{display:grid;grid-template-columns:1.5fr 1.2fr 1.3fr 1.1fr 1.3fr 1.4fr;gap:12px;padding:12px 18px;border-top:1px solid rgba(20,17,24,.12);min-width:820px;font-size:12px;color:var(--on-card-muted,#5E5A66);align-items:center}
     .row strong{color:var(--on-card,#141118)}
     .head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
     .mine{font-style:normal;background:#02F34C;color:#141118;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:800;margin-left:4px}
-    .badge{justify-self:start;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;background:#C9C2F0;color:#141118}
+    .badge{justify-self:start;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;background:#ECECF0;color:#141118}
     .badge-leading{background:#02F34C}
     .badge-awaitingpayment{background:#FFB020}
-    .badge-outbid,.badge-cancelled{background:#FB1A8E}
+    .badge-outbid,.badge-cancelled{background:#C42F1D}
     .actions{display:flex;gap:6px;flex-wrap:wrap}
-    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:#EEEAFF;color:#141118}
     .act.pay{background:#02F34C;color:#141118}
     .act:disabled{opacity:.5;cursor:default}
   `],
@@ -130,6 +131,9 @@ export class PlacementComponent implements OnInit {
   minStepRupees = '100';
   weeksAhead = 4;
 
+  /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
+
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
   rupees(paise: number) { return '₹' + (paise / 100).toFixed(2).replace(/\.00$/, ''); }
   setAmount(week: string, value: string) { this.amounts.set({ ...this.amounts(), [week]: value }); }
@@ -145,7 +149,7 @@ export class PlacementComponent implements OnInit {
     this.loading.set(true);
     this.loadBids();
     this.api.get<Rules>('/placement/rules').subscribe({ next: r => this.showRules(r.data), error: () => {} });
-    if (this.isAdmin()) this.api.get<Store[]>('/stores').subscribe({ next: r => this.stores.set((r.data ?? []).filter(s => s.isActive)), error: () => {} });
+    if (this.isAdmin()) this.api.get<Store[]>('/stores').subscribe({ next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; }, error: () => {} });
   }
 
   private showRules(r?: Rules) {

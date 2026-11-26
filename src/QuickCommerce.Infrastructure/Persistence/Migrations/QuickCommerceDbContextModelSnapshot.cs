@@ -463,6 +463,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Animation")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("BodyEn")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -520,6 +524,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("RecipientCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("Ribbon")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<bool>("ShowOnLoad")
                         .ValueGeneratedOnAdd()
@@ -879,6 +887,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Animation")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -895,11 +907,19 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Design")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<DateTime?>("EndsAt")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("FirstOrderOnly")
                         .HasColumnType("bit");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -922,6 +942,16 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("PerCustomerLimit")
                         .HasColumnType("int");
+
+                    b.Property<string>("Ribbon")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("ShowAsPopup")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ShowInApp")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("StartsAt")
                         .HasColumnType("datetime2");
@@ -1422,6 +1452,17 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("ReceiverPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("RejectedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RejectionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RejectionReason")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 

@@ -180,6 +180,10 @@ export interface AdminOrder {
   /** The window the customer chose for scheduled delivery (UTC); both missing for "as soon as possible". */
   deliverySlotStart?: string | null;
   deliverySlotEnd?: string | null;
+  /** Why the store rejected it, the team's remark and who did it. */
+  rejectionReason?: string | null;
+  rejectionNote?: string | null;
+  rejectedBy?: string | null;
 }
 
 export interface Notification {

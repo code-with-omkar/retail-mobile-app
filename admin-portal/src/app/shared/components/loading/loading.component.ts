@@ -25,7 +25,7 @@ import { CommonModule } from '@angular/common';
     .loading-container.fullscreen {
       position: fixed;
       inset: 0;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(20,17,24,0.45);
       z-index: 9999;
     }
 

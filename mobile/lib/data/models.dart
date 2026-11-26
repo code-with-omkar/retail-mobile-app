@@ -355,6 +355,7 @@ class Order {
     this.replacement,
     this.couponCode,
     this.couponDiscount = 0,
+    this.rejectionReason,
     this.deliverySlotStart,
     this.deliverySlotEnd,
     this.storeRating,
@@ -375,6 +376,9 @@ class Order {
   /// The coupon used on this order and what it took off the total (0 and null when none).
   final String? couponCode;
   final double couponDiscount;
+
+  /// Why the store declined the order; null otherwise.
+  final String? rejectionReason;
 
   /// An open replacement waiting for the customer's answer, if any.
   final Replacement? replacement;
@@ -441,6 +445,7 @@ class Order {
         replacement: replacement,
         couponCode: couponCode,
         couponDiscount: couponDiscount,
+        rejectionReason: rejectionReason,
         deliverySlotStart: deliverySlotStart,
         deliverySlotEnd: deliverySlotEnd,
         storeRating: storeRating,
@@ -479,6 +484,7 @@ class Order {
     replacement: replacement,
     couponCode: couponCode,
     couponDiscount: couponDiscount,
+    rejectionReason: rejectionReason,
     deliverySlotStart: deliverySlotStart,
     deliverySlotEnd: deliverySlotEnd,
     storeRating: storeRating,

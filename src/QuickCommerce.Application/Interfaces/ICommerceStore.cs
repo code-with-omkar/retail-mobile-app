@@ -58,9 +58,12 @@ public interface ICommerceStore
     Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default);
     /// <summary>Turns the cart into an order, taking stock, in one transaction. With an idempotency key a repeat returns the earlier order.</summary>
     Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default);
+    /// <summary>One page of the orders staff or an administrator may see, newest first, so a row stays put when its status changes.</summary>
+    Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default);
+
     /// <summary>The store an order belongs to, or null when there is no such order.</summary>
     Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default);
 
-    Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default);
+    Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, QuickCommerce.Application.Services.OrderRejection? rejection = null, CancellationToken cancellationToken = default);
     Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default);
 }

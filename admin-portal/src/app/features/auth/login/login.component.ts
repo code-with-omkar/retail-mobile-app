@@ -59,7 +59,7 @@ import { Role } from '../../../core/models/domain.model';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(145deg, #2A1BFF 0%, #6A11E8 50%, #B00699 100%);
+      background: transparent;
       padding: 20px;
     }
 
@@ -86,16 +86,16 @@ import { Role } from '../../../core/models/domain.model';
       margin: 0 auto 18px;
       font-weight: 800;
       font-size: 26px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       box-shadow: 0 8px 24px rgba(255,212,0,0.35);
     }
 
     h1 {
       margin: 0 0 8px;
       font-size: 22px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       font-weight: 700;
-      color: #fff;
+      color:var(--ink);
       letter-spacing: -0.5px;
     }
 
@@ -105,20 +105,20 @@ import { Role } from '../../../core/models/domain.model';
 
     .login-header p {
       margin: 0;
-      color: #E9E4FF;
+      color:var(--muted);
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .login-error {
       margin: 0;
       padding: 12px 14px;
       border-radius: 14px;
-      background: #fff;
+      background: #FDECEA;
       color: #9B2414;
-      font: 700 12px/1.4 'Inter', sans-serif;
+      font: 700 12px/1.4 'Plus Jakarta Sans', sans-serif;
     }
 
     .login-form {

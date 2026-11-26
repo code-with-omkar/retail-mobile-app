@@ -32,21 +32,17 @@ describe('StockComponent', () => {
     const get = vi.fn(() => of({ success: true, data: [row()] }));
     const f = await open({ get });
 
-    expect(get).toHaveBeenCalledWith('/stock', { params: { storeId: null } });
+    expect(get).toHaveBeenCalledWith('/stock', { params: { storeId: null } }); // no store list came back: the server uses their own
     expect(text(f)).toContain('Milk');
     expect(f.componentInstance.isAdmin()).toBe(false);
   });
 
-  it('an administrator loads the stores first and sees no stock until one is chosen', async () => {
-    const get = vi.fn((url: string) => of({ success: true, data: url === '/stores' ? [{ id: 's1', name: 'Kharghar', isActive: true }, { id: 's2', name: 'Closed', isActive: false }] : [row()] }));
+  it('an administrator starts on the first store by name', async () => {
+    const get = vi.fn((url: string) => of({ success: true, data: url === '/stores' ? [{ id: 's3', name: 'Panvel', isActive: true }, { id: 's1', name: 'Belapur', isActive: true }, { id: 's2', name: 'Closed', isActive: false }] : [row()] }));
     const f = await open({ get }, Role.Admin);
 
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(f.componentInstance.stores().map(s => s.name)).toEqual(['Kharghar']); // inactive stores are left out
-    expect(f.componentInstance.rows()).toEqual([]);
-
-    f.componentInstance.storeId = 's1';
-    f.componentInstance.load();
+    expect(f.componentInstance.stores().map(s => s.name)).toEqual(['Belapur', 'Panvel']); // inactive stores are left out
+    expect(f.componentInstance.storeId).toBe('s1');
     expect(get).toHaveBeenLastCalledWith('/stock', { params: { storeId: 's1' } });
     expect(f.componentInstance.rows()).toHaveLength(1);
   });

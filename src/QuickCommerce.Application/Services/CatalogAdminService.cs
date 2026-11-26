@@ -323,7 +323,7 @@ public sealed class StockService(ICatalogAdminStore store, ICurrentUserContextRe
 {
     public const int MaxQuantity = 100_000;
 
-    /// <summary>Staff always use their own store; an administrator names one. Null = not allowed.</summary>
+    /// <summary>Staff use a store of their own (a manager any of theirs, otherwise the primary one); an administrator names one. Null = not allowed.</summary>
     private async Task<(Guid? StoreId, CatalogAdminStatus Status, string? Message)> ScopeAsync(Guid? requested, CancellationToken cancellationToken)
     {
         var context = await contextResolver.ResolveAsync(cancellationToken);
@@ -332,7 +332,7 @@ public sealed class StockService(ICatalogAdminStore store, ICurrentUserContextRe
             return (null, CatalogAdminStatus.Forbidden, "Only store staff or an administrator can manage stock.");
         }
 
-        var storeId = context.Role == Role.StoreStaff ? context.StoreId : requested;
+        var storeId = context.Role != Role.StoreStaff ? requested : requested is { } asked && context.OrderStoreIds.Contains(asked) ? asked : context.StoreId;
         if (storeId is null)
         {
             return (null, context.Role == Role.StoreStaff ? CatalogAdminStatus.Forbidden : CatalogAdminStatus.Invalid, context.Role == Role.StoreStaff ? "Store staff must be assigned to a store." : "Choose a store.");

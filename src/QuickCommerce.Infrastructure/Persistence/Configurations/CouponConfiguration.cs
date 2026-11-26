@@ -19,6 +19,10 @@ public sealed class CouponConfiguration : IEntityTypeConfiguration<Coupon>
         builder.Property(coupon => coupon.EndsAt).HasColumnType("datetime2");
         builder.Property(coupon => coupon.CreatedAt).HasColumnType("datetime2");
         builder.Property(coupon => coupon.CreatedBy).HasMaxLength(200);
+        builder.Property(coupon => coupon.Design).HasMaxLength(20);
+        builder.Property(coupon => coupon.ImageUrl).HasMaxLength(200);
+        builder.Property(coupon => coupon.Ribbon).HasMaxLength(20);
+        builder.Property(coupon => coupon.Animation).HasMaxLength(20);
         builder.HasIndex(coupon => new { coupon.OrganizationId, coupon.Code }).IsUnique();
         builder.HasOne<Organization>().WithMany().HasForeignKey(coupon => coupon.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.ToTable(table =>

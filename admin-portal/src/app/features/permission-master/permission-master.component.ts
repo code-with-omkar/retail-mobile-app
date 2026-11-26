@@ -33,7 +33,7 @@ interface GroupChip { name: string; count: number; accent: Accent; }
         </div>
         <div class="chips" role="tablist" aria-label="Filter by group">
           <button type="button" class="chip all" [class.active]="group() === 'all'" (click)="group.set('all')">All <b>{{ permissions().length }}</b></button>
-          <button type="button" class="chip" *ngFor="let chip of chips()" [class.active]="group() === chip.name" [style.--solid]="chip.accent.solid" [style.--tint]="chip.accent.tint" (click)="group.set(chip.name)">
+          <button type="button" class="chip" *ngFor="let chip of chips()" [class.active]="group() === chip.name" (click)="group.set(chip.name)">
             {{ chip.name }} <b>{{ chip.count }}</b>
           </button>
         </div>
@@ -58,30 +58,32 @@ interface GroupChip { name: string; count: number; accent: Accent; }
     </main>
   `,
   styles: [`
-    :host { display: block; color: #141118; font-family: 'Inter', sans-serif; }
+    @media (max-width: 900px) { .stats { grid-template-columns: 1fr 1fr !important; } .grid { grid-template-columns: 1fr !important; } }
+    .grid .card { background: #fff; border: 1px solid var(--line); }
+    :host { display: block; color: #141118; font-family: 'Plus Jakarta Sans', sans-serif; }
     .page { max-width: 1180px; margin: auto; display: grid; gap: 18px; }
-    .eyebrow { display: inline-block; background: #B9A8FF; color: #141118; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 999px; }
-    h1 { margin: 10px 0 6px; font: 800 32px 'Space Grotesk', sans-serif; letter-spacing: -1px; color: #fff; }
-    .heading p { margin: 0; color: #E9E4FF; font-size: 12px; }
+    .eyebrow { display: inline-block; background: var(--soft); color: #141118; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 999px; }
+    h1 { margin: 10px 0 6px; font: 800 32px 'Bricolage Grotesque', sans-serif; letter-spacing: -1px; color:var(--ink); }
+    .heading p { margin: 0; color:var(--muted); font-size: 12px; }
 
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .stat { border-radius: 24px; padding: 16px 18px; display: flex; gap: 12px; align-items: center; }
-    .stat.yellow { background: #FFF1A8; } .stat.green { background: #B9FFCF; } .stat.pink { background: #FFC6E2; } .stat.lavender { background: #EAE4FF; }
+    .stat { background: #fff; border: 1px solid var(--line); }
     .stat p { margin: 0 0 4px; font-size: 11px; font-weight: 600; color: rgba(20,17,24,.7); }
-    .stat strong { font: 800 24px 'Space Grotesk', sans-serif; letter-spacing: -.8px; }
+    .stat strong { font: 800 24px 'Bricolage Grotesque', sans-serif; letter-spacing: -.8px; }
     .icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 14px; font-weight: 800; }
-    .yellow .icon { background: #FFD400; } .green .icon { background: #02F34C; } .pink .icon { background: #FB1A8E; } .lavender .icon { background: #B9A8FF; }
+    .yellow .icon { background: #FFE27A; } .green .icon { background: #BDEBD0; } .pink .icon { background: #F9CBE0; } .lavender .icon { background: #D6CEFB; }
 
     .controls { display: grid; gap: 12px; }
-    .search { display: flex; align-items: center; gap: 8px; background: #EAE4FF; border: 2px solid #FFD400; border-radius: 14px; padding: 0 14px; color: #141118; max-width: 460px; }
-    .search input { flex: 1; min-width: 0; background: transparent; border: 0; color: #141118; padding: 12px 0; font: 12px 'Inter', sans-serif; }
+    .search { display: flex; align-items: center; gap: 8px; background: #fff; border: 1.5px solid #D9D7DF; border-radius: 14px; padding: 0 14px; color: #141118; max-width: 460px; }
+    .search input { flex: 1; min-width: 0; background: transparent; border: 0; color: #141118; padding: 12px 0; font: 12px 'Plus Jakarta Sans', sans-serif; }
     .search input::placeholder { color: #5E5A66; }
     .search input:focus { outline: none; }
     .search:focus-within { box-shadow: 0 0 0 3px rgba(255,212,0,.3); }
 
     .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-    .chip { border: 0; border-radius: 999px; padding: 7px 14px; font: 800 11px 'Inter', sans-serif; text-transform: capitalize; cursor: pointer; background: var(--tint, #EAE4FF); color: #141118; transition: transform .15s, background .15s; }
-    .chip b { background: #EAE4FF; border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: 10px; }
+    .chip { border: 0; border-radius: 999px; padding: 7px 14px; font: 800 11px 'Plus Jakarta Sans', sans-serif; text-transform: capitalize; cursor: pointer; background: var(--tint, #F5F5F7); color: #141118; transition: transform .15s, background .15s; }
+    .chip b { background: #F5F5F7; border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: 10px; }
     .chip:hover { transform: translateY(-1px); }
     .chip.active { background: var(--solid, #FFD400); box-shadow: 0 8px 20px rgba(20,17,24,.22); }
     .chip.all.active { background: #FFD400; }
@@ -91,27 +93,36 @@ interface GroupChip { name: string; count: number; accent: Accent; }
     
     .grid .card:nth-child(4n+1){background:#FFF1A8}
     .grid .card:nth-child(4n+2){background:#B9FFCF}
-    .grid .card:nth-child(4n+3){background:#EAE4FF}
+    .grid .card:nth-child(4n+3){background:#F5F5F7}
     .grid .card:nth-child(4n+4){background:#FFC6E2}
     .grid .card:nth-child(4n+1) header{background:#FFD400}
     .grid .card:nth-child(4n+2) header{background:#02F34C}
     .grid .card:nth-child(4n+3) header{background:#B9A8FF}
-    .grid .card:nth-child(4n+4) header{background:#FB1A8E}
+    .grid .card:nth-child(4n+4) header{background:#C42F1D}
     .card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(20,17,24,.25); }
     .card header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; }
-    .group { font: 800 11px 'Inter', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+    .group { font: 800 11px 'Plus Jakarta Sans', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
     .state { border-radius: 999px; padding: 2px 10px; font-size: 10px; font-weight: 800; }
     .state.on { background: #B9FFCF; } .state.off { background: #FFC6E2; }
     .content { padding: 16px 18px 20px; display: grid; gap: 8px; }
-    code { justify-self: start; background: #EAE4FF; border-radius: 8px; padding: 2px 8px; font: 700 11px ui-monospace, Consolas, monospace; }
-    h2 { margin: 4px 0 0; font: 800 17px 'Space Grotesk', sans-serif; letter-spacing: -.4px; }
+    code { justify-self: start; background: #F5F5F7; border-radius: 8px; padding: 2px 8px; font: 700 11px ui-monospace, Consolas, monospace; }
+    h2 { margin: 4px 0 0; font: 800 17px 'Bricolage Grotesque', sans-serif; letter-spacing: -.4px; }
     .content p { margin: 0; color: #5E5A66; font-size: 12px; line-height: 1.5; }
 
-    .none { color: #E9E4FF; text-align: center; padding: 28px; margin: 0; }
+    .none { color:var(--muted); text-align: center; padding: 28px; margin: 0; }
     .error { background: #FFC6E2; border-radius: 16px; padding: 10px 14px; font-size: 12px; font-weight: 700; margin: 0; }
 
     @media (max-width: 860px) { .stats { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 520px) { .stats { grid-template-columns: 1fr; } }
+  
+    .eyebrow,.stat .icon{background:#EDECF1!important}
+    .stat{background:#fff!important;border:1px solid #E6E4EC}
+    .chip{background:#fff!important;border:1px solid #E2E0E8!important;color:#141118!important}
+    .chip.active{background:#2F2B38!important;color:#fff!important;border-color:#2F2B38!important}
+    .grid .card{background:#fff!important}
+    .group{background:#F1F0F4!important}
+    .state.on{background:#EDECF1!important;color:#141118!important}
+    .state.off{background:#fff!important;color:#6F6A80!important;border:1px solid #E2E0E8}
   `],
 })
 export class PermissionMasterComponent implements OnInit {

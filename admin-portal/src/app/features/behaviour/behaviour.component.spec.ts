@@ -48,7 +48,7 @@ describe('BehaviourComponent', () => {
     vi.setSystemTime(new Date('2026-11-03T05:00:00Z'));
     const { f, api } = open(Role.StoreStaff, answer());
 
-    expect(api.get).toHaveBeenCalledWith('/reports/behaviour', { params: { from: '2026-10-28', to: '2026-11-03', storeId: null } });
+    expect(api.get).toHaveBeenCalledWith('/reports/behaviour', { params: { from: '2026-10-28', to: '2026-11-03', storeId: 's1' } });
     expect(text(f)).toContain('Opened the app');
     expect(text(f)).toContain('Placed an order');
     expect(text(f)).toContain('5% of openers');
@@ -72,11 +72,11 @@ describe('BehaviourComponent', () => {
     expect(api.get).toHaveBeenLastCalledWith('/reports/behaviour', { params: expect.objectContaining({ storeId: null }) });
   });
 
-  it('store staff never send a store', () => {
+  it('store staff send their own store', () => {
     const { c, api } = open(Role.StoreStaff, answer());
-    c.storeId = 's1';
+    expect(c.storeId).toBe('s1');
     c.load();
-    expect(api.get).toHaveBeenLastCalledWith('/reports/behaviour', { params: expect.objectContaining({ storeId: null }) });
+    expect(api.get).toHaveBeenLastCalledWith('/reports/behaviour', { params: expect.objectContaining({ storeId: 's1' }) });
   });
 
   it('the period choices are 7, 30 and 90 days ending today in India time', () => {

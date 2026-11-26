@@ -26,6 +26,8 @@ export const routes: Routes = [
       },
       {
         path: 'dashboard',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then(
             m => m.DashboardComponent
@@ -33,6 +35,8 @@ export const routes: Routes = [
       },
       {
         path: 'products',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/products/products.component').then(
             m => m.ProductsComponent
@@ -40,6 +44,8 @@ export const routes: Routes = [
       },
       {
         path: 'orders',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/orders/orders.component').then(
             m => m.OrdersComponent
@@ -173,6 +179,8 @@ export const routes: Routes = [
       },
       {
         path: 'notifications',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/notifications/notifications.component').then(
             m => m.NotificationsComponent
@@ -201,7 +209,7 @@ export const routes: Routes = [
       },
       {
         path: '',
-        redirectTo: 'dashboard',
+        redirectTo: 'today',
         pathMatch: 'full',
       },
     ],

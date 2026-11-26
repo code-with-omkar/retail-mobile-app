@@ -4,7 +4,9 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonComponent } from '../../shared/components/button/button.component';
 import { InputComponent } from '../../shared/components/input/input.component';
 import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
-import { LoadingComponent } from '../../shared/components/loading/loading.component';
+import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
+import { DEFAULT_PAGE_SIZE, PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 import { Accent, accentFor, initialsOf, roleAccent } from '../../shared/utils/palette';
 import { permissionGroup } from '../../shared/utils/palette';
 import { Organization, Permission, Role, StaffCategory, Store, User, UserStatus } from '../../core/models/domain.model';
@@ -19,7 +21,10 @@ import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../c
     ButtonComponent,
     InputComponent,
     SelectComponent,
-    LoadingComponent,
+    DataTableComponent,
+    CellDirective,
+    PaginationComponent,
+    SidePanelComponent,
   ],
   templateUrl: './user-master.component.html',
   styleUrls: ['./user-master.component.css'],
@@ -40,16 +45,35 @@ export class UserMasterComponent implements OnInit {
   readonly statusFilter = signal('all');
   readonly roleFilter = signal('all');
   readonly organizationFilter = signal('all');
-  readonly sortBy = signal('fullName');
-  readonly sortOrder = signal<'asc' | 'desc'>('asc');
+  readonly sort = signal('name');
   readonly page = signal(1);
-  readonly pageSize = signal(10);
+  readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
+  readonly total = signal(0);
+  readonly allCount = signal(0);
+  readonly activeCount = signal(0);
+  readonly roleCount = signal(0);
+  /** The user just opened or saved, marked in the list. */
+  readonly changedId = signal<string | null>(null);
+  private asked = 0;
+
+  readonly columns: DataColumn[] = [
+    { key: 'user', label: 'User' }, { key: 'org', label: 'Organization and store' }, { key: 'role', label: 'Role' },
+    { key: 'status', label: 'Status' }, { key: 'actions', label: 'Actions' },
+  ];
+  readonly sortOptions: SelectOption[] = [
+    { value: 'name', label: 'Name A to Z' }, { value: 'name-desc', label: 'Name Z to A' }, { value: 'email', label: 'Email' }, { value: 'newest', label: 'Newest first' },
+  ];
 
   readonly permissionCatalog = this.userMasterService.permissions;
   readonly roleDefinitions = signal<{ id: string; code: string; name: string; description?: string; isActive: boolean; permissions: Permission[] }[]>([]);
   readonly effectiveRolePermissions = computed(() => this.roleDefinitions().find(role => role.code === this.form.controls.role.value)?.permissions ?? []);
 
-  readonly roleOptions = computed<SelectOption[]>(() => this.roleDefinitions().map(role => ({ value: role.code, label: role.name })));
+  readonly roleOptions = computed<SelectOption[]>(() => {
+    const options: SelectOption[] = this.roleDefinitions().map(role => ({ value: role.code, label: role.name }));
+    // An organization administrator has no role code of their own; keep their role selectable so saving does not change it.
+    return this.selectedUser()?.role === Role.Admin ? [...options, { value: Role.Admin, label: 'Administrator' }] : options;
+  });
+  readonly roleFilterOptions = computed<SelectOption[]>(() => [{ value: 'all', label: 'All roles' }, ...this.roleDefinitions().map(role => ({ value: role.code, label: role.name }))]);
   readonly staffCategoryOptions: SelectOption[] = [
     { value: StaffCategory.StoreManager, label: 'Store Manager' },
     { value: StaffCategory.StoreEmployee, label: 'Store Employee' },
@@ -82,65 +106,6 @@ export class UserMasterComponent implements OnInit {
     this.statusOptions.filter(option => option.value !== 'all')
   );
 
-  readonly filteredUsers = computed(() => {
-    const search = this.searchTerm().trim().toLowerCase();
-    const selectedStatus = this.statusFilter();
-    const selectedRole = this.roleFilter();
-    const selectedOrganization = this.organizationFilter();
-
-    const filtered = this.users().filter(user => {
-      const matchesSearch =
-        !search ||
-        user.email.toLowerCase().includes(search) ||
-        user.fullName.toLowerCase().includes(search) ||
-        user.role.toLowerCase().includes(search);
-
-      const matchesStatus =
-        selectedStatus === 'all' || user.status === selectedStatus;
-
-      const matchesRole =
-        selectedRole === 'all' || user.role === selectedRole;
-
-      const matchesOrg =
-        selectedOrganization === 'all' || user.organizationId === selectedOrganization;
-
-      return matchesSearch && matchesStatus && matchesRole && matchesOrg;
-    });
-
-    const currentSortBy = this.sortBy();
-    const currentSortOrder = this.sortOrder();
-
-    filtered.sort((a, b) => {
-      const valueA = this.getSortValue(a, currentSortBy);
-      const valueB = this.getSortValue(b, currentSortBy);
-
-      if (valueA < valueB) {
-        return currentSortOrder === 'asc' ? -1 : 1;
-      }
-      if (valueA > valueB) {
-        return currentSortOrder === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-
-    return filtered;
-  });
-
-  readonly totalPages = computed(() => {
-    const total = this.filteredUsers().length;
-    return Math.max(1, Math.ceil(total / this.pageSize()));
-  });
-
-  readonly paginatedUsers = computed(() => {
-    const start = (this.page() - 1) * this.pageSize();
-    const end = start + this.pageSize();
-    return this.filteredUsers().slice(start, end);
-  });
-
-  readonly activeCount = computed(() => this.users().filter(user => this.isActive(user)).length);
-  readonly inactiveCount = computed(() => this.users().length - this.activeCount());
-  readonly roleCount = computed(() => new Set(this.users().map(user => user.role)).size);
-
   form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.minLength(2)]],
     lastName: ['', [Validators.required, Validators.minLength(2)]],
@@ -167,17 +132,19 @@ export class UserMasterComponent implements OnInit {
     });
   }
 
-  onPageChange(page: number): void {
-    this.page.set(Math.min(Math.max(1, page), this.totalPages()));
+  goTo(page: number): void {
+    this.page.set(page);
+    this.changedId.set(null);
+    this.loadUsers();
   }
 
-  sortHeader(key: string): void {
-    const sameKey = this.sortBy() === key;
-    this.onSortChange({ sortBy: key, sortOrder: sameKey && this.sortOrder() === 'asc' ? 'desc' : 'asc' });
+  resize(size: number): void {
+    this.pageSize.set(size);
   }
 
-  sortMark(key: string): string {
-    return this.sortBy() === key ? (this.sortOrder() === 'asc' ? '▲' : '▼') : '';
+  /** A new search, filter or order starts at the first page. */
+  filter(): void {
+    this.goTo(1);
   }
 
   isActive(user: User): boolean {
@@ -204,12 +171,6 @@ export class UserMasterComponent implements OnInit {
     return accentFor(permissionGroup(permission.code));
   }
 
-  onSortChange(event: { sortBy: string; sortOrder: 'asc' | 'desc' }): void {
-    this.sortBy.set(event.sortBy);
-    this.sortOrder.set(event.sortOrder);
-    this.page.set(1);
-  }
-
   openCreateForm(): void {
     this.mode.set('create');
     this.selectedUser.set(null);
@@ -217,7 +178,8 @@ export class UserMasterComponent implements OnInit {
       firstName: '',
       lastName: '',
       email: '',
-      organizationId: '',
+      // the only organization there is, when there is only one
+      organizationId: this.organizations().length === 1 ? this.organizations()[0].id : '',
       storeId: '',
       storeIds: [],
       role: Role.Customer,
@@ -225,12 +187,16 @@ export class UserMasterComponent implements OnInit {
       status: UserStatus.Active,
       permissions: [],
     });
+    if (this.form.controls.organizationId.value) this.loadStores(this.form.controls.organizationId.value);
+    this.apiError.set(null);
     this.isFormVisible.set(true);
   }
 
   openEditForm(user: User): void {
     this.mode.set('edit');
     this.selectedUser.set(user);
+    this.changedId.set(user.id);
+    this.apiError.set(null);
     this.form.patchValue({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -250,6 +216,7 @@ export class UserMasterComponent implements OnInit {
   openViewForm(user: User): void {
     this.mode.set('view');
     this.selectedUser.set(user);
+    this.changedId.set(user.id);
     this.form.patchValue({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -307,6 +274,7 @@ export class UserMasterComponent implements OnInit {
     request.subscribe({
       next: response => {
         if (response.success) {
+          this.changedId.set(response.data?.id ?? selectedUser?.id ?? null);
           this.closeForm();
           this.loadUsers();
           return;
@@ -328,6 +296,7 @@ export class UserMasterComponent implements OnInit {
     const nextStatus = user.status === UserStatus.Active ? UserStatus.Inactive : UserStatus.Active;
 
     this.isLoading.set(true);
+    this.changedId.set(user.id);
     this.userMasterService.toggleUserStatus(user.id, nextStatus).subscribe({
       next: response => {
         if (response.success) {
@@ -344,11 +313,6 @@ export class UserMasterComponent implements OnInit {
         this.isLoading.set(false);
       },
     });
-  }
-
-  onOrganizationFilterChange(value: string): void {
-    this.organizationFilter.set(value);
-    this.page.set(1);
   }
 
   onOrganizationSelected(value: string): void {
@@ -368,12 +332,12 @@ export class UserMasterComponent implements OnInit {
 
   onStatusFilterChange(value: string): void {
     this.statusFilter.set(value);
-    this.page.set(1);
+    this.filter();
   }
 
   onRoleFilterChange(value: string): void {
     this.roleFilter.set(value);
-    this.page.set(1);
+    this.filter();
   }
 
   togglePermission(permissionCode: string): void {
@@ -415,6 +379,8 @@ export class UserMasterComponent implements OnInit {
       next: response => {
         if (response.success && response.data) {
           this.organizations.set(response.data);
+          // with one organization its stores are read at once, so the list can name each person's store
+          if (response.data.length === 1) this.loadStores(response.data[0].id);
         }
       },
       error: error => {
@@ -426,24 +392,26 @@ export class UserMasterComponent implements OnInit {
   private loadUsers(): void {
     this.isLoading.set(true);
     this.apiError.set(null);
+    const request = ++this.asked;
 
-    this.userMasterService.getUsers().subscribe({
+    this.userMasterService.getUsersPage({ search: this.searchTerm().trim(), role: this.roleFilter(), status: this.statusFilter(), sort: this.sort(), page: this.page(), pageSize: this.pageSize() }).subscribe({
       next: response => {
+        if (request !== this.asked) return; // an older answer arriving late
+        this.isLoading.set(false);
         if (response.success && response.data) {
-          this.users.set(response.data.map(user => ({
-            ...user,
-            fullName: `${user.firstName} ${user.lastName}`.trim(),
-          })));
+          this.users.set(response.data.items.map(user => ({ ...user, fullName: `${user.firstName} ${user.lastName}`.trim() })));
+          this.total.set(response.data.totalCount);
+          this.allCount.set(response.data.allCount);
+          this.activeCount.set(response.data.activeCount);
+          this.roleCount.set(response.data.roleCount);
           return;
         }
 
         this.apiError.set(response.message ?? 'Unable to load users.');
       },
       error: error => {
-        this.apiError.set(error?.message ?? 'User master data is unavailable until the backend exposes its user API.');
-        this.isLoading.set(false);
-      },
-      complete: () => {
+        if (request !== this.asked) return;
+        this.apiError.set(error?.message ?? 'Unable to load users.');
         this.isLoading.set(false);
       },
     });
@@ -488,18 +456,4 @@ export class UserMasterComponent implements OnInit {
     return store?.name ?? '—';
   }
 
-  private getSortValue(user: User, sortBy: string): string {
-    switch (sortBy) {
-      case 'fullName':
-        return `${user.firstName} ${user.lastName}`.toLowerCase();
-      case 'email':
-        return user.email.toLowerCase();
-      case 'role':
-        return user.role.toLowerCase();
-      case 'status':
-        return user.status.toLowerCase();
-      default:
-        return user.fullName.toLowerCase();
-    }
-  }
 }

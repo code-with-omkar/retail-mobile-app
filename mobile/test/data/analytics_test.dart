@@ -55,6 +55,11 @@ class FakeSink implements AnalyticsSink {
 }
 
 class _Coupons implements CouponRepository {
+  List<FeaturedCoupon> shown = const [];
+
+  @override
+  Future<List<FeaturedCoupon>> featured(String storeId) async => shown;
+
   @override
   Future<CouponPreview> preview({required String storeId, required String code}) async => switch (code) {
         'SAVE10' => CouponPreview(valid: true, code: code, discount: 2.8, message: 'Code applied.', total: 55.2),

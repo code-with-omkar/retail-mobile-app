@@ -32,7 +32,9 @@ public static class OfferRules
         DiscountRunning(campaign, now),
         campaign.Stores.Select(link => new CampaignStoreInfo(link.StoreId, link.Store?.Name ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
         campaign.Products.Select(link => link.ProductId).ToArray(),
-        campaign.CardDesign);
+        campaign.CardDesign,
+        campaign.Ribbon,
+        campaign.Animation);
 
     /// <summary>The discount is on: not cancelled, paid (when it has a fee) and between its start and its end.</summary>
     public static bool DiscountRunning(Campaign campaign, DateTime now) =>

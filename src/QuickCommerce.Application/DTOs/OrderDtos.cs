@@ -53,7 +53,19 @@ public sealed record OrderResponse(
     decimal? StoreRating = null,
     int? StoreRatingCount = null,
     int? MyStoreStars = null,
-    int? MyDeliveryStars = null);
+    int? MyDeliveryStars = null,
+    string? RejectionReason = null);
+
+/// <summary>What the portal's order list asks for. A store outside the caller's own is simply empty.</summary>
+public sealed record AdminOrderQuery(string? Search = null, QuickCommerce.Domain.OrderStatus? Status = null, Guid? StoreId = null, int Page = 1, int PageSize = 20)
+{
+    public const int MaxPageSize = 100;
+    public AdminOrderQuery Clamped() => this with { Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), Page = Math.Max(1, Page), PageSize = Math.Clamp(PageSize, 1, MaxPageSize) };
+}
+
+public sealed record AdminOrderStore(Guid Id, string Name);
+
+public sealed record AdminOrderPage(IReadOnlyList<AdminOrderResponse> Items, int TotalCount, int Page, int PageSize, IReadOnlyList<AdminOrderStore> Stores);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -70,7 +82,10 @@ public sealed record AdminOrderResponse(
     string? Note = null,
     string? OutOfStockChoice = null,
     DateTime? DeliverySlotStart = null,
-    DateTime? DeliverySlotEnd = null);
+    DateTime? DeliverySlotEnd = null,
+    string? RejectionReason = null,
+    string? RejectionNote = null,
+    string? RejectedBy = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

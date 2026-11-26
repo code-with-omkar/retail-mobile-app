@@ -47,6 +47,15 @@ public sealed class EfCouponStore(QuickCommerceDbContext db) : ICouponStore
         }
     }
 
+    public Task<Guid?> GetStoreOrganizationAsync(Guid storeId, CancellationToken cancellationToken = default) =>
+        db.Stores.AsNoTracking().Where(store => store.Id == storeId && store.IsActive).Select(store => (Guid?)store.OrganizationId).SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Coupon>> ListShownAsync(Guid organizationId, DateTime now, CancellationToken cancellationToken = default) =>
+        await db.Coupons.AsNoTracking()
+            .Where(item => item.OrganizationId == organizationId && item.IsActive && item.ShowInApp && item.StartsAt <= now
+                && (item.EndsAt == null || item.EndsAt > now) && (item.TotalLimit == null || item.UsedCount < item.TotalLimit))
+            .ToListAsync(cancellationToken);
+
     public Task<int> UsesByUserAsync(Guid couponId, Guid userId, CancellationToken cancellationToken = default) =>
         db.CouponRedemptions.AsNoTracking().CountAsync(item => item.CouponId == couponId && item.UserId == userId && item.ReleasedAt == null, cancellationToken);
 

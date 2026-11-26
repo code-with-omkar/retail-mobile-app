@@ -54,13 +54,13 @@ public sealed class AnalyticsService(
         Guid? scope = storeId;
         if (context.Role == Role.StoreStaff)
         {
-            // Store staff see their own store only, whatever they ask for.
+            // Store staff see a store of their own only: a manager any of theirs, otherwise the primary one.
             if (context.StoreId is not { } own)
             {
                 return new(AnalyticsStatus.Forbidden, Message: "Store staff must be assigned to a store.");
             }
 
-            scope = own;
+            scope = storeId is { } asked && context.OrderStoreIds.Contains(asked) ? asked : own;
         }
 
         var now = clock.GetUtcNow().UtcDateTime;

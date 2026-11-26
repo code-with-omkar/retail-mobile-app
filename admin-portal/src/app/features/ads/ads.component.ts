@@ -1,6 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
+import { PhonePreviewComponent } from '../../shared/components/phone-preview/phone-preview.component';
+import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
+import { DEFAULT_PAGE_SIZE, PaginationComponent, pageCount } from '../../shared/components/pagination/pagination.component';
 import { ApiService } from '../../core/services/api.service';
 import { ConfigService } from '../../core/services/config.service';
 
@@ -41,7 +45,7 @@ const toLocal = (iso: string | null): string => {
 @Component({
   selector: 'app-ads',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FileUploadComponent, PhonePreviewComponent, DataTableComponent, CellDirective, PaginationComponent],
   template: `
     <section class="page">
       <h2>Ads</h2>
@@ -49,6 +53,7 @@ const toLocal = (iso: string | null): string => {
       <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
       <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
 
+      <div class="with-preview">
       <form class="card" (ngSubmit)="save()" #f="ngForm">
         <h3>{{ editing() ? 'Edit ad' : 'New ad' }}</h3>
         <div class="grid">
@@ -71,11 +76,7 @@ const toLocal = (iso: string | null): string => {
         <small class="hint">{{ hint() }}</small>
 
         <div class="picture">
-          <div class="fee-row">
-            <input type="file" accept="image/jpeg,image/png,image/webp" (change)="pickImage($event)" aria-label="Ad picture" />
-            <button type="button" class="act" [disabled]="busy() || !uploadFile" (click)="uploadImage()">Upload picture</button>
-          </div>
-          <img class="preview" *ngIf="imageUrl()" [src]="img(imageUrl())" alt="Ad preview" />
+          <app-file-upload label="Ad picture" hint="Wide picture, about 1080 x 360 (3:1)." [previewUrl]="imageUrl() ? img(imageUrl()) : null" [busy]="busy()" [removable]="false" (fileSelected)="takeImage($event)"></app-file-upload>
         </div>
 
         <div class="grid">
@@ -110,36 +111,43 @@ const toLocal = (iso: string | null): string => {
           <button type="button" class="ghost" *ngIf="editing()" (click)="reset()">Cancel</button>
         </div>
       </form>
+        <app-phone-preview [ad]="{ placement: placement, title: title, imageUrl: imageUrl() ? img(imageUrl()) : null }"></app-phone-preview>
+      </div>
 
       <p *ngIf="loading()">Loading ads…</p>
       <p *ngIf="!loading() && ads().length === 0">No ads yet.</p>
-      <div class="table" *ngIf="ads().length">
-        <div class="row head"><span>Picture</span><span>Where</span><span>Opens</span><span>Store</span><span>Dates</span><span>Views</span><span>Taps</span><span>Status</span><span>Action</span></div>
-        <div class="row" *ngFor="let a of ads()">
-          <span><img class="thumb" [src]="img(a.imageUrl)" alt="" /><small *ngIf="a.title">{{ a.title }}</small></span>
-          <span>{{ label(a.placement) }}<small>Order {{ a.sortOrder }}</small></span>
-          <span>{{ opens(a) }}</span>
-          <span>{{ storeName(a.storeId) }}</span>
-          <span>{{ a.startsAt | date:'mediumDate' }}<small *ngIf="a.endsAt">to {{ a.endsAt | date:'mediumDate' }}</small></span>
-          <span>{{ a.views }}</span>
-          <span>{{ a.taps }}<small *ngIf="a.views > 0">{{ rate(a) }} of views</small></span>
-          <span class="badge" [ngClass]="'badge-' + a.status.toLowerCase()">{{ a.status }}</span>
-          <span class="actions">
-            <button class="act" [disabled]="busy()" (click)="edit(a)">Edit</button>
+      <ng-container *ngIf="ads().length">
+        <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="1040px">
+          <ng-template appCell="picture" let-a><img class="thumb" [src]="img(a.imageUrl)" alt="" /><small *ngIf="a.title">{{ a.title }}</small></ng-template>
+          <ng-template appCell="where" let-a>{{ label(a.placement) }}<small>Order {{ a.sortOrder }}</small></ng-template>
+          <ng-template appCell="opens" let-a>{{ opens(a) }}</ng-template>
+          <ng-template appCell="shop" let-a>{{ storeName(a.storeId) }}</ng-template>
+          <ng-template appCell="dates" let-a>{{ a.startsAt | date:'mediumDate' }}<small *ngIf="a.endsAt">to {{ a.endsAt | date:'mediumDate' }}</small></ng-template>
+          <ng-template appCell="views" let-a>{{ a.views }}</ng-template>
+          <ng-template appCell="taps" let-a>{{ a.taps }}<small *ngIf="a.views > 0">{{ rate(a) }} of views</small></ng-template>
+          <ng-template appCell="status" let-a><span class="badge" [ngClass]="'badge-' + a.status.toLowerCase()">{{ a.status }}</span></ng-template>
+          <ng-template appCell="action" let-a><span class="actions"><button class="act" [disabled]="busy()" (click)="edit(a)">Edit</button>
             <button class="act" [disabled]="busy()" (click)="toggle(a)">{{ a.isActive ? 'Switch off' : 'Switch on' }}</button>
-            <button class="act danger" [disabled]="busy()" (click)="remove(a)">Delete</button>
-          </span>
-        </div>
-      </div>
+            <button class="act danger" [disabled]="busy()" (click)="remove(a)">Delete</button></span></ng-template>
+        </app-data-table>
+        <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="ads().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+      </ng-container>
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 20px}
-    .page{max-width:1200px;display:grid;gap:16px}
-    .card{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:20px;display:grid;gap:12px;color:var(--on-card,#141118)}
-    h3{margin:0;font:800 16px 'Space Grotesk',sans-serif}
+    app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+    .edit-card{display:grid!important;gap:12px}
+
+    .with-preview{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+    .with-preview>app-phone-preview{position:sticky;top:0}
+    @media(max-width:1100px){.with-preview{grid-template-columns:1fr}.with-preview>app-phone-preview{position:static}}
+
+    :host{display:block;font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    h2{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:var(--ink)}
+    .muted{color:var(--muted);font-size:12px;margin:0 0 20px}
+    .page{max-width:1280px;display:grid;gap:16px}
+    .card{background:var(--card-bg,#F5F5F7);border-radius:24px;padding:20px;display:grid;gap:12px;color:var(--on-card,#141118)}
+    h3{margin:0;font:800 16px 'Bricolage Grotesque',sans-serif}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
     label{display:grid;gap:4px;font-size:11px;font-weight:700}
     label.check{display:flex;gap:8px;align-items:center}
@@ -150,26 +158,26 @@ const toLocal = (iso: string | null): string => {
     .fee-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .preview{max-width:360px;width:100%;border-radius:14px;border:1px solid rgba(20,17,24,.15)}
     .chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-    .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;background:#fff;padding:5px 12px;font:700 11px 'Inter',sans-serif;cursor:pointer}
+    .chip{border:1px solid rgba(20,17,24,.25);border-radius:999px;background:#fff;padding:5px 12px;font:700 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
     .chip.on{background:#FFD400;border-color:#FFD400}
     .picked{font-size:11px;font-weight:700}
     .buttons{display:flex;gap:10px}
-    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Inter',sans-serif;cursor:pointer}
+    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:10px 20px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
     .primary:disabled{opacity:.5;cursor:default}
-    .ghost{border:1px solid rgba(20,17,24,.35);border-radius:999px;background:transparent;padding:10px 20px;font:800 12px 'Inter',sans-serif;cursor:pointer}
-    .table{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:8px 20px;color:var(--on-card,#141118);overflow-x:auto}
+    .ghost{border:1px solid rgba(20,17,24,.35);border-radius:999px;background:transparent;padding:10px 20px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+    .table{background:var(--card-bg,#F5F5F7);border-radius:24px;padding:8px 20px;color:var(--on-card,#141118);overflow-x:auto}
     .row{display:grid;grid-template-columns:1.3fr 1.2fr 1.2fr 1fr 1fr .6fr .8fr .7fr 1.6fr;gap:12px;align-items:center;min-width:1000px;padding:12px 0;border-top:1px solid rgba(20,17,24,.1);font-size:12px}
     .row.head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
     .row small{display:block;color:var(--on-card-muted,#5E5A66);font-size:10px}
     .thumb{width:120px;height:40px;object-fit:cover;border-radius:8px;background:#ddd;display:block}
-    .badge{justify-self:start;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;background:#C9C2F0}
+    .badge{justify-self:start;border-radius:999px;padding:3px 10px;font-size:10px;font-weight:800;background:#ECECF0}
     .badge-live{background:#14A44D;color:#fff}.badge-scheduled{background:#FFD400}.badge-off,.badge-ended{background:#ECECF0}
     .actions{display:flex;gap:6px;flex-wrap:wrap}
-    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    .act{border:0;border-radius:999px;padding:6px 12px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:#EEEAFF;color:#141118}
     .act.danger{background:#C42F1D}
     .act:disabled{opacity:.5;cursor:default}
-    .error{color:#FFB3D9;font-weight:700}
-    .notice{color:#B9F6CA;font-weight:700}
+    .error{color:#C42F1D;font-weight:700}
+    .notice{color:#0B6B33;font-weight:700}
   `],
 })
 export class AdsComponent implements OnInit {
@@ -178,6 +186,12 @@ export class AdsComponent implements OnInit {
 
   readonly placements = AD_PLACEMENTS;
   readonly ads = signal<Ad[]>([]);
+  readonly columns: DataColumn[] = [{ key: 'picture', label: 'Picture' }, { key: 'where', label: 'Where' }, { key: 'opens', label: 'Opens' }, { key: 'shop', label: 'Store' }, { key: 'dates', label: 'Dates' }, { key: 'views', label: 'Views' }, { key: 'taps', label: 'Taps' }, { key: 'status', label: 'Status' }, { key: 'action', label: 'Action' }];
+  readonly page = signal(1);
+  readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
+  /** The page asked for, or the last one there is after the list shrinks. */
+  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.ads().length, this.pageSize())));
+  readonly pageRows = computed(() => this.ads().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
   readonly stores = signal<Choice[]>([]);
   readonly categories = signal<Choice[]>([]);
   readonly offers = signal<Choice[]>([]);
@@ -236,6 +250,9 @@ export class AdsComponent implements OnInit {
       error: e => { this.error.set(e?.message ?? 'Could not load ads.'); this.loading.set(false); },
     });
   }
+
+  /** The upload card hands over a checked picture, which is sent at once. */
+  takeImage(file: File) { this.uploadFile = file; this.uploadImage(); }
 
   pickImage(event: Event) { this.uploadFile = (event.target as HTMLInputElement).files?.[0] ?? null; }
 

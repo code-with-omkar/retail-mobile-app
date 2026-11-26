@@ -10,6 +10,60 @@ public sealed class AuthorizationManagementService(
     QuickCommerceDbContext db,
     ICurrentUserContextResolver currentUserContextResolver) : IAuthorizationManagementService
 {
+    public async Task<ManagedUserPage> GetUsersPageAsync(ManagedUserQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        if (!CanManageAuthorization(context))
+        {
+            return new ManagedUserPage([], 0, query.Page, query.PageSize, 0, 0, 0);
+        }
+
+        var all = db.Users.AsNoTracking().Where(user => user.OrganizationId == context!.OrganizationId);
+        var users = all;
+        if (query.Search is { } search)
+        {
+            users = users.Where(user => user.DisplayName.Contains(search) || (user.Email != null && user.Email.Contains(search)));
+        }
+
+        if (query.Active is { } active)
+        {
+            users = users.Where(user => user.IsActive == active);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Role))
+        {
+            if (query.Role == "ApplicationAdmin")
+            {
+                users = users.Where(user => user.Role == Role.Admin || user.Role == Role.ApplicationAdmin);
+            }
+            else if (Enum.TryParse<Role>(query.Role, out var role))
+            {
+                users = users.Where(user => user.Role == role);
+            }
+        }
+
+        var total = await users.CountAsync(cancellationToken);
+        var ordered = query.Sort switch
+        {
+            "name-desc" => users.OrderByDescending(user => user.DisplayName).ThenBy(user => user.Id),
+            "email" => users.OrderBy(user => user.Email).ThenBy(user => user.Id),
+            "newest" => users.OrderByDescending(user => user.CreatedAt).ThenBy(user => user.Id),
+            _ => users.OrderBy(user => user.DisplayName).ThenBy(user => user.Id)
+        };
+        var page = await ordered
+            .Include(user => user.UserRoles).ThenInclude(userRole => userRole.Role).ThenInclude(role => role.RolePermissions).ThenInclude(rolePermission => rolePermission.Permission)
+            .Include(user => user.StoreAssignments)
+            .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var allCount = await all.CountAsync(cancellationToken);
+        var activeCount = await all.CountAsync(user => user.IsActive, cancellationToken);
+        var roleCount = await all.Select(user => user.Role).Distinct().CountAsync(cancellationToken);
+        return new ManagedUserPage(page.Select(MapUser).ToArray(), total, query.Page, query.PageSize, allCount, activeCount, roleCount);
+    }
+
     public async Task<IReadOnlyList<ManagedUserResponse>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
@@ -113,7 +167,7 @@ public sealed class AuthorizationManagementService(
         user.Role = request.Role;
         user.StaffCategory = request.Role == Role.StoreStaff ? request.StaffCategory : null;
         user.IsActive = request.IsActive;
-        var authorizationRole = await db.AuthorizationRoles.SingleOrDefaultAsync(role => role.Code == RoleCode(request.Role) && role.IsActive, cancellationToken);
+        var authorizationRole = await db.AuthorizationRoles.Include(role => role.RolePermissions).ThenInclude(item => item.Permission).SingleOrDefaultAsync(role => role.Code == RoleCode(request.Role) && role.IsActive, cancellationToken);
         if (authorizationRole is null)
         {
             return null;
@@ -122,6 +176,12 @@ public sealed class AuthorizationManagementService(
         foreach (var userRole in user.UserRoles)
         {
             userRole.IsActive = userRole.RoleId == authorizationRole.Id;
+        }
+
+        // A role they have never had needs its own link, otherwise the account is left with no role at all.
+        if (user.UserRoles.All(userRole => userRole.RoleId != authorizationRole.Id))
+        {
+            user.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = authorizationRole.Id, Role = authorizationRole, IsActive = true });
         }
 
         var requestedStoreIdSet = requestedStoreIds.ToHashSet();

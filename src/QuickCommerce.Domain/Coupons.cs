@@ -50,6 +50,24 @@ public sealed class Coupon
 
 	/// <summary>Switched off by an administrator. A switched-off code cannot be used, but orders that already used it keep their discount.</summary>
 	public bool IsActive { get; set; } = true;
+
+	/// <summary>The card design (the same keys as offers). Null is the plain card.</summary>
+	public string? Design { get; set; }
+
+	/// <summary>A picture this API saved under /media/offers; it replaces the design's artwork.</summary>
+	public string? ImageUrl { get; set; }
+
+	/// <summary>A few words across the corner of the card, such as NEW.</summary>
+	public string? Ribbon { get; set; }
+
+	/// <summary>Listed to customers in the cart. Otherwise only someone who knows the code can use it.</summary>
+	public bool ShowInApp { get; set; }
+
+	/// <summary>Also shown once to each customer as a pop-up they can close, when the app opens. Implies <see cref="ShowInApp"/>.</summary>
+	public bool ShowAsPopup { get; set; }
+
+	/// <summary>Played in the app when the coupon is applied. Null is none.</summary>
+	public string? Animation { get; set; }
 	/// <summary>Orders using it now (uses given back are taken off). Kept as a number so the total limit can be enforced with one conditional update.</summary>
 	public int UsedCount { get; set; }
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

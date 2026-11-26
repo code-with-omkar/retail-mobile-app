@@ -98,6 +98,34 @@ describe('ProductsComponent', () => {
     expect(c.editing()?.id).toBe('p9');
   });
 
+  it('a picture chosen for a new product is sent as soon as the product exists', () => {
+    const post = vi.fn((url: string) => of({ success: true, data: url.endsWith('/image') ? product({ id: 'p9', imageUrl: '/media/o.png' }) : product({ id: 'p9' }) }));
+    const { c } = open(Role.Admin, admin({ post }));
+    c.startNew();
+    c.chooseDraftPicture(new File(['x'], 'o.png', { type: 'image/png' }));
+    c.draft = { sku: 'OAT', name: 'Oats', description: '', categoryId: 'c1', unitOfMeasure: 'kg', price: 10, mrp: null };
+
+    c.create();
+
+    expect(post.mock.calls.map(call => call[0])).toEqual(['/admin/catalog/products', '/admin/catalog/products/p9/image']);
+    expect(c.draftFile).toBeNull();
+    expect(c.editing()?.imageUrl).toBe('/media/o.png');
+  });
+
+  it('Marathi text given for a new product is saved after it is created, and a description needs a name', () => {
+    const put = vi.fn(() => of({ success: true, data: product({ id: 'p9' }) }));
+    const { c, api } = open(Role.Admin, admin({ post: ok(product({ id: 'p9' })), put }));
+    c.startNew();
+    c.draft = { sku: 'OAT', name: 'Oats', description: '', categoryId: 'c1', unitOfMeasure: 'kg', price: 10, mrp: null };
+    c.draftMr = { name: '', description: 'वर्णन' };
+    c.create();
+    expect(api.post).not.toHaveBeenCalled();
+
+    c.draftMr = { name: 'ओट्स', description: '' };
+    c.create();
+    expect(put).toHaveBeenCalledWith('/admin/catalog/products/p9/translations/mr', { name: 'ओट्स', description: null });
+  });
+
   it('editing fills the form, the Marathi text and the sizes from the product', () => {
     const { c } = open(Role.Admin, admin());
     c.edit(c.items()[0]);

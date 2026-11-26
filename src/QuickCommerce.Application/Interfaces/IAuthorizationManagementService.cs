@@ -5,6 +5,7 @@ namespace QuickCommerce.Application.Interfaces;
 public interface IAuthorizationManagementService
 {
     Task<IReadOnlyList<ManagedUserResponse>> GetUsersAsync(CancellationToken cancellationToken = default);
+    Task<ManagedUserPage> GetUsersPageAsync(ManagedUserQuery query, CancellationToken cancellationToken = default);
     Task<ManagedUserResponse?> GetUserAsync(Guid id, CancellationToken cancellationToken = default);
     Task<ManagedUserResponse?> CreateUserAsync(CreateManagedUserRequest request, CancellationToken cancellationToken = default);
     Task<ManagedUserResponse?> UpdateUserAsync(Guid id, UpdateManagedUserRequest request, CancellationToken cancellationToken = default);

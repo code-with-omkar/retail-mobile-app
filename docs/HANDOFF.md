@@ -20,6 +20,56 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P48 Order rejection reasons (built, tested; MIGRATION AddOrderRejection APPLIED to the dev DB 2026-11-26 after backup; not committed)
+
+- Rejecting needs a reason (OutOfStock, StoreClosed, TooBusy, AddressProblem, Other + remark). Who rejected is saved. Customer sees the reason, never the remark. Admin Reports: rejections by store.
+- Penalty: later (user decision).
+- Tests: server 1278, portal 289, app 674.
+- Live 2026-11-26: backup retail-mobile-app_pre_rejection_20261126.bak, APIs restarted. Default offer fee set to 0. Ads/coupons/offers lists paged; app cart coupons swipe sideways (portal 289, app 675).
+
+## P47 Coupon and offer themes (built, tested; MIGRATION AddCouponThemes APPLIED to the dev DB 2026-11-26 after backup; not committed)
+
+- Coupons: design, picture, ribbon, show in cart, one-time closable pop-up, animation (confetti, sparkle, gift, balloons). Offers: ribbon and animation. Open endpoint GET api/offers/coupons?storeId=.
+- Portal: new fields and phone preview. App: themed coupon cards with Apply, pop-up once per coupon per customer, animations.
+- New animation = add the key in CardExtras.cs, card-extras.ts and card_extras.dart (and draw it).
+- Tests: server 1269, portal 288, app 674. Backup: retail-mobile-app_pre_couponthemes_20261126.bak.
+
+## P41 Portal redesign, batch 1 (built, tested; NO migration; not committed)
+User's choices: Clean v4 light; add/edit in a side panel; server paging; foundation first. Batch 2: Orders, Catalog, Categories, Stock, Users move to the shared table with server paging. Batch 3: the rest.
+- Theme: white page, dark grouped menu with line icons, v4 colours and fonts on every screen (src/index.css tokens).
+- Menu: one definition (layout/shell/menu.ts) matching route roles; Stores shown to staff; routes for dashboard, products, orders, notifications now guarded; '' goes to Today. Notifications (placeholder) and the header's dead search and bell buttons are hidden.
+- Shared components (not used by screens yet): app-data-table (fixed header, row index, active row), app-pagination, app-side-panel, app-file-upload, app-icon; app-select keeps its value when choices arrive later and has defaultFirst.
+- Smoke test of screen endpoints as admin and manager: all load; GET api/reports without from/to returns 500 (should be 400; the screen always sends them).
+
+## P42 Portal batch 2, first part (built, tested; NO migration; not committed)
+- Light gradient over the whole screen, side menu on the same background, lighter buttons, lists scroll in their own box (one scrollbar on list screens).
+- Orders: GET api/orders/paged (search, status, store, page); shared table, filters with defaults, change items in a side panel, acted-on row kept and marked.
+- Users: GET api/users/paged (search, role, active, sort, page); shared table, side panel form, administrator role kept selectable.
+- Stores and Overview redesigned. Still to move to the shared pieces: Catalog, Stock, Categories, then the other screens.
+
+## P43 Portal requests, batch A (built, tested; NO migration; not committed)
+User's choices: partner report is for managers; tooltips English and Marathi together; coupon animations in the customer app; bulk product upload by CSV. Batches left: B (picture on new product, CSV bulk upload with template, drag-and-drop categories), C (Overview by role with partner report; redesign Behaviour, Delivery times, Commission, Roles, Permissions), D (coupon animations in the app, expiry alerts for coupons, offers and ads).
+- Default store (first by name) on Stock, Today, Reports, Behaviour, Placement; staff see only their own stores; a manager can pick among them (server: stock, today, reports, ratings, behaviour accept any assigned store; GET api/stores limited for staff).
+- Stores: area filter (read from the address) and its own scroll. New upload card used on Ads, Offers and Catalog. Help tips in English and Marathi under the header and on menu entries.
+- Tests: server 1268, portal 270.
+
+## P44 Portal requests, batch B (built, tested; NO migration, no server change; not committed)
+- Catalog: New product in a side panel with a picture (sent after the product is created); Bulk upload with CSV template, row checks, one-by-one create (shared/utils/csv.ts, features/products/product-import.ts, bulk-upload.component.ts). Pictures are not part of the CSV.
+- Categories: card board with drag and drop (move, promote to main), add and edit in a side panel, search.
+- Offers: store fees folded, searchable and filtered, scrolling. Behaviour screen redesigned.
+- Portal tests 281.
+- Not done yet: batch C (Overview by role with partner report; Delivery times, Commission, Roles, Permissions redesign), batch D (coupon animations, expiry alerts), Catalog and Stock on the shared table with server paging, other screens on the shared pieces, portal notifications screen.
+
+## P45 Portal batch C, first part (built, tested; NO migration, no server change; not committed)
+- Categories: two panes, the chosen store's products (GET api/catalog/products carriedOnly) dragged or picked into a category; category tree with its own drag to move. Product category change reads the product and sends it back unchanged except the category.
+- New product: Marathi name and description. Delivery times and Commission use the shared table with search, filters, pages. Roles and Permissions use a soft palette and work on narrow screens.
+- Portal tests 283.
+- Still to do: Overview by role with delivery partner report (needs server); coupon animations in the app (needs a migration, apply only with the user's go-ahead); expiry alerts; Catalog and Stock on the shared table.
+
+## P46 Previews and neutral access screens (built, tested; portal only; not committed)
+- shared/components/phone-preview: live phone preview beside the Offers, Ads and Coupons forms (EN/Marathi for offers, pop-up, ad places, coupon in cart). Roles and Permissions have no accent colours. Portal tests 286.
+- Next (asked, not built): coupon themes like offers, picture or ribbon, closable pop-up in the app, plus the earlier coupon animations; needs a migration (apply to dev DB only with the go-ahead) and a phone rebuild.
+
 ## P40 Portal sign-in and user saving fixes (built, tested; NO migration)
 - Saving a user in User Master always failed with 400: the portal sends role and staff category by name and the API only read numbers. The user endpoints now read and return names (numbers still accepted). A non-staff user keeps only the primary store.
 - Portal sign-in: delivery partner and customer accounts are refused on the login page with a message naming their app (nothing stored, server session closed; a saved one is dropped). Store staff land on /dashboard (they were sent to the admin-only page and saw Access Denied).
@@ -27,7 +77,7 @@ Store offers a replacement for an out-of-stock line (portal: Change items, Repla
 - Login page shows its own error message (toasts only exist inside the signed-in shell); the printed dev credentials are removed; store staff land on Today and no longer see Overview; a refused sign-in closes its session with the token.
 - **Store managers work across all assigned stores** (orders list and detail, status steps, change items, replacements, giving to a partner of the order's store). Store employees stay on the primary store. Reports, stock, offers, Today, placement, ratings and behaviour still use the primary store. Portal Orders has a store filter. Tests: server 1265 (17 HTTP tests on qc_http_test), portal 256.
 - Portal Orders keeps each row in place after an action (new orders on top, changed row marked); a reload sorts by status again. Portal 259 tests. The order flow was tried on the phone and portal and reported working (2026-11-26).
-- Open bug: changing a user's role in User Master does not add the new role link, leaving the account with no role.
+- Fixed: changing a user's role in User Master now adds the new role's link (before, an account moved to a role it never had was left with none). Covered by the SQL HTTP user test.
 
 ## P39 Design pass 2 and sub-categories (built, tested, not committed; NO migration; phone rebuilt with all but the chips)
 - **Look**: full dark theme in the v4 style (near-black page, no gradient, soft dark tiles, white text, yellow actions; the old purple literals are gone); bottom nav and cart pill smaller (60 px capsule, 48 px tap targets kept for accessibility); a 24 px rounded page-coloured sheet overlaps the bottom of the festival hero.

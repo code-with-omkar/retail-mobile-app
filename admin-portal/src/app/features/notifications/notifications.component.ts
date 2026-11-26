@@ -17,10 +17,10 @@ import { CommonModule } from '@angular/common';
     </div>
   `,
   styles: [`
-    :host { display: block; font-family: 'Inter', sans-serif; }
+    :host { display: block; font-family: 'Plus Jakarta Sans', sans-serif; }
     .notifications-page { margin-bottom: 40px; max-width: 900px; margin-inline: auto; }
-    .page-header h2 { font: 800 32px 'Space Grotesk', sans-serif; letter-spacing: -1px; margin: 0 0 6px; color: #fff; }
-    .muted { color: #E9E4FF; font-size: 12px; margin: 0 0 26px; }
+    .page-header h2 { font: 800 32px 'Bricolage Grotesque', sans-serif; letter-spacing: -1px; margin: 0 0 6px; color:var(--ink); }
+    .muted { color:var(--muted); font-size: 12px; margin: 0 0 26px; }
     .placeholder-panel { background: #FFF1A8; border-radius: 24px; padding: 40px; text-align: center; color: #141118; font-weight: 600; font-size: 13px; }
   `],
 })

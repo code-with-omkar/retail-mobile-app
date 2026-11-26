@@ -66,7 +66,20 @@ public static class NotificationCatalog
 
     public static Notification Create(Guid customerId, Guid orderId, string type, string orderNumber) => From(customerId, orderId, Note(type, orderNumber));
 
-    public static Notification ForStatus(Guid customerId, Order order, OrderStatus status) => Create(customerId, order.Id, TypeFor(status), order.OrderNumber);
+    public static Notification ForStatus(Guid customerId, Order order, OrderStatus status)
+    {
+        var note = Note(TypeFor(status), order.OrderNumber);
+        if (status == OrderStatus.Rejected && OrderRejections.ForCustomer(order.RejectionReason) is { } why)
+        {
+            note = note with
+            {
+                Message = note.Message + " " + why.En,
+                DataJson = JsonSerializer.Serialize(new Dictionary<string, string> { ["orderNumber"] = order.OrderNumber, ["reason"] = order.RejectionReason! })
+            };
+        }
+
+        return From(customerId, order.Id, note);
+    }
 
     public static Notification From(Guid customerId, Guid? orderId, NoteText note) => new()
     {
@@ -104,9 +117,10 @@ public static class NotificationCatalog
             return (notification.Title, notification.Message);
         }
 
+        var why = OrderRejections.ForCustomer(ReadText(notification.DataJson, "reason"));
         return marathi
-            ? (template.TitleMr, Fill(template.BodyMr, orderNumber))
-            : (Fill(template.TitleEn, orderNumber), Fill(template.BodyEn, orderNumber));
+            ? (template.TitleMr, Fill(template.BodyMr, orderNumber) + (why is { } mr ? " " + mr.Mr : string.Empty))
+            : (Fill(template.TitleEn, orderNumber), Fill(template.BodyEn, orderNumber) + (why is { } en ? " " + en.En : string.Empty));
     }
 
     private static string Fill(string text, string orderNumber) => text.Replace("{orderNumber}", orderNumber, StringComparison.Ordinal);
@@ -130,7 +144,9 @@ public static class NotificationCatalog
         }
     }
 
-    private static string? ReadOrderNumber(string? dataJson)
+    private static string? ReadOrderNumber(string? dataJson) => ReadText(dataJson, "orderNumber");
+
+    private static string? ReadText(string? dataJson, string name)
     {
         if (string.IsNullOrWhiteSpace(dataJson))
         {
@@ -140,7 +156,7 @@ public static class NotificationCatalog
         try
         {
             using var json = JsonDocument.Parse(dataJson);
-            return json.RootElement.TryGetProperty("orderNumber", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+            return json.RootElement.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
         }
         catch (JsonException)
         {

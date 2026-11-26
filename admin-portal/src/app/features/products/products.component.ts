@@ -2,6 +2,9 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { FileUploadComponent } from '../../shared/components/file-upload/file-upload.component';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
+import { BulkUploadComponent } from './bulk-upload.component';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ConfigService } from '../../core/services/config.service';
@@ -23,7 +26,7 @@ interface Category { id: string; name: string; isActive?: boolean; }
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, FileUploadComponent, SidePanelComponent, BulkUploadComponent],
   template: `
     <section class="page">
       <h2>Catalog</h2>
@@ -33,25 +36,31 @@ interface Category { id: string; name: string; isActive?: boolean; }
       <div class="bar">
         <input class="search" name="search" [(ngModel)]="search" placeholder="Search name or SKU" (keyup.enter)="reload()" />
         <button class="act" type="button" (click)="reload()">Search</button>
-        <button class="primary" type="button" *ngIf="isAdmin()" (click)="startNew()">New product</button>
+        <button class="primary" type="button" *ngIf="isAdmin()" (click)="startNew()">＋ New product</button>
+        <button class="act" type="button" *ngIf="isAdmin()" (click)="importing.set(true)">Bulk upload</button>
       </div>
       <p class="error" *ngIf="error()">{{ error() }}</p>
       <p class="notice" *ngIf="notice()">{{ notice() }}</p>
       <p *ngIf="loading()">Loading products...</p>
 
-      <section class="card" *ngIf="creating()">
-        <h3>New product</h3>
-        <div class="grid">
-          <label>SKU<input name="nsku" [(ngModel)]="draft.sku" maxlength="64" /></label>
-          <label>Name<input name="nname" [(ngModel)]="draft.name" maxlength="160" /></label>
-          <label>Category<select name="ncat" [(ngModel)]="draft.categoryId"><option value="">Choose</option><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select></label>
-          <label>Unit (first size)<input name="nunit" [(ngModel)]="draft.unitOfMeasure" maxlength="32" placeholder="e.g. 500 g" /></label>
-          <label>Price (₹)<input type="number" min="0" step="0.01" name="nprice" [(ngModel)]="draft.price" /></label>
-          <label>MRP (₹, optional)<input type="number" min="0" step="0.01" name="nmrp" [(ngModel)]="draft.mrp" /></label>
-        </div>
-        <label>Description<textarea name="ndesc" rows="2" [(ngModel)]="draft.description" maxlength="2000"></textarea></label>
-        <div class="row-actions"><button class="primary" type="button" [disabled]="busy()" (click)="create()">Create</button><button class="act" type="button" (click)="creating.set(false)">Cancel</button></div>
-      </section>
+      <app-side-panel [open]="creating()" title="New product" (closed)="creating.set(false)">
+        <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
+        <app-file-upload label="Product picture (optional)" hint="Shown in the app. Square pictures look best." [previewUrl]="draftPreview()" [busy]="busy()" (fileSelected)="chooseDraftPicture($event)" (removed)="chooseDraftPicture(null)"></app-file-upload>
+        <label>SKU<input name="nsku" [(ngModel)]="draft.sku" maxlength="64" /></label>
+        <label>Name<input name="nname" [(ngModel)]="draft.name" maxlength="160" /></label>
+        <label>Category<select name="ncat" [(ngModel)]="draft.categoryId"><option value="">Choose</option><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select></label>
+        <label>Unit (first size)<input name="nunit" [(ngModel)]="draft.unitOfMeasure" maxlength="32" placeholder="e.g. 500 g" /></label>
+        <label>Price (₹)<input type="number" min="0" step="0.01" name="nprice" [(ngModel)]="draft.price" /></label>
+        <label>MRP (₹, optional)<input type="number" min="0" step="0.01" name="nmrp" [(ngModel)]="draft.mrp" /></label>
+        <label>Description<textarea name="ndesc" rows="3" [(ngModel)]="draft.description" maxlength="2000"></textarea></label>
+        <label>Name in Marathi (मराठी नाव)<input name="nmrname" lang="mr" [(ngModel)]="draftMr.name" maxlength="160" /></label>
+        <label>Description in Marathi (मराठी वर्णन)<textarea name="nmrdesc" lang="mr" rows="3" [(ngModel)]="draftMr.description" maxlength="2000"></textarea></label>
+        <div panelActions class="row-actions"><button class="act" type="button" (click)="creating.set(false)">Cancel</button><button class="primary" type="button" [disabled]="busy()" (click)="create()">Create</button></div>
+      </app-side-panel>
+
+      <app-side-panel [open]="importing()" title="Bulk upload products" (closed)="importing.set(false)">
+        <app-bulk-upload *ngIf="importing()" [categories]="categories()" (imported)="afterImport($event)"></app-bulk-upload>
+      </app-side-panel>
 
       <section class="card" *ngIf="editing() as p">
         <div class="head-row"><h3>{{ p.name }} <small>{{ p.sku }}</small></h3><button class="act" type="button" (click)="editing.set(null)">Close</button></div>
@@ -101,15 +110,7 @@ interface Category { id: string; name: string; isActive?: boolean; }
         </div>
 
         <h4>Picture</h4>
-        <div class="photo">
-          <img *ngIf="p.imageUrl" [src]="img(p.imageUrl)" alt="" />
-          <span class="noimg" *ngIf="!p.imageUrl">No picture</span>
-          <div class="photo-actions">
-            <input type="file" accept="image/jpeg,image/png,image/webp" (change)="picked($event)" />
-            <small>JPEG, PNG or WebP, up to 2 MB.</small>
-            <div class="row-actions"><button class="primary" type="button" [disabled]="busy() || !file" (click)="upload()">Upload</button><button class="act" type="button" *ngIf="p.imageUrl" [disabled]="busy()" (click)="removePicture()">Remove picture</button></div>
-          </div>
-        </div>
+        <app-file-upload label="" [previewUrl]="p.imageUrl ? img(p.imageUrl) : null" [busy]="busy()" (fileSelected)="file = $event; upload()" (removed)="removePicture()"></app-file-upload>
       </section>
 
       <div class="table" *ngIf="items().length">
@@ -128,19 +129,19 @@ interface Category { id: string; name: string; isActive?: boolean; }
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
+    :host{display:block;font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink)}
+    h2{font-family:'Bricolage Grotesque',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:var(--ink)}
     h3{margin:0 0 8px;color:var(--on-card,#141118);font-size:16px}
     h3 small{font-weight:600;font-size:11px;color:var(--on-card-muted,#5E5A66)}
     h4{margin:14px 0 6px;color:var(--on-card,#141118);font-size:13px}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 16px}
+    .muted{color:var(--muted);font-size:12px;margin:0 0 16px}
     .muted a{color:#FFD400}
     .page{max-width:1200px}
     .bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
     .search{border:1px solid rgba(20,17,24,.2);border-radius:999px;padding:8px 14px;font:inherit;background:#fff;color:#141118;min-width:240px}
     .error{color:#FFC6E2;font-weight:700}
     .notice{color:#02F34C;font-weight:700}
-    .card{background:var(--card-bg,#EAE4FF);color:var(--on-card,#141118);border-radius:24px;padding:20px;display:grid;gap:10px;margin-bottom:20px}
+    .card{background:var(--card-bg,#F5F5F7);color:var(--on-card,#141118);border-radius:24px;padding:20px;display:grid;gap:10px;margin-bottom:20px}
     .head-row{display:flex;justify-content:space-between;align-items:center}
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
     label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--on-card-muted,#5E5A66)}
@@ -148,21 +149,22 @@ interface Category { id: string; name: string; isActive?: boolean; }
     .check{display:flex;gap:8px;align-items:center}
     .check input{width:auto}
     .row-actions{display:flex;gap:8px;flex-wrap:wrap}
-    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:9px 18px;font:800 12px 'Inter',sans-serif;cursor:pointer}
-    .act{border:0;border-radius:999px;padding:7px 14px;font:800 11px 'Inter',sans-serif;cursor:pointer;background:#141118;color:#fff}
+    app-side-panel label{display:grid;gap:4px}
+    .primary{border:0;border-radius:999px;background:#FFD400;color:#141118;padding:9px 18px;font:800 12px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+    .act{border:0;border-radius:999px;padding:7px 14px;font:800 11px 'Plus Jakarta Sans',sans-serif;cursor:pointer;background:#EEEAFF;color:#141118}
     .act.give{background:#02F34C;color:#141118}
     .primary:disabled,.act:disabled{opacity:.5;cursor:default}
     .more{margin-top:12px}
-    .table{background:var(--card-bg,#EAE4FF);border-radius:24px;overflow:auto;margin-bottom:12px}
+    .table{background:var(--card-bg,#F5F5F7);border-radius:24px;overflow:auto;margin-bottom:12px}
     .trow{display:grid;grid-template-columns:56px 2.4fr 1.2fr 1.4fr .8fr .7fr;gap:12px;padding:12px 18px;border-top:1px solid rgba(20,17,24,.12);min-width:760px;font-size:12px;color:var(--on-card-muted,#5E5A66);align-items:center}
     .trow strong{color:var(--on-card,#141118)}
     .vrow{display:grid;grid-template-columns:1.2fr 1.4fr .8fr .8fr .6fr .4fr 2fr;gap:8px;padding:8px 12px;border-top:1px solid rgba(20,17,24,.12);min-width:820px;align-items:center;font-size:12px}
     .vrow.add{border:0;background:transparent;padding:0}
     .head{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
     .actions{display:flex;gap:6px;align-items:center}
-    .thumb{width:44px;height:44px;border-radius:14px;object-fit:cover;display:grid;place-items:center;background:#C9C2F0;color:#141118;font-weight:800}
+    .thumb{width:44px;height:44px;border-radius:14px;object-fit:cover;display:grid;place-items:center;background:#ECECF0;color:#141118;font-weight:800}
     .badge{padding:3px 10px;border-radius:999px;font-size:10px;font-weight:800;background:#02F34C;color:#141118}
-    .badge.off{background:#C9C2F0}
+    .badge.off{background:#ECECF0}
     .mine{font-style:normal;background:#02F34C;color:#141118;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:800}
     .photo{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
     .photo img{width:140px;height:140px;object-fit:cover;border-radius:18px;background:#fff}
@@ -183,6 +185,11 @@ export class ProductsComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly creating = signal(false);
+  readonly importing = signal(false);
+  /** The picture chosen for a product that does not exist yet; it is sent as soon as the product is created. */
+  draftFile: File | null = null;
+  draftMr = { name: '', description: '' };
+  readonly draftPreview = signal<string | null>(null);
   readonly editing = signal<AdminProduct | null>(null);
 
   search = '';
@@ -225,12 +232,29 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  startNew() { this.editing.set(null); this.draft = this.blankDraft(); this.creating.set(true); this.notice.set(null); this.error.set(null); }
+  startNew() { this.editing.set(null); this.draft = this.blankDraft(); this.draftMr = { name: '', description: '' }; this.chooseDraftPicture(null); this.creating.set(true); this.notice.set(null); this.error.set(null); }
+
+  chooseDraftPicture(file: File | null) {
+    const old = this.draftPreview();
+    if (old && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(old);
+    this.draftFile = file;
+    this.draftPreview.set(file && typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null);
+  }
+
+  afterImport(created: number) { if (created > 0) { this.notice.set(created + ' product' + (created === 1 ? '' : 's') + ' created.'); this.reload(); } }
 
   create() {
+    if (this.draftMr.description.trim() && !this.draftMr.name.trim()) { this.error.set('Give the Marathi name as well as the Marathi description.'); return; }
     const d = this.draft;
     this.run(this.api.post<AdminProduct>('/admin/catalog/products', { sku: d.sku, name: d.name, description: d.description, categoryId: d.categoryId, unitOfMeasure: d.unitOfMeasure, price: d.price ?? 0, mrp: d.mrp }), 'Product created.', p => {
+      const picture = this.draftFile;
+      this.chooseDraftPicture(null);
       this.creating.set(false); this.reload(); this.edit(p);
+      const sendPicture = () => { if (picture) { this.file = picture; this.upload(); } };
+      const marathi = this.draftMr;
+      this.draftMr = { name: '', description: '' };
+      if (!marathi.name.trim()) { sendPicture(); return; }
+      this.run(this.api.put<AdminProduct>('/admin/catalog/products/' + p.id + '/translations/mr', { name: marathi.name.trim(), description: marathi.description.trim() || null }), 'Marathi saved.', saved => { this.refreshed(saved); sendPicture(); });
     });
   }
 

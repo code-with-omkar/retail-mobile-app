@@ -27,7 +27,9 @@ public static class CampaignMapping
         campaign.Notify,
         campaign.Products.Select(link => new CampaignProductInfo(link.ProductId, productNames?.GetValueOrDefault(link.ProductId) ?? string.Empty)).OrderBy(info => info.Name).ToArray(),
         campaign.ShowOnLoad,
-        campaign.CardDesign);
+        campaign.CardDesign,
+        campaign.Ribbon,
+        campaign.Animation);
 
     public static string StatusOf(Campaign campaign) =>
         !campaign.IsActive ? CampaignStatuses.Cancelled

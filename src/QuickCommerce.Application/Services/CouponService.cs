@@ -104,7 +104,41 @@ public sealed class CouponService(
         var mine = coupon is null ? 0 : await coupons.UsesByUserAsync(coupon.Id, context.UserId, cancellationToken);
         var hasOrders = coupon is { FirstOrderOnly: true } && await coupons.HasOrdersAsync(context.UserId, cancellationToken);
         var outcome = CouponRules.Check(coupon, new CouponContext(cart.Subtotal, cart.DeliveryFee, clock.GetUtcNow().UtcDateTime, coupon?.UsedCount ?? 0, mine, hasOrders));
-        return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(outcome.Check == CouponCheck.Valid, typed, outcome.Discount, outcome.Message, cart.Total - outcome.Discount, outcome.Check == CouponCheck.Valid ? null : outcome.Check.ToString()));
+        return new(CouponServiceStatus.Succeeded, new CouponPreviewResponse(outcome.Check == CouponCheck.Valid, typed, outcome.Discount, outcome.Message, cart.Total - outcome.Discount, outcome.Check == CouponCheck.Valid ? null : outcome.Check.ToString(), outcome.Check == CouponCheck.Valid ? coupon?.Animation : null));
+    }
+
+    public async Task<CouponResult<IReadOnlyList<FeaturedCoupon>>> FeaturedAsync(Guid storeId, CancellationToken cancellationToken = default)
+    {
+        if (await coupons.GetStoreOrganizationAsync(storeId, cancellationToken) is not { } organizationId)
+        {
+            return new(CouponServiceStatus.NotFound, Message: "Store not found.");
+        }
+
+        var now = clock.GetUtcNow().UtcDateTime;
+        var context = await userContext.ResolveAsync(cancellationToken);
+        var customer = context is { Role: Role.Customer } && context.OrganizationId == organizationId ? context : null;
+        var hasOrders = customer is not null && await coupons.HasOrdersAsync(customer.UserId, cancellationToken);
+        var shown = new List<FeaturedCoupon>();
+        foreach (var coupon in (await coupons.ListShownAsync(organizationId, now, cancellationToken)).OrderByDescending(item => item.StartsAt))
+        {
+            if (customer is not null)
+            {
+                // Asked with a large enough cart, so only the customer's own history can rule it out.
+                var mine = await coupons.UsesByUserAsync(coupon.Id, customer.UserId, cancellationToken);
+                var outcome = CouponRules.Check(coupon, new CouponContext(Math.Max(coupon.MinSubtotal, 1000m), 1m, now, coupon.UsedCount, mine, hasOrders));
+                if (outcome.Check != CouponCheck.Valid)
+                {
+                    continue;
+                }
+            }
+
+            shown.Add(new FeaturedCoupon(
+                coupon.Id, coupon.Code, coupon.Description, coupon.Kind, coupon.Value, coupon.MaxDiscount, coupon.MinSubtotal,
+                coupon.EndsAt is { } ends ? DateTime.SpecifyKind(ends, DateTimeKind.Utc) : null,
+                coupon.FirstOrderOnly, coupon.Design, coupon.ImageUrl, coupon.Ribbon, coupon.ShowAsPopup, coupon.Animation));
+        }
+
+        return new(CouponServiceStatus.Succeeded, shown);
     }
 
     private static string? Problem(SaveCouponRequest request, string code, DateTime startsAt)
@@ -112,6 +146,21 @@ public sealed class CouponService(
         if (request.Description is { Length: > 200 } || request.Description?.Any(c => c is '<' or '>' || (char.IsControl(c) && c != '\n')) == true)
         {
             return "The description can be up to 200 characters and cannot contain < or >.";
+        }
+
+        if (!OfferCardDesigns.IsKnown(OfferCardDesigns.Normalize(request.Design)))
+        {
+            return "That card design is not known.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl) && !OfferImages.IsOwnPath(request.ImageUrl))
+        {
+            return "The picture must be one uploaded here.";
+        }
+
+        if (CardExtras.Problem(request.Ribbon, request.Animation) is { } extras)
+        {
+            return extras;
         }
 
         return CouponRules.Validate(code, request.Kind, request.Value, request.MaxDiscount, request.MinSubtotal, startsAt, request.EndsAt, request.TotalLimit, request.PerCustomerLimit);
@@ -131,6 +180,12 @@ public sealed class CouponService(
         coupon.PerCustomerLimit = request.PerCustomerLimit;
         coupon.FirstOrderOnly = request.FirstOrderOnly;
         coupon.IsActive = request.IsActive;
+        coupon.Design = OfferCardDesigns.Normalize(request.Design);
+        coupon.ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl;
+        coupon.Ribbon = CardExtras.NormalizeRibbon(request.Ribbon);
+        coupon.ShowInApp = request.ShowInApp || request.ShowAsPopup;
+        coupon.ShowAsPopup = request.ShowAsPopup;
+        coupon.Animation = CardExtras.NormalizeAnimation(request.Animation);
     }
 
     public static string StatusOf(Coupon coupon, DateTime now) =>
@@ -143,5 +198,6 @@ public sealed class CouponService(
     private static CouponResponse Map(Coupon coupon, decimal discountGiven, DateTime now) => new(
         coupon.Id, coupon.Code, coupon.Description, coupon.Kind, coupon.Value, coupon.MaxDiscount, coupon.MinSubtotal,
         DateTime.SpecifyKind(coupon.StartsAt, DateTimeKind.Utc), coupon.EndsAt is { } ends ? DateTime.SpecifyKind(ends, DateTimeKind.Utc) : null,
-        coupon.TotalLimit, coupon.PerCustomerLimit, coupon.FirstOrderOnly, coupon.IsActive, coupon.UsedCount, discountGiven, StatusOf(coupon, now));
+        coupon.TotalLimit, coupon.PerCustomerLimit, coupon.FirstOrderOnly, coupon.IsActive, coupon.UsedCount, discountGiven, StatusOf(coupon, now),
+        coupon.Design, coupon.ImageUrl, coupon.Ribbon, coupon.ShowInApp, coupon.ShowAsPopup, coupon.Animation);
 }

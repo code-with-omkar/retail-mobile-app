@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { storeChoices } from '../../shared/utils/stores';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Role, Store } from '../../core/models/domain.model';
@@ -46,7 +47,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
               <option *ngFor="let p of presets" [value]="p.key">{{ p.label }}</option>
             </select>
           </label>
-          <label *ngIf="isAdmin()">Store
+          <label *ngIf="canChooseStore()">Store
             <select name="store" [ngModel]="storeId" (ngModelChange)="pickStore($event)">
               <option value="">All stores</option>
               <option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option>
@@ -55,17 +56,37 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
         </div>
       </div>
 
-      <p *ngIf="error()" class="error">{{ error() }}</p>
+      <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
       <p *ngIf="loading() && !report()">Loading…</p>
 
       <ng-container *ngIf="report() as r">
+        <section class="tiles">
+          <article class="tile hero"><p>Bought something</p><strong>{{ conversion(r) }}%</strong><small>of the people who opened the app</small></article>
+          <article class="tile"><p>Sessions</p><strong>{{ r.funnel[0].sessions }}</strong><small>app opens in the period</small></article>
+          <article class="tile"><p>Orders placed</p><strong>{{ last(r)?.sessions ?? 0 }}</strong><small>sessions that ordered</small></article>
+          <article class="tile"><p>Biggest drop</p><strong class="word">{{ worstStep(r) }}</strong><small>where most people stop</small></article>
+        </section>
+
         <section class="card">
           <h3>Buying funnel</h3>
           <p class="muted-card" *ngIf="r.funnel[0].sessions === 0">No sessions were recorded in this period yet.</p>
-          <div class="bar-row" *ngFor="let s of r.funnel">
+          <div class="bar-row" *ngFor="let s of r.funnel; let i = index">
+            <span class="step-no">{{ i + 1 }}</span>
             <span class="bar-label">{{ label(s.name) }}</span>
             <div class="bar"><div class="fill" [style.width.%]="s.percentOfFirst" [attr.data-step]="s.name"></div></div>
             <span class="bar-num"><strong>{{ s.sessions }}</strong> <small>{{ s.percentOfFirst }}% of openers<ng-container *ngIf="s.name !== 'app_open'"> · {{ s.percentOfPrevious }}% of the step before</ng-container></small></span>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Sessions per day</h3>
+          <p class="muted-card" *ngIf="!r.dailySessions.length">No days to show.</p>
+          <div class="days">
+            <div class="day" *ngFor="let d of r.dailySessions" [title]="d.day + ': ' + d.sessions + ' sessions'">
+              <span class="value">{{ d.sessions }}</span>
+              <div class="col" [style.height.px]="height(d.sessions, r)"></div>
+              <small>{{ d.day.slice(8) }}</small>
+            </div>
           </div>
         </section>
 
@@ -73,59 +94,69 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
           <section class="card">
             <h3>Top searches</h3>
             <p class="muted-card" *ngIf="r.topSearches.length === 0">No searches yet.</p>
-            <div class="row" *ngFor="let t of r.topSearches"><span>{{ t.detail }}</span><strong>{{ t.count }}</strong></div>
+            <div class="rank" *ngFor="let t of r.topSearches; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ t.detail }}</span><i [style.width.%]="share(t.count, r.topSearches)"></i></div><strong>{{ t.count }}</strong></div>
           </section>
           <section class="card">
             <h3>Why coupons were refused</h3>
             <p class="muted-card" *ngIf="r.couponRefusals.length === 0">No refusals.</p>
-            <div class="row" *ngFor="let t of r.couponRefusals"><span>{{ reason(t.detail) }}</span><strong>{{ t.count }}</strong></div>
+            <div class="rank pink" *ngFor="let t of r.couponRefusals; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ reason(t.detail) }}</span><i [style.width.%]="share(t.count, r.couponRefusals)"></i></div><strong>{{ t.count }}</strong></div>
           </section>
         </div>
 
         <section class="card">
-          <h3>Sessions per day</h3>
-          <div class="days">
-            <div class="day" *ngFor="let d of r.dailySessions" [title]="d.day + ': ' + d.sessions + ' sessions'">
-              <div class="col" [style.height.px]="height(d.sessions, r)"></div>
-              <small>{{ d.day.slice(8) }}</small>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
           <h3>Every step</h3>
-          <div class="row head-row"><span>Step</span><span>Times</span><span>Sessions</span></div>
-          <div class="row" *ngFor="let s of r.steps"><span>{{ label(s.name) }}</span><span>{{ s.events }}</span><span>{{ s.sessions }}</span></div>
+          <div class="steps">
+            <div class="row head-row"><span>#</span><span>Step</span><span>Times</span><span>Sessions</span></div>
+            <div class="row" *ngFor="let s of r.steps; let i = index"><span>{{ i + 1 }}</span><span>{{ label(s.name) }}</span><span>{{ s.events }}</span><span>{{ s.sessions }}</span></div>
+          </div>
         </section>
       </ng-container>
     </section>
   `,
   styles: [`
-    :host{display:block;font-family:'Inter',sans-serif;color:#fff}
-    h2{font-family:'Space Grotesk',sans-serif;font-size:28px;letter-spacing:-1px;margin:0 0 4px;color:#fff}
-    .muted{color:#E9E4FF;font-size:12px;margin:0 0 12px;max-width:560px}
-    .page{max-width:1100px;display:grid;gap:16px}
+    :host{display:block;color:var(--ink)}
+    h2{font-family:var(--display);font-size:28px;letter-spacing:-1px;margin:0 0 4px}
+    .muted{color:var(--muted);font-size:12px;margin:0;max-width:600px}
+    .page{max-width:1280px;display:grid;gap:14px;padding-bottom:20px}
     .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
-    .controls{display:flex;gap:12px;flex-wrap:wrap}
-    label{display:grid;gap:4px;font-size:11px;font-weight:700;color:#E9E4FF}
-    select{border:1px solid rgba(20,17,24,.2);border-radius:12px;padding:8px 10px;font:inherit;background:#fff;color:#141118;min-width:170px}
-    .card{background:var(--card-bg,#EAE4FF);border-radius:24px;padding:20px;display:grid;gap:10px;color:var(--on-card,#141118)}
-    h3{margin:0;font:800 16px 'Space Grotesk',sans-serif}
-    .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-    .muted-card{margin:0;color:var(--on-card-muted,#5E5A66);font-size:12px}
-    .bar-row{display:grid;grid-template-columns:170px 1fr 260px;gap:12px;align-items:center;font-size:12px}
-    .bar{background:rgba(20,17,24,.1);border-radius:999px;height:16px;overflow:hidden}
-    .fill{height:100%;background:#FB1A8E;border-radius:999px;min-width:2px}
-    .bar-num small{color:var(--on-card-muted,#5E5A66);font-size:10px}
-    .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid rgba(20,17,24,.1);font-size:12px}
-    .head-row{border-top:0;font-size:10px;font-weight:700;text-transform:uppercase}
-    .head-row span:nth-child(n+2),.row>span:nth-child(n+2){min-width:70px;text-align:right}
-    .days{display:flex;gap:4px;align-items:flex-end;height:120px;overflow-x:auto}
-    .day{display:grid;justify-items:center;gap:2px}
-    .col{width:14px;background:#B9A8FF;border-radius:4px 4px 0 0;min-height:2px}
-    .day small{font-size:9px;color:var(--on-card-muted,#5E5A66)}
-    .error{color:#FFB3D9;font-weight:700}
-    @media(max-width:700px){.bar-row{grid-template-columns:1fr}}
+    .controls{display:flex;gap:10px;flex-wrap:wrap}
+    label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--muted)}
+    select{border:1.5px solid #D9D7DF;border-radius:12px;padding:9px 12px;font:inherit;font-size:12px;background:#fff;color:var(--ink);min-width:170px}
+    .tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.4fr;gap:12px}
+    .tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;display:grid;gap:4px}
+    .tile.hero{background:var(--yellow);border-color:var(--yellow)}
+    .tile p{margin:0;font-size:11px;font-weight:700}
+    .tile strong{font-family:var(--display);font-size:30px;letter-spacing:-1px}
+    .tile strong.word{font-size:17px;letter-spacing:-.3px;line-height:1.35}
+    .tile small{color:var(--muted);font-size:11px}
+    .tile.hero small{color:var(--ink)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;display:grid;gap:10px;align-content:start}
+    h3{margin:0;font:800 14px 'Plus Jakarta Sans',sans-serif}
+    .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+    .muted-card{margin:0;color:var(--muted);font-size:12px}
+    .bar-row{display:grid;grid-template-columns:26px 170px 1fr 280px;gap:12px;align-items:center;font-size:12px}
+    .step-no{width:24px;height:24px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-weight:800;font-size:11px}
+    .bar-label{font-weight:700}
+    .bar{background:var(--card);border-radius:999px;height:22px;overflow:hidden}
+    .fill{height:100%;background:linear-gradient(90deg,#8B7CF6,#F59ACB,#FFD400);border-radius:999px;min-width:3px;transition:width .5s ease}
+    .bar-num small{color:var(--muted);font-size:11px}
+    .days{display:flex;gap:6px;align-items:flex-end;height:160px;overflow-x:auto;padding-bottom:4px}
+    .day{display:grid;justify-items:center;gap:3px;min-width:24px;flex:1}
+    .value{font-size:10px;font-weight:700;color:var(--muted)}
+    .col{width:100%;max-width:34px;background:linear-gradient(180deg,#8B7CF6,#C9C0F0);border-radius:8px 8px 2px 2px;min-height:2px}
+    .day small{font-size:10px;color:var(--muted)}
+    .rank{display:grid;grid-template-columns:24px 1fr 44px;gap:10px;align-items:center;font-size:12px}
+    .rank .no{color:var(--muted);font-weight:700;text-align:right}
+    .rank div{display:grid;gap:4px}
+    .rank i{display:block;height:6px;border-radius:999px;background:#8B7CF6}
+    .rank.pink i{background:#F59ACB}
+    .rank strong{text-align:right}
+    .steps{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:14px}
+    .steps .row{display:grid;grid-template-columns:44px 1fr 90px 90px;gap:10px;padding:9px 12px;border-top:1px solid var(--line);font-size:12px}
+    .steps .row span:nth-child(n+3){text-align:right}
+    .steps .head-row{position:sticky;top:0;background:var(--card);border-top:0;font-size:10px;font-weight:800;text-transform:uppercase}
+    .error{color:var(--danger);font-weight:700}
+    @media(max-width:1000px){.tiles{grid-template-columns:1fr 1fr}.bar-row{grid-template-columns:26px 1fr}.bar-row .bar,.bar-row .bar-num{grid-column:2}}
   `],
 })
 export class BehaviourComponent implements OnInit {
@@ -140,6 +171,9 @@ export class BehaviourComponent implements OnInit {
   preset = '7';
   storeId = '';
 
+  /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
+
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
   label(name: string): string { return LABELS[name] ?? name; }
   reason(detail: string): string { return REASONS[detail] ?? detail; }
@@ -150,9 +184,21 @@ export class BehaviourComponent implements OnInit {
     return max <= 0 ? 2 : Math.max(2, Math.round((sessions / max) * 100));
   }
 
+  last(r: Report) { return r.funnel[r.funnel.length - 1]; }
+  /** The share of openers who reached the last step. */
+  conversion(r: Report): number { return this.last(r)?.percentOfFirst ?? 0; }
+  /** The step that keeps the smallest part of the step before it. */
+  worstStep(r: Report): string {
+    const later = r.funnel.slice(1).filter(() => r.funnel[0].sessions > 0);
+    return later.length ? this.label(later.reduce((a, b) => (b.percentOfPrevious < a.percentOfPrevious ? b : a)).name) : '—';
+  }
+  share(count: number, all: { count: number }[]): number { return Math.round((count / Math.max(1, ...all.map(x => x.count))) * 100); }
+
   ngOnInit() {
-    if (this.isAdmin()) this.api.get<Store[]>('/stores').subscribe({ next: r => this.stores.set((r.data ?? []).filter(s => s.isActive)), error: () => {} });
-    this.load();
+    this.api.get<Store[]>('/stores').subscribe({
+      next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
+      error: () => this.load(),
+    });
   }
 
   choose(key: string) { this.preset = key; this.load(); }
@@ -168,7 +214,7 @@ export class BehaviourComponent implements OnInit {
 
   load() {
     this.loading.set(true); this.error.set(null);
-    this.api.get<Report>('/reports/behaviour', { params: { ...this.range(), storeId: this.isAdmin() && this.storeId ? this.storeId : null } }).subscribe({
+    this.api.get<Report>('/reports/behaviour', { params: { ...this.range(), storeId: this.storeId ? this.storeId : null } }).subscribe({
       next: r => { this.report.set(r.data ?? null); this.loading.set(false); },
       error: e => { this.report.set(null); this.error.set(e?.message ?? 'Could not load customer behaviour.'); this.loading.set(false); },
     });

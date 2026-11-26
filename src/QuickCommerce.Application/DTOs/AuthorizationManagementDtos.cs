@@ -51,3 +51,13 @@ public sealed record UpdateManagedUserRequest(
 public sealed record UpdateRolePermissionsRequest(IReadOnlyList<Guid> PermissionIds);
 
 public sealed record OrganizationResponse(Guid Id, string Name, bool IsActive);
+
+/// <summary>What the portal's user list asks for. Role is a role code ("ApplicationAdmin" covers administrators); Sort is "name", "name-desc", "email" or "newest".</summary>
+public sealed record ManagedUserQuery(string? Search = null, string? Role = null, bool? Active = null, string? Sort = null, int Page = 1, int PageSize = 20)
+{
+    public const int MaxPageSize = 100;
+    public ManagedUserQuery Clamped() => this with { Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), Page = Math.Max(1, Page), PageSize = Math.Clamp(PageSize, 1, MaxPageSize) };
+}
+
+/// <summary>One page of users, with the totals for the whole organization (not only what matched).</summary>
+public sealed record ManagedUserPage(IReadOnlyList<ManagedUserResponse> Items, int TotalCount, int Page, int PageSize, int AllCount, int ActiveCount, int RoleCount);

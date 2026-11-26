@@ -60,6 +60,11 @@ Map<String, dynamic> _order({Map<String, dynamic> extra = const {}}) => {
 
 /// Answers by code, the way the server would: SAVE10 takes 10% off the item total (₹28 here, so ₹2.8), MIN500 needs more in the cart.
 class FakeCouponRepository implements CouponRepository {
+  List<FeaturedCoupon> shown = const [];
+
+  @override
+  Future<List<FeaturedCoupon>> featured(String storeId) async => shown;
+
   final calls = <({String storeId, String code})>[];
   Object? failNext;
   double itemTotal = 28;
@@ -87,7 +92,7 @@ class _Shop {
   final FakeOrderRepository orders;
 }
 
-Future<_Shop> _open(WidgetTester tester, {String route = '/cart'}) async {
+Future<_Shop> _open(WidgetTester tester, {String route = '/cart', List<FeaturedCoupon> shown = const []}) async {
   SharedPreferences.setMockInitialValues(const {});
   final sp = await SharedPreferences.getInstance();
   tester.view.physicalSize = const Size(390 * 3, 2200 * 3);
@@ -95,7 +100,7 @@ Future<_Shop> _open(WidgetTester tester, {String route = '/cart'}) async {
   addTearDown(tester.view.reset);
   final cartRepo = FakeCartRepository()..know('tomato:1kg', productId: 'tomato', variantId: 'tomato:1kg', name: 'Tomato', price: 28);
   final orders = FakeOrderRepository()..onPlaced = cartRepo.lines.clear;
-  final coupons = FakeCouponRepository();
+  final coupons = FakeCouponRepository()..shown = shown;
   final addresses = FakeAddressRepository()..seed('Home', isDefault: true, flat: 'Flat 4');
   final products = ProductStore()..putAll(seed.products);
   await tester.pumpWidget(ProviderScope(retry: noAutomaticRetry, overrides: [
@@ -178,6 +183,26 @@ void main() {
   });
 
   group('the coupon box in the cart', () {
+    testWidgets('a coupon marked as a pop-up appears once, and its card in the cart applies it', (tester) async {
+      const listed = FeaturedCoupon(id: 'c1', code: 'SAVE10', kind: 'Percent', value: 10, showAsPopup: true);
+      final shop = await _open(tester, shown: const [listed]);
+      // Closed if Home showed it before the cart was opened.
+      final close = find.byTooltip('Close');
+      if (close.evaluate().isNotEmpty) {
+        await tester.tap(close);
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Coupons for you'), findsOneWidget);
+
+      await tester.tap(find.text('Apply').first);
+      await tester.pumpAndSettle();
+
+      expect(shop.coupons.calls.single.code, 'SAVE10');
+      expect(find.text('Applied'), findsOneWidget);
+      final prefs = shop.container.read(sharedPrefsProvider);
+      expect(prefs.getStringList('coupon_popups_seen_u1'), ['c1']);
+    });
+
     testWidgets('a good code shows as applied, takes its discount off To pay and the Checkout button', (tester) async {
       final shop = await _open(tester);
 

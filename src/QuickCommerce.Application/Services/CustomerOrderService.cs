@@ -166,5 +166,6 @@ public sealed class CustomerOrderService(
         CouponCode: order.CouponCode,
         CouponDiscount: order.CouponDiscount,
         DeliverySlotStart: order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
-        DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null);
+        DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null,
+        RejectionReason: order.RejectionReason);
 }
