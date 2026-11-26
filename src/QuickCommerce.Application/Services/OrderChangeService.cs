@@ -7,7 +7,8 @@ namespace QuickCommerce.Application.Services;
 public sealed class OrderChangeService(
     IOrderChangeStore store,
     ICurrentUserContextResolver contextResolver,
-    TimeProvider? timeProvider = null) : IOrderChangeService
+    TimeProvider? timeProvider = null,
+    ICommerceStore? orders = null) : IOrderChangeService
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
@@ -24,7 +25,7 @@ public sealed class OrderChangeService(
             return new(OrderChangeStatus.Forbidden, Message: "Store staff must be assigned to a store.");
         }
 
-        var commit = await store.ApplyAsync(orderId, context.OrganizationId, context.Role == Role.StoreStaff ? context.StoreId : null, context.UserId, request.Changes ?? [], request.Reason, clock.GetUtcNow().UtcDateTime, cancellationToken);
+        var commit = await store.ApplyAsync(orderId, context.OrganizationId, await StaffStoreScope.ForOrderAsync(context, orderId, orders, cancellationToken), context.UserId, request.Changes ?? [], request.Reason, clock.GetUtcNow().UtcDateTime, cancellationToken);
         if (commit is null)
         {
             return new(OrderChangeStatus.NotFound, Message: "Order not found.");

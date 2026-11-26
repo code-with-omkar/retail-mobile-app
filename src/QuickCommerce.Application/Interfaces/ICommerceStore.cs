@@ -58,6 +58,9 @@ public interface ICommerceStore
     Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default);
     /// <summary>Turns the cart into an order, taking stock, in one transaction. With an idempotency key a repeat returns the earlier order.</summary>
     Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default);
+    /// <summary>The store an order belongs to, or null when there is no such order.</summary>
+    Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default);
+
     Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default);
     Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default);
 }

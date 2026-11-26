@@ -78,7 +78,7 @@ export class AuthService {
           const refusal = portalRefusal(userContext.role);
           if (refusal) {
             // Nothing is kept here, and the session the server just opened is closed again.
-            this.http.post(this.config.getUrl('/auth/logout'), { refreshToken: response.data.refreshToken }).subscribe({ error: () => {} });
+            this.http.post(this.config.getUrl('/auth/logout'), { refreshToken: response.data.refreshToken }, { headers: { Authorization: `Bearer ${response.data.accessToken}` } }).subscribe({ error: () => {} });
             throw new Error(refusal);
           }
           this.storage.setToken(response.data.accessToken);

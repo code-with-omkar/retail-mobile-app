@@ -17,7 +17,7 @@ function open(login: (...a: any[]) => Observable<unknown>, role?: string) {
   });
   const fixture = TestBed.createComponent(LoginComponent);
   fixture.detectChanges();
-  return { c: fixture.componentInstance, toast, navigate };
+  return { c: fixture.componentInstance, f: fixture, toast, navigate };
 }
 
 describe('LoginComponent', () => {
@@ -45,13 +45,23 @@ describe('LoginComponent', () => {
     expect(navigate).toHaveBeenCalledWith(['/admin/dashboard']);
   });
 
-  it('store staff start on their overview, not the administrators page that would deny them', () => {
+  it('store staff start on Today, not the administrators page that would deny them', () => {
     const { c, navigate } = open(() => of({}), 'StoreStaff');
 
     c.loginForm.setValue({ username: 'asha', password: 'secret1' });
     c.onSubmit();
 
-    expect(navigate).toHaveBeenCalledWith(['/dashboard']);
+    expect(navigate).toHaveBeenCalledWith(['/today']);
+  });
+
+  it('shows why sign-in was refused on the page itself, where there is no toast area', () => {
+    const { c, f } = open(() => throwError(() => new Error('This is a delivery partner account. Sign in with the QuickCart delivery app.')));
+
+    c.loginForm.setValue({ username: 'asha', password: 'secret1' });
+    c.onSubmit();
+    f.detectChanges();
+
+    expect((f.nativeElement as HTMLElement).querySelector('[role=alert]')?.textContent).toContain('delivery app');
   });
 
   it('a failed sign-in shows the server message and lets the user try again', () => {

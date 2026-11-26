@@ -181,8 +181,12 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
 
     public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => Task.FromResult<UserContext?>(Users
         .Where(user => (user.ExternalSubject == externalSubject || user.Id.ToString() == externalSubject) && user.IsActive)
-        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory,
+            user.StoreAssignments.Where(row => row.IsActive && row.EffectiveFrom <= DateTime.UtcNow && (row.EffectiveTo == null || row.EffectiveTo > DateTime.UtcNow)).Select(row => row.StoreId).ToList()))
         .FirstOrDefault());
+
+    public Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Orders.FirstOrDefault(order => order.Id == orderId)?.StoreId);
 
     public Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default)
     {

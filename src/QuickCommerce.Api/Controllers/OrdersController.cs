@@ -63,7 +63,7 @@ public sealed class OrdersController(
     }
 
     /// <summary>
-    /// The stores whose orders staff see: the one they operate (their primary store), which is the same store they can change statuses in.
+    /// The stores whose orders staff see, which are the ones they can change statuses in: a store manager's assigned stores, otherwise the primary store.
     /// Application admins are not limited by store. A user with no operating store sees none.
     /// </summary>
     private async Task<IReadOnlySet<Guid>> OperatingStoresAsync(QuickCommerce.Application.DTOs.AuthorizationScope scope, CancellationToken cancellationToken)
@@ -74,7 +74,7 @@ public sealed class OrdersController(
         }
 
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
-        return context?.StoreId is { } storeId ? new HashSet<Guid> { storeId } : new HashSet<Guid>();
+        return context?.OrderStoreIds ?? new HashSet<Guid>();
     }
 
     private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };

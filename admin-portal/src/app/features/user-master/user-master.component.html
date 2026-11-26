@@ -213,6 +213,7 @@
 
       <section class="section" *ngIf="form.controls.role.value === 'StoreStaff'">
         <h4 class="section-head green"><span class="num">3</span>Store assignments</h4>
+        <small class="muted">A store manager sees and works on the orders of every store ticked here. A store employee works on the primary store only.</small>
         <div class="assignment-list" *ngIf="stores().length; else noStores">
           <label class="assignment-item" *ngFor="let store of stores()" [class.selected]="isStoreSelected(store.id)">
             <input type="checkbox" [checked]="isStoreSelected(store.id)" (change)="toggleStore(store.id)" />

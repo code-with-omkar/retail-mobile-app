@@ -24,6 +24,10 @@ Store offers a replacement for an out-of-stock line (portal: Change items, Repla
 - Saving a user in User Master always failed with 400: the portal sends role and staff category by name and the API only read numbers. The user endpoints now read and return names (numbers still accepted). A non-staff user keeps only the primary store.
 - Portal sign-in: delivery partner and customer accounts are refused on the login page with a message naming their app (nothing stored, server session closed; a saved one is dropped). Store staff land on /dashboard (they were sent to the admin-only page and saw Access Denied).
 - The header greeting follows the time of day.
+- Login page shows its own error message (toasts only exist inside the signed-in shell); the printed dev credentials are removed; store staff land on Today and no longer see Overview; a refused sign-in closes its session with the token.
+- **Store managers work across all assigned stores** (orders list and detail, status steps, change items, replacements, giving to a partner of the order's store). Store employees stay on the primary store. Reports, stock, offers, Today, placement, ratings and behaviour still use the primary store. Portal Orders has a store filter. Tests: server 1265 (17 HTTP tests on qc_http_test), portal 256.
+- Portal Orders keeps each row in place after an action (new orders on top, changed row marked); a reload sorts by status again. Portal 259 tests. The order flow was tried on the phone and portal and reported working (2026-11-26).
+- Open bug: changing a user's role in User Master does not add the new role link, leaving the account with no role.
 
 ## P39 Design pass 2 and sub-categories (built, tested, not committed; NO migration; phone rebuilt with all but the chips)
 - **Look**: full dark theme in the v4 style (near-black page, no gradient, soft dark tiles, white text, yellow actions; the old purple literals are gone); bottom nav and cart pill smaller (60 px capsule, 48 px tap targets kept for accessibility); a 24 px rounded page-coloured sheet overlaps the bottom of the festival hero.

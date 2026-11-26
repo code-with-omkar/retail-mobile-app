@@ -692,8 +692,15 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
     public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => db.Users
         .AsNoTracking()
         .Where(user => (user.ExternalSubject == externalSubject || user.Id.ToString() == externalSubject) && user.IsActive)
-        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory,
+            user.StoreAssignments
+                .Where(row => row.IsActive && row.EffectiveFrom <= DateTime.UtcNow && (row.EffectiveTo == null || row.EffectiveTo > DateTime.UtcNow) && row.Store.IsActive && row.Store.OrganizationId == user.OrganizationId)
+                .Select(row => row.StoreId)
+                .ToList()))
         .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default) =>
+        await db.Orders.AsNoTracking().Where(order => order.Id == orderId).Select(order => (Guid?)order.StoreId).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default)
     {

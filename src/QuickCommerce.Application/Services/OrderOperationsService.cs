@@ -29,7 +29,8 @@ public sealed class OrderOperationsService(
             return OrderOperationResult.Unauthorized("Store staff must be assigned to a store");
         }
 
-        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, context.StoreId, request.Status, cancellationToken);
+        var storeId = context.Role == Role.StoreStaff ? await StaffStoreScope.ForOrderAsync(context, orderId, data, cancellationToken) : context.StoreId;
+        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, storeId, request.Status, cancellationToken);
         return result.Status switch
         {
             OrderLifecycleStatus.Succeeded => OrderOperationResult.Succeeded(result.Order!),

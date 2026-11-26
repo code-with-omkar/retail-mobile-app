@@ -7,7 +7,8 @@ namespace QuickCommerce.Application.Services;
 public sealed class ReplacementService(
     IReplacementStore store,
     ICurrentUserContextResolver contextResolver,
-    TimeProvider? timeProvider = null) : IReplacementService
+    TimeProvider? timeProvider = null,
+    ICommerceStore? orders = null) : IReplacementService
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
@@ -28,7 +29,7 @@ public sealed class ReplacementService(
             return new(ReplacementStatus.Forbidden, Message: "Only store staff or an administrator can offer a replacement.");
         }
 
-        var commit = await store.ProposeAsync(orderId, context.OrganizationId, context.Role == Role.StoreStaff ? context.StoreId : null, context.UserId, request, clock.GetUtcNow().UtcDateTime, ReplacementRules.Window, cancellationToken);
+        var commit = await store.ProposeAsync(orderId, context.OrganizationId, await StaffStoreScope.ForOrderAsync(context, orderId, orders, cancellationToken), context.UserId, request, clock.GetUtcNow().UtcDateTime, ReplacementRules.Window, cancellationToken);
         return commit.Outcome == ReplacementOutcome.Applied ? new(ReplacementStatus.Succeeded, ReplacementRules.ToInfo(commit.Proposal!)) : Fail<ReplacementInfo>(commit);
     }
 

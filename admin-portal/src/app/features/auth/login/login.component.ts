@@ -24,6 +24,8 @@ import { Role } from '../../../core/models/domain.model';
         </div>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+          <p class="login-error" role="alert" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
           <app-input
             label="Username or email"
             type="text"
@@ -48,12 +50,6 @@ import { Role } from '../../../core/models/domain.model';
             variant="primary"
           ></app-button>
         </form>
-
-        <div class="login-footer">
-          <p class="demo-notice">
-            Development admin: admin / QuickCartAdmin123!
-          </p>
-        </div>
       </div>
     </div>
   `,
@@ -116,25 +112,20 @@ import { Role } from '../../../core/models/domain.model';
       font-family: 'Inter', sans-serif;
     }
 
+    .login-error {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fff;
+      color: #9B2414;
+      font: 700 12px/1.4 'Inter', sans-serif;
+    }
+
     .login-form {
       display: flex;
       flex-direction: column;
       gap: 16px;
       margin-bottom: 24px;
-    }
-
-    .login-footer {
-      text-align: center;
-      padding-top: 24px;
-      border-top: 1px solid rgba(255,255,255,0.25);
-    }
-
-    .demo-notice {
-      margin: 0;
-      font-size: 10px;
-      color: #E9E4FF;
-      line-height: 1.5;
-      font-family: 'Inter', sans-serif;
     }
   `],
 })
@@ -145,6 +136,7 @@ export class LoginComponent {
   private router = inject(Router);
 
   isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
   loginForm: FormGroup;
 
   constructor() {
@@ -160,15 +152,19 @@ export class LoginComponent {
     }
 
     this.isLoading.set(true);
+    this.errorMessage.set(null);
     this.auth.login(this.loginForm.value).subscribe({
       next: () => {
         this.toast.success('Login successful');
-        // The admin dashboard route is for administrators; store staff start on their own overview.
+        // The dashboard is the administrators' (the server refuses store staff), so staff start on Today.
         const staff = this.auth.userContext?.()?.role === Role.StoreStaff;
-        this.router.navigate([staff ? '/dashboard' : '/admin/dashboard']);
+        this.router.navigate([staff ? '/today' : '/admin/dashboard']);
       },
       error: (error: any) => {
-        this.toast.error(error.message || 'Login failed');
+        // The server's own words when it sent some (wrong password), otherwise the reason found here.
+        const message = error.error?.message || error.message || 'Login failed';
+        this.errorMessage.set(message);
+        this.toast.error(message);
         this.isLoading.set(false);
       },
     });

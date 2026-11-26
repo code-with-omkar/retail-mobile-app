@@ -116,7 +116,8 @@ public sealed class DeliveryService(
     IDeliveryStore store,
     ICurrentUserContextResolver contextResolver,
     TimeProvider time,
-    ITrackingStore? tracking = null) : IDeliveryService
+    ITrackingStore? tracking = null,
+    ICommerceStore? orders = null) : IDeliveryService
 {
     private static readonly TimeSpan RecentlyDelivered = TimeSpan.FromHours(24);
 
@@ -151,7 +152,7 @@ public sealed class DeliveryService(
             return DeliveryResult<OrderResponse>.Fail(DeliveryResultStatus.Forbidden, "Only store staff or an administrator can assign deliveries.");
         }
 
-        var scopeStore = context.Role == Role.StoreStaff ? context.StoreId : null;
+        var scopeStore = await StaffStoreScope.ForOrderAsync(context, orderId, orders, cancellationToken);
         var change = await store.AssignAsync(orderId, context.OrganizationId, scopeStore, request.PartnerId, DeliveryRules.NewOtp(), time.GetUtcNow().UtcDateTime, cancellationToken);
         return change.Status switch
         {
@@ -234,7 +235,7 @@ public sealed class DeliveryService(
         }
     }
 
-    /// <summary>The store a staff member works in. Staff always use their own; an administrator must name one. Null = not allowed, empty id = no store given.</summary>
+    /// <summary>The store a staff member asks about. Staff use their own (a manager any of theirs); an administrator must name one. Null = not allowed, empty id = no store given.</summary>
     private static Guid? Staff(UserContext? context, Guid? requested)
     {
         if (context is null)
@@ -244,7 +245,8 @@ public sealed class DeliveryService(
 
         if (context.Role == Role.StoreStaff)
         {
-            return context.StoreId;
+            // A store manager may ask about any of their stores; otherwise it is the primary one.
+            return requested is { } wanted && context.OrderStoreIds.Contains(wanted) ? wanted : context.StoreId;
         }
 
         return context.Role is Role.Admin or Role.ApplicationAdmin ? requested ?? Guid.Empty : null;

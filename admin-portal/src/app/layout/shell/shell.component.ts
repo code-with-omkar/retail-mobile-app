@@ -140,7 +140,7 @@ export class ShellComponent implements OnInit {
   // Computed navigation based on user role
   navItems = computed(() => {
     const baseItems: NavItem[] = [
-      { label: 'Overview', icon: '◈', route: '/dashboard', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
+      { label: 'Overview', icon: '◈', route: '/dashboard', requiredRoles: [Role.Admin, Role.ApplicationAdmin] },
       { label: 'Today', icon: '◉', route: '/today', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Catalog', icon: '▦', route: '/products', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
       { label: 'Orders', icon: '↗', route: '/orders', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff], requiredPermissions: ['orders:read'] },
