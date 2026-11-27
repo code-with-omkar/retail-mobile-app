@@ -13,12 +13,19 @@ using QuickCommerce.Infrastructure.Persistence;
 
 namespace QuickCommerce.Infrastructure.Security;
 
+/// <summary>The mark in a sign-in token that the person still has a temporary password.</summary>
+public static class PasswordClaims
+{
+    public const string Type = "password_change";
+    public const string ChangeRequired = "required";
+}
+
 public sealed class AuthenticationService(
     QuickCommerceDbContext db,
     IPasswordHasher<User> passwordHasher,
     IAuthorizationScopeService authorizationScopeService,
     ICurrentUser currentUser,
-    IConfiguration configuration) : IAuthenticationService
+    IConfiguration configuration) : IAuthenticationService, ISessionIssuer
 {
     private const string GenericFailure = "Invalid username or password.";
 
@@ -54,6 +61,13 @@ public sealed class AuthenticationService(
         user.Credential.LockedUntil = null;
         await db.SaveChangesAsync(cancellationToken);
         return await IssueTokensAsync(user, ipAddress, cancellationToken);
+    }
+
+    /// <summary>Starts a session for someone already proven another way (a text-message code, Google). Inactive accounts get nothing.</summary>
+    public async Task<AuthenticationResult> IssueAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken = default)
+    {
+        var user = await db.Users.SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
+        return user is null || !user.IsActive ? AuthenticationResult.Failure(GenericFailure) : await IssueTokensAsync(user, ipAddress, cancellationToken);
     }
 
     public async Task<AuthenticationResult> RefreshAsync(RefreshRequest request, string? ipAddress, CancellationToken cancellationToken = default)
@@ -129,6 +143,7 @@ public sealed class AuthenticationService(
         });
         await db.SaveChangesAsync(cancellationToken);
 
+        var mustChange = await db.UserCredentials.AsNoTracking().AnyAsync(credential => credential.UserId == user.Id && credential.MustChangePassword, cancellationToken);
         var signingKey = configuration["Jwt:SigningKey"];
         if (string.IsNullOrWhiteSpace(signingKey))
         {
@@ -143,6 +158,11 @@ public sealed class AuthenticationService(
             new(ClaimTypes.Email, user.Email ?? user.ExternalSubject),
             new("organization_id", user.OrganizationId.ToString())
         };
+        if (mustChange)
+        {
+            claims.Add(new Claim(PasswordClaims.Type, PasswordClaims.ChangeRequired));
+        }
+
         claims.AddRange(scope.RoleCodes.Select(role => new Claim(ClaimTypes.Role, role)));
         var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)), SecurityAlgorithms.HmacSha256);
         var jwt = new JwtSecurityToken(
@@ -157,7 +177,7 @@ public sealed class AuthenticationService(
             rawRefreshToken,
             (int)(expiresAt - DateTime.UtcNow).TotalSeconds,
             "Bearer",
-            new AuthenticationUserResponse(user.Id, user.DisplayName, user.Email, user.OrganizationId, scope.RoleCodes.ToArray(), scope.PermissionCodes.ToArray(), user.StaffCategory)));
+            new AuthenticationUserResponse(user.Id, user.DisplayName, user.Email, user.OrganizationId, scope.RoleCodes.ToArray(), scope.PermissionCodes.ToArray(), user.StaffCategory, mustChange)));
     }
 
     private async Task<AuthenticationUserResponse?> MapUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -166,7 +186,8 @@ public sealed class AuthenticationService(
         var scope = user is null ? null : await authorizationScopeService.ResolveForUserAsync(userId, cancellationToken);
         return user is null || scope is null
             ? null
-            : new AuthenticationUserResponse(user.Id, user.DisplayName, user.Email, user.OrganizationId, scope.RoleCodes.ToArray(), scope.PermissionCodes.ToArray(), user.StaffCategory);
+            : new AuthenticationUserResponse(user.Id, user.DisplayName, user.Email, user.OrganizationId, scope.RoleCodes.ToArray(), scope.PermissionCodes.ToArray(), user.StaffCategory,
+                await db.UserCredentials.AsNoTracking().AnyAsync(credential => credential.UserId == user.Id && credential.MustChangePassword, cancellationToken));
     }
 
     private Guid? GetUserId() => Guid.TryParse(currentUser.UserId, out var userId) ? userId : null;

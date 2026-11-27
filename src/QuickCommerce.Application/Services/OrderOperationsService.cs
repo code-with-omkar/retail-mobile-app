@@ -29,7 +29,10 @@ public sealed class OrderOperationsService(
             return OrderOperationResult.Unauthorized("Store staff must be assigned to a store");
         }
 
-        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, context.StoreId, request.Status, cancellationToken);
+        var storeId = context.Role == Role.StoreStaff ? await StaffStoreScope.ForOrderAsync(context, orderId, data, cancellationToken) : context.StoreId;
+        var result = await data.TryTransitionOrderAsync(orderId, context.OrganizationId, storeId, request.Status,
+            request.Status == OrderStatus.Rejected ? new OrderRejection(request.Reason!, string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(), context.UserId) : null,
+            cancellationToken);
         return result.Status switch
         {
             OrderLifecycleStatus.Succeeded => OrderOperationResult.Succeeded(result.Order!),
@@ -37,6 +40,36 @@ public sealed class OrderOperationsService(
             OrderLifecycleStatus.InvalidTransition => OrderOperationResult.InvalidTransition("The requested order status transition is invalid"),
             OrderLifecycleStatus.ConcurrencyConflict => OrderOperationResult.Conflict("The order changed before this operation completed"),
             _ => OrderOperationResult.Conflict("Order status could not be changed")
+        };
+    }
+
+    public async Task<OrderOperationResult> CancelAsync(Guid orderId, CancelOrderByStoreRequest request, CancellationToken cancellationToken = default)
+    {
+        if (OrderCancellations.Problem(request.Reason, request.Note) is { } problem)
+        {
+            return OrderOperationResult.Invalid(problem);
+        }
+
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        if (context is null || context.Role is not (Role.StoreStaff or Role.Admin))
+        {
+            return OrderOperationResult.Unauthorized("The authenticated user cannot operate store orders");
+        }
+
+        if (context.Role == Role.StoreStaff && !context.StoreId.HasValue)
+        {
+            return OrderOperationResult.Unauthorized("Store staff must be assigned to a store");
+        }
+
+        var storeId = context.Role == Role.StoreStaff ? await StaffStoreScope.ForOrderAsync(context, orderId, data, cancellationToken) : context.StoreId;
+        var cancellation = new OrderCancellation(request.Reason!, string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(), context.UserId);
+        var result = await data.TryStaffCancelAsync(orderId, context.OrganizationId, storeId, cancellation, cancellationToken);
+        return result.Status switch
+        {
+            OrderLifecycleStatus.Succeeded => OrderOperationResult.Succeeded(result.Order!),
+            OrderLifecycleStatus.NotFound => OrderOperationResult.NotFound("Order not found in the authorized store scope"),
+            OrderLifecycleStatus.InvalidTransition => OrderOperationResult.InvalidTransition("Only an accepted order that is not delivered can be cancelled"),
+            _ => OrderOperationResult.Conflict("The order changed before this operation completed")
         };
     }
 }

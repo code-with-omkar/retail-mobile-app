@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import '../../core/l10n.dart';
 import '../../core/theme.dart';
 import '../cart/cart_controller.dart';
 import '../cart/cart_problems.dart';
+import '../favourites/favourites_controller.dart';
 
 /// Black pill navigation (Home, Categories, Orders, Profile) with the yellow cart pill beside it.
 class AppShell extends ConsumerWidget {
@@ -15,58 +17,99 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final totals = ref.watch(cartTotalsProvider);
+    // Read once so the saved list is fetched at start, not when the first heart is drawn. Nothing here rebuilds when it changes.
+    ref.read(favouritesProvider);
     final p = context.pal;
     final tabs = [
-      (Icons.home_outlined, Icons.home_rounded, context.tr('Home')),
-      (Icons.grid_view_rounded, Icons.grid_view_rounded, context.tr('Categories')),
-      (Icons.receipt_long_outlined, Icons.receipt_long, context.tr('Orders')),
-      (Icons.person_outline, Icons.person, context.tr('Profile')),
+      (LucideIcons.house, LucideIcons.house, context.tr('Home')),
+      (
+        LucideIcons.layoutGrid,
+        LucideIcons.layoutGrid,
+        context.tr('Categories'),
+      ),
+      (LucideIcons.receiptText, LucideIcons.receiptText, context.tr('Orders')),
+      (LucideIcons.user, LucideIcons.user, context.tr('Profile')),
     ];
-    return CartChoiceDialogHost(child: AppScaffold(
-      body: shell,
-      bottom: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(QC.gutter, 8, QC.gutter, 12),
-          child: Row(children: [
-            Expanded(
-              flex: 5,
-              child: Container(
-                height: 72,
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: p.nav, borderRadius: BorderRadius.circular(QC.rPill), border: p.dark ? Border.all(color: p.border) : null),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  for (var i = 0; i < tabs.length; i++)
-                    Expanded(
-                      child: Tooltip(
-                        message: tabs[i].$3,
-                        child: Semantics(
-                          button: true,
-                          selected: i == shell.currentIndex,
-                          label: tabs[i].$3,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => shell.goBranch(i, initialLocation: i == shell.currentIndex),
-                            child: Center(
-                              child: Container(
-                                width: 52,
-                                height: 60,
-                                decoration: BoxDecoration(color: i == shell.currentIndex ? Pal.yellow : Colors.transparent, borderRadius: BorderRadius.circular(QC.rPill)),
-                                child: Icon(i == shell.currentIndex ? tabs[i].$2 : tabs[i].$1, color: i == shell.currentIndex ? Pal.ink : Colors.white),
+    return CartChoiceDialogHost(
+      child: AppScaffold(
+        body: shell,
+        bottom: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(QC.gutter, 6, QC.gutter, 10),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Container(
+                    height: 60,
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: p.nav,
+                      borderRadius: BorderRadius.circular(QC.rPill),
+                      border: p.dark ? Border.all(color: p.border) : null,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40141118),
+                          blurRadius: 32,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (var i = 0; i < tabs.length; i++)
+                          Expanded(
+                            child: Tooltip(
+                              message: tabs[i].$3,
+                              child: Semantics(
+                                button: true,
+                                selected: i == shell.currentIndex,
+                                label: tabs[i].$3,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => shell.goBranch(
+                                    i,
+                                    initialLocation: i == shell.currentIndex,
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: i == shell.currentIndex
+                                            ? Pal.yellow
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(
+                                          QC.rPill,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        i == shell.currentIndex
+                                            ? tabs[i].$2
+                                            : tabs[i].$1,
+                                        color: i == shell.currentIndex
+                                            ? Pal.ink
+                                            : Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
-                ]),
-              ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _CartPill(totals),
+              ],
             ),
-            const SizedBox(width: 12),
-            _CartPill(totals),
-          ]),
+          ),
         ),
       ),
-    ));
+    );
   }
 }
 
@@ -77,7 +120,12 @@ class _CartPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final empty = totals.isEmpty;
-    final bag = Container(width: 52, height: 52, decoration: const BoxDecoration(color: Pal.ink, shape: BoxShape.circle), child: const Icon(Icons.shopping_bag_outlined, color: Pal.yellow));
+    final bag = Container(
+      width: 36,
+      height: 36,
+      decoration: const BoxDecoration(color: Pal.ink, shape: BoxShape.circle),
+      child: const Icon(LucideIcons.shoppingBag, color: Pal.yellow, size: 20),
+    );
     return Tooltip(
       message: context.tr('Cart'),
       child: Semantics(
@@ -86,19 +134,49 @@ class _CartPill extends StatelessWidget {
         child: GestureDetector(
           onTap: () => context.push('/cart'),
           child: Container(
-            height: 72,
-            padding: EdgeInsets.fromLTRB(empty ? 10 : 18, 0, 10, 0),
-            decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rPill)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (!empty) ...[
-                Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(context.tr(totals.count == 1 ? '{n} item' : '{n} items', {'n': '${totals.count}'}), style: const TextStyle(color: Pal.ink, fontSize: 12, fontWeight: FontWeight.w800)),
-                  Text(rupees(totals.subtotal), style: const TextStyle(color: Pal.ink, fontSize: 20, fontWeight: FontWeight.w900)),
-                ]),
-                const SizedBox(width: 12),
+            height: 58,
+            padding: EdgeInsets.fromLTRB(empty ? 8 : 14, 0, 8, 0),
+            decoration: BoxDecoration(
+              color: Pal.yellow,
+              borderRadius: BorderRadius.circular(QC.rPill),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x40141118),
+                  blurRadius: 32,
+                  offset: Offset(0, 12),
+                ),
               ],
-              bag,
-            ]),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!empty) ...[
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr(
+                          totals.count == 1 ? '{n} item' : '{n} items',
+                          {'n': '${totals.count}'},
+                        ),
+                        style: const TextStyle(
+                          color: Pal.ink,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        rupees(totals.subtotal),
+                        style: QC.display(14, color: Pal.ink),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                bag,
+              ],
+            ),
           ),
         ),
       ),

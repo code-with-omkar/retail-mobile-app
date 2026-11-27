@@ -23,6 +23,11 @@ export class AuthGuard implements CanActivate {
     state: RouterStateSnapshot
   ): boolean {
     if (this.auth.isAuthenticated()) {
+      // A temporary password has to be replaced before anything else.
+      if (this.auth.userContext?.()?.mustChangePassword && !state.url.startsWith('/change-password')) {
+        this.router.navigate(['/change-password']);
+        return false;
+      }
       return true;
     }
 

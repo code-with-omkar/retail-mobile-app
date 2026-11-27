@@ -121,7 +121,7 @@ void main() {
       await tester.tap(find.byTooltip('Categories'));
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Categories'), findsWidgets);
+      expect(find.text('Dairy'), findsWidgets); // the Categories tab opened: its rail lists the categories
     });
 
     testWidgets('searching hides the banner so results are not pushed down', (tester) async {

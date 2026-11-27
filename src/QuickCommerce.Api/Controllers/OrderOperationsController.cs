@@ -27,5 +27,20 @@ public sealed class OrderOperationsController(IOrderOperationsService orderOpera
         };
     }
 
+    /// <summary>Cancels an accepted order, with a reason. Online payments are refunded.</summary>
+    [HttpPost("{orderId:guid}/cancel")]
+    public async Task<IActionResult> Cancel(Guid orderId, CancelOrderByStoreRequest request, CancellationToken cancellationToken) =>
+        Respond(await orderOperationsService.CancelAsync(orderId, request, cancellationToken));
+
+    private IActionResult Respond(OrderOperationResult result) => result.Status switch
+    {
+        OrderOperationStatus.Succeeded => Ok(new { success = true, data = result.Order }),
+        OrderOperationStatus.InvalidRequest => BadRequest(Failure(result.Message!)),
+        OrderOperationStatus.Unauthorized => Forbid(),
+        OrderOperationStatus.NotFound => NotFound(Failure(result.Message!)),
+        OrderOperationStatus.InvalidTransition or OrderOperationStatus.ConcurrencyConflict => Conflict(Failure(result.Message!)),
+        _ => StatusCode(StatusCodes.Status500InternalServerError)
+    };
+
     private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };
 }

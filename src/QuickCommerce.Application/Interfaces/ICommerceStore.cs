@@ -43,6 +43,7 @@ public interface ICommerceStore
     Task<IReadOnlyList<Notification>> GetNotificationsAsync(Guid customerId, bool unreadOnly, CancellationToken cancellationToken = default);
     Task<bool> SetNotificationReadAsync(Guid notificationId, Guid customerId, bool isRead, CancellationToken cancellationToken = default);
     Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default);
+    Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default);
     /// <summary>Marks every unread notification of the customer as read. Returns how many changed.</summary>
     Task<int> MarkAllNotificationsReadAsync(Guid customerId, CancellationToken cancellationToken = default);
     Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default);
@@ -57,6 +58,16 @@ public interface ICommerceStore
     Task SaveCartAsync(Cart cart, CancellationToken cancellationToken = default);
     /// <summary>Turns the cart into an order, taking stock, in one transaction. With an idempotency key a repeat returns the earlier order.</summary>
     Task<CheckoutCommitResult> TryCheckoutCartAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken = default);
-    Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default);
+    /// <summary>One page of the orders staff or an administrator may see, newest first, so a row stays put when its status changes.</summary>
+    Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default);
+    Task<AdminOrderCounts> GetScopedOrderCountsAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>The store an order belongs to, or null when there is no such order.</summary>
+    Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default);
+
+    Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, QuickCommerce.Application.Services.OrderRejection? rejection = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Cancels an accepted order for the store: refunds an online payment, gives back stock, coupon use and delivery window, and tells the customer.</summary>
+    Task<OrderLifecycleResult> TryStaffCancelAsync(Guid orderId, Guid organizationId, Guid? storeId, QuickCommerce.Application.Services.OrderCancellation cancellation, CancellationToken cancellationToken = default);
     Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default);
 }

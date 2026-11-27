@@ -8,7 +8,7 @@ namespace QuickCommerce.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability, QuickCommerce.Application.Services.PricingSettings? pricing = null) : ControllerBase
+public sealed class CatalogController(ICatalogService catalogService, IAuthorizationScopeService scopeService, ICommerceStore data, IServiceabilityService serviceability, QuickCommerce.Application.Services.PricingSettings? pricing = null, ICurrentUserContextResolver? users = null) : ControllerBase
 {
     [HttpGet("categories")]
     public async Task<IActionResult> Categories(CancellationToken cancellationToken) => Ok(new { success = true, data = await catalogService.GetCategoriesAsync(cancellationToken) });
@@ -58,9 +58,9 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
 
     /// <summary>Stores that deliver to a location, nearest first. An empty list means none does. Anonymous.</summary>
     [HttpGet("catalog/stores")]
-    public async Task<IActionResult> CatalogStores([FromQuery] double latitude, [FromQuery] double longitude, CancellationToken cancellationToken)
+    public async Task<IActionResult> CatalogStores([FromQuery] double latitude, [FromQuery] double longitude, [FromQuery] string? pincode = null, CancellationToken cancellationToken = default)
     {
-        var result = await catalogService.GetServiceableStoresAsync(new NearestStoreQuery(latitude, longitude), cancellationToken);
+        var result = await catalogService.GetServiceableStoresAsync(new NearestStoreQuery(latitude, longitude, pincode), cancellationToken);
         return result.Valid
             ? Ok(new { success = true, data = result.Stores })
             : BadRequest(new { success = false, message = result.Message, errors = new[] { result.Message } });
@@ -121,7 +121,13 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
         var scope = await scopeService.ResolveAsync(cancellationToken);
         if (scope is null) return Forbid();
         var stores = await data.GetScopedStoresAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
-        return Ok(new { success = true, data = stores.Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive)).ToArray() });
+        // Store staff see the stores they work in: a manager all of theirs, anyone else the primary one.
+        if (users is not null && await users.ResolveAsync(cancellationToken) is { Role: QuickCommerce.Domain.Role.StoreStaff } staff)
+        {
+            stores = stores.Where(store => staff.OrderStoreIds.Contains(store.Id)).ToArray();
+        }
+
+        return Ok(new { success = true, data = stores.Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive, store.Code, store.PhoneNumber)).ToArray() });
     }
 
     [HttpGet("stores/nearest")]

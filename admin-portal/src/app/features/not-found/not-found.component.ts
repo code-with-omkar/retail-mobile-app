@@ -14,7 +14,7 @@ import { ButtonComponent } from '../../shared/components/button/button.component
         <h1>Page Not Found</h1>
         <p>The page you're looking for doesn't exist.</p>
         <app-button
-          label="Go to Dashboard"
+          label="Go to Today"
           variant="primary"
           (onClick)="goHome()"
         ></app-button>
@@ -63,6 +63,6 @@ export class NotFoundComponent {
   private router = inject(Router);
 
   goHome(): void {
-    this.router.navigate(['/dashboard']);
+    this.router.navigate(['/today']);
   }
 }

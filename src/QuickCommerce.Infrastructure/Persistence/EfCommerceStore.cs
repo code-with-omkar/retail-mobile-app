@@ -103,7 +103,9 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
         if (categoryId.HasValue)
         {
-            query = query.Where(product => product.CategoryId == categoryId.Value);
+            // A top-level category also lists what is in its sub-categories.
+            var id = categoryId.Value;
+            query = query.Where(product => product.CategoryId == id || db.Categories.Any(category => category.Id == product.CategoryId && category.ParentCategoryId == id));
         }
 
         var total = await query.CountAsync(cancellationToken);
@@ -173,7 +175,60 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             query = query.Where(row => storeIds.Contains(row.order.StoreId));
         }
 
-        return await query.OrderByDescending(row => row.order.CreatedAt).Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt)).ToListAsync(cancellationToken);
+        return await query
+            .OrderBy(row => row.order.Status == OrderStatus.Pending ? 0 : row.order.Status == OrderStatus.Accepted ? 1 : row.order.Status == OrderStatus.Preparing ? 2 : row.order.Status == OrderStatus.Ready ? 3 : row.order.Status == OrderStatus.OutForDelivery || row.order.Status == OrderStatus.Confirmed ? 4 : 5)
+            // Within a status, orders for now first (newest first), then scheduled ones by their window, soonest first.
+            .ThenBy(row => row.order.DeliverySlotStart == null ? 0 : 1)
+            .ThenBy(row => row.order.DeliverySlotStart)
+            .ThenByDescending(row => row.order.CreatedAt)
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd, row.order.RejectionReason, row.order.RejectionNote, db.Users.Where(user => user.Id == row.order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault(), row.order.CancelReason, row.order.CancelNote, db.Users.Where(user => user.Id == row.order.CancelledBy).Select(user => user.DisplayName).FirstOrDefault(), row.order.DeliveryFailureReason, row.order.DeliveryFailureNote, row.order.DeliveryFailedAt)).ToListAsync(cancellationToken);
+    }
+
+    private IQueryable<Order> SearchedOrders(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, string? search)
+    {
+        var orders = db.Orders.AsNoTracking()
+            .Where(order => order.Status != OrderStatus.AwaitingPayment && db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
+        if (!isApplicationAdmin)
+        {
+            orders = orders.Where(order => storeIds.Contains(order.StoreId));
+        }
+
+        return search is null ? orders : orders.Where(order => order.OrderNumber.Contains(search) || db.Users.Any(user => user.Id == order.UserId && user.DisplayName.Contains(search)));
+    }
+
+    private static IQueryable<Order> ByStatuses(IQueryable<Order> orders, IReadOnlyList<OrderStatus>? statuses) =>
+        statuses is { Count: > 0 } ? orders.Where(order => statuses.Contains(order.Status)) : orders;
+
+    private static IQueryable<Order> ByStores(IQueryable<Order> orders, IReadOnlyList<Guid>? stores) =>
+        stores is { Count: > 0 } ? orders.Where(order => stores.Contains(order.StoreId)) : orders;
+
+    public async Task<AdminOrderCounts> GetScopedOrderCountsAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var searched = SearchedOrders(organizationId, storeIds, isApplicationAdmin, query.Search);
+        var statuses = await ByStores(searched, query.StoreIds).GroupBy(order => order.Status).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken);
+        var stores = await ByStatuses(searched, query.Statuses).GroupBy(order => order.StoreId).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken);
+        return new AdminOrderCounts(statuses.ToDictionary(item => item.Key, item => item.Count), stores.ToDictionary(item => item.Key, item => item.Count));
+    }
+
+    public async Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var orders = ByStores(ByStatuses(SearchedOrders(organizationId, storeIds, isApplicationAdmin, query.Search), query.Statuses), query.StoreIds);
+
+        var total = await orders.CountAsync(cancellationToken);
+        var items = await orders.OrderByDescending(order => order.CreatedAt).ThenByDescending(order => order.Id)
+            .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .Select(order => new AdminOrderResponse(order.Id, order.OrderNumber, order.UserId,
+                db.Users.Where(user => user.Id == order.UserId).Select(user => user.DisplayName).FirstOrDefault()!, order.StoreId,
+                db.Stores.Where(store => store.Id == order.StoreId).Select(store => store.Name).FirstOrDefault()!,
+                order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId,
+                db.Users.Where(partner => partner.Id == order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(),
+                order.OrderNote, order.OutOfStockChoice, order.DeliverySlotStart, order.DeliverySlotEnd, order.RejectionReason, order.RejectionNote,
+                db.Users.Where(user => user.Id == order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault(), order.CancelReason, order.CancelNote,
+                db.Users.Where(user => user.Id == order.CancelledBy).Select(user => user.DisplayName).FirstOrDefault(), order.DeliveryFailureReason, order.DeliveryFailureNote, order.DeliveryFailedAt))
+            .ToListAsync(cancellationToken);
+        return (items, total);
     }
 
     public Task<Order?> GetOrderAsync(Guid id, CancellationToken cancellationToken = default) => db.Orders
@@ -199,7 +254,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
 
     public async Task<IReadOnlyList<Notification>> GetNotificationsAsync(Guid customerId, bool unreadOnly, CancellationToken cancellationToken = default)
     {
-        var query = db.Notifications.AsNoTracking().Where(notification => notification.CustomerId == customerId);
+        var query = db.Notifications.AsNoTracking().Include(notification => notification.Campaign).Where(notification => notification.CustomerId == customerId);
         if (unreadOnly)
         {
             query = query.Where(notification => !notification.IsRead);
@@ -220,6 +275,10 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
+
+    public Task SetOffersEnabledAsync(Guid customerId, bool enabled, CancellationToken cancellationToken = default) => db.Customers
+        .Where(customer => customer.Id == customerId)
+        .ExecuteUpdateAsync(set => set.SetProperty(customer => customer.OffersEnabled, enabled), cancellationToken);
 
     public Task<Customer?> GetCustomerByUserIdAsync(Guid userId, CancellationToken cancellationToken = default) => db.Customers
         .AsNoTracking()
@@ -284,6 +343,37 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
     /// <summary>How long a checkout key is remembered. After that the same key counts as new.</summary>
     private static readonly TimeSpan CheckoutKeyLifetime = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// The next order number for the store today (for example KHG-261009-0042). The counter row is changed inside the order's own
+    /// transaction, so two orders never get the same number, and an order that is rolled back gives its number back.
+    /// </summary>
+    private async Task<string> NextOrderNumberAsync(Guid storeId, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
+    {
+        var store = await db.Stores.AsNoTracking().SingleAsync(item => item.Id == storeId, cancellationToken);
+        var day = OrderNumbers.DayOf(DateTime.UtcNow);
+        var connection = db.Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        command.Transaction = Microsoft.EntityFrameworkCore.Storage.DbContextTransactionExtensions.GetDbTransaction(transaction);
+        command.CommandText = """
+            MERGE OrderNumberCounters WITH (HOLDLOCK) AS target
+            USING (SELECT @store AS StoreId, @day AS Day) AS source ON target.StoreId = source.StoreId AND target.Day = source.Day
+            WHEN MATCHED THEN UPDATE SET LastNumber = target.LastNumber + 1
+            WHEN NOT MATCHED THEN INSERT (StoreId, Day, LastNumber) VALUES (source.StoreId, source.Day, 1)
+            OUTPUT inserted.LastNumber;
+            """;
+        var storeParameter = command.CreateParameter();
+        storeParameter.ParameterName = "@store";
+        storeParameter.Value = storeId;
+        var dayParameter = command.CreateParameter();
+        dayParameter.ParameterName = "@day";
+        dayParameter.DbType = System.Data.DbType.Date;
+        dayParameter.Value = day.ToDateTime(TimeOnly.MinValue);
+        command.Parameters.Add(storeParameter);
+        command.Parameters.Add(dayParameter);
+        var number = Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+        return OrderNumbers.Format(OrderNumbers.CodeOf(store), day, number);
+    }
+
     private async Task<CheckoutCommitResult> TryCheckoutCartOnceAsync(Guid customerId, Guid storeId, CheckoutCommit commit, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -327,6 +417,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             var repriced = new List<CheckoutIssue>();
             var orderItems = new List<OrderItem>();
             var taken = new List<(StoreVariantInventory Row, int Quantity)>();
+            var percents = await OfferDiscounts.PercentsAsync(db, storeId, cart.Items.Select(item => item.ProductId).Distinct().ToArray(), commit.Now ?? DateTime.UtcNow, cancellationToken);
             foreach (var cartItem in cart.Items)
             {
                 var product = await db.Products.SingleOrDefaultAsync(item => item.Id == cartItem.ProductId, cancellationToken);
@@ -345,9 +436,11 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 }
 
                 // The price is the variant's, re-read here: the cart only holds what the customer saw.
-                if (variant.Price != cartItem.UnitPriceSnapshot)
+                var offerPercent = percents.GetValueOrDefault(product.Id);
+                var unitPrice = StorePricing.Final(variant.Price, inventory.PriceOverride, offerPercent);
+                if (unitPrice != cartItem.UnitPriceSnapshot)
                 {
-                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: variant.Price));
+                    repriced.Add(new CheckoutIssue(cartItem.ProductId, cartItem.VariantId, product.Name, variant.Label, cartItem.Quantity, OldPrice: cartItem.UnitPriceSnapshot, NewPrice: unitPrice));
                     continue;
                 }
 
@@ -359,8 +452,9 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                     VariantId = variant.Id,
                     ProductNameSnapshot = product.Name,
                     VariantLabelSnapshot = variant.Label,
-                    UnitPrice = variant.Price,
-                    UnitMrpSnapshot = variant.Mrp,
+                    UnitPrice = unitPrice,
+                    // With an offer the receipt shows what it was worth before: the MRP, or the normal price when there is none.
+                    UnitMrpSnapshot = StorePricing.MrpSnapshot(unitPrice, variant.Price, variant.Mrp),
                     Quantity = cartItem.Quantity
                 });
             }
@@ -379,9 +473,53 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             }
 
             var price = PricingCalculator.Compute(commit.Pricing, orderItems.Sum(item => item.TotalPrice));
+
+            // A coupon is checked again here, inside the order's transaction, with the same rules the cart used to show the discount.
+            Coupon? coupon = null;
+            var couponDiscount = 0m;
+            if (commit.CouponCode is not null)
+            {
+                var organizationId = await db.Stores.Where(item => item.Id == storeId).Select(item => item.OrganizationId).SingleAsync(cancellationToken);
+                coupon = await db.Coupons.SingleOrDefaultAsync(item => item.OrganizationId == organizationId && item.Code == commit.CouponCode, cancellationToken);
+                var mine = coupon is null ? 0 : await db.CouponRedemptions.CountAsync(item => item.CouponId == coupon.Id && item.UserId == userId && item.ReleasedAt == null, cancellationToken);
+                var hasOrders = await db.Orders.AnyAsync(item => item.UserId == userId && item.Status != OrderStatus.Cancelled && item.Status != OrderStatus.Rejected, cancellationToken);
+                var outcome = CouponRules.Check(coupon, new CouponContext(price.Subtotal, price.DeliveryFee, commit.Now ?? DateTime.UtcNow, coupon?.UsedCount ?? 0, mine, hasOrders));
+                if (outcome.Check != CouponCheck.Valid)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: outcome.Message);
+                }
+
+                couponDiscount = outcome.Discount;
+                if (commit.PaymentMethod == PaymentMethods.Online && price.Total - couponDiscount <= 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: "That code covers the whole order. Pay with cash on delivery, or remove the code.");
+                }
+            }
+
+            // The chosen delivery window is checked again here, inside the order's transaction, with the same rules that listed it.
+            DateTime? slotStart = null;
+            DateTime? slotEnd = null;
+            var slotSettings = await SlotUsage.EffectiveAsync(db, storeId, cancellationToken);
+            var slotNow = commit.Now ?? DateTime.UtcNow;
+            var booked = commit.SlotStart is null ? new Dictionary<DateTime, int>() : await SlotUsage.BookedAsync(db, storeId, slotNow, slotNow.AddDays(slotSettings.DaysAhead + 1), cancellationToken);
+            var (slotCheck, slotWindow, slotMessage) = SlotRules.Pick(slotSettings, slotNow, commit.SlotStart, start => booked.GetValueOrDefault(start));
+            if (slotCheck != SlotRules.Check.Ok)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.SlotRejected, Message: slotMessage);
+            }
+
+            if (slotWindow is not null)
+            {
+                slotStart = slotWindow.StartUtc;
+                slotEnd = slotWindow.EndUtc;
+            }
+
             var order = new Order
             {
-                OrderNumber = $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..32],
+                OrderNumber = await NextOrderNumberAsync(storeId, transaction, cancellationToken),
                 UserId = userId,
                 StoreId = storeId,
                 DeliveryAddress = commit.Delivery.Address,
@@ -389,12 +527,20 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 Longitude = commit.Delivery.Longitude,
                 DeliveryAddressId = commit.Delivery.AddressId,
                 ReceiverName = commit.Delivery.ReceiverName,
+                OrderNote = commit.Note,
+                OutOfStockChoice = commit.OutOfStockChoice,
                 ReceiverPhone = commit.Delivery.ReceiverPhone,
                 EstimatedDeliveryMinutes = commit.EstimatedDeliveryMinutes,
                 SubtotalAmount = price.Subtotal,
                 DeliveryFee = price.DeliveryFee,
                 HandlingFee = price.HandlingFee,
-                TotalAmount = price.Total,
+                CommissionPercent = commit.CommissionPercent,
+                CommissionAmount = commit.CommissionPercent is { } percent ? CommissionMath.Amount(price.Subtotal, percent) : null,
+                CouponCode = coupon?.Code,
+                CouponDiscount = couponDiscount,
+                DeliverySlotStart = slotStart,
+                DeliverySlotEnd = slotEnd,
+                TotalAmount = price.Total - couponDiscount,
                 PaymentMethod = commit.PaymentMethod,
                 Status = commit.PaymentMethod == PaymentMethods.Online ? OrderStatus.AwaitingPayment : OrderStatus.Pending,
                 PaymentStatus = commit.PaymentMethod == PaymentMethods.Online ? PaymentState.Created : PaymentState.NotRequired,
@@ -405,6 +551,30 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             order.StatusHistory.Add(new OrderStatusHistory { Status = order.Status });
 
             db.Orders.Add(order);
+            if (slotStart is not null && !await SlotUsage.TakeAsync(db, storeId, slotStart.Value, slotSettings.Capacity, cancellationToken))
+            {
+                // Another customer took the last place between the check above and now.
+                await transaction.RollbackAsync(cancellationToken);
+                return new CheckoutCommitResult(CheckoutCommitStatus.SlotRejected, Message: "That delivery time is full. Choose another.");
+            }
+
+            if (coupon is not null)
+            {
+                // One conditional update takes the use, so two orders racing for the last use cannot both get it.
+                var usesTaken = await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE Coupons SET UsedCount = UsedCount + 1 WHERE Id = {coupon.Id} AND (TotalLimit IS NULL OR UsedCount < TotalLimit)", cancellationToken);
+                if (usesTaken == 0)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return new CheckoutCommitResult(CheckoutCommitStatus.CouponRejected, Message: "That code has been used up.");
+                }
+
+                db.CouponRedemptions.Add(new CouponRedemption { CouponId = coupon.Id, OrderId = order.Id, UserId = userId, Kind = coupon.Kind, Value = coupon.Value, MaxDiscount = coupon.MaxDiscount, Amount = couponDiscount });
+            }
+
+            if (order.Status == OrderStatus.Pending)
+            {
+                db.Notifications.Add(NotificationCatalog.Create(customerId, order.Id, NotificationTypes.OrderPlaced, order.OrderNumber));
+            }
             if (order.Status == OrderStatus.AwaitingPayment)
             {
                 // The amount is the one worked out here, in the same transaction as the order. The app never sends an amount.
@@ -424,7 +594,7 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             await transaction.CommitAsync(cancellationToken);
             return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             concurrencyLost = true;
             await transaction.RollbackAsync(cancellationToken);
@@ -502,7 +672,7 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         return new CheckoutCommitResult(CheckoutCommitStatus.Succeeded, MapOrder(order), Replayed: true);
     }
 
-    public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, CancellationToken cancellationToken = default)
+    public async Task<OrderLifecycleResult> TryTransitionOrderAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderStatus targetStatus, OrderRejection? rejection = null, CancellationToken cancellationToken = default)
     {
         var order = await db.Orders
             .Include(currentOrder => currentOrder.Items)
@@ -515,17 +685,32 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             return new OrderLifecycleResult(OrderLifecycleStatus.NotFound);
         }
 
-        if (!OrderStatusTransitions.IsValid(order.Status, targetStatus))
+        if (!OrderStatusTransitions.IsValid(order.Status, targetStatus) || (order.DeliveryPartnerId.HasValue && targetStatus == OrderStatus.Completed))
         {
             return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
         }
 
+        // A rejected order gives its coupon use back; that is a direct update, so it shares one transaction with the status change.
+        await using var rejectTransaction = targetStatus == OrderStatus.Rejected ? await db.Database.BeginTransactionAsync(cancellationToken) : null;
         order.Status = targetStatus;
         order.StatusHistory.Add(new OrderStatusHistory { Status = targetStatus });
         if (targetStatus == OrderStatus.Rejected)
         {
-            // A paid order the shop declines is refunded in full.
+            order.RejectionReason = rejection?.Reason;
+            order.RejectionNote = rejection?.Note;
+            order.RejectedBy = rejection?.RejectedBy;
+            // A paid order the shop declines is refunded in full, and the stock it took goes back to the store (as when the customer cancels).
             await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
         }
         var customerId = await db.Customers
             .Where(customer => customer.UserId == order.UserId)
@@ -533,15 +718,80 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             .SingleOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, targetStatus));
+            if (NotificationCatalog.SendsBell(targetStatus))
+            {
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, targetStatus));
+            }
         }
         try
         {
             await db.SaveChangesAsync(cancellationToken);
+            if (rejectTransaction is not null)
+            {
+                await rejectTransaction.CommitAsync(cancellationToken);
+            }
+
             return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
+            return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
+        }
+    }
+
+    public async Task<OrderLifecycleResult> TryStaffCancelAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderCancellation cancellation, CancellationToken cancellationToken = default)
+    {
+        var order = await db.Orders
+            .Include(currentOrder => currentOrder.Items)
+            .Include(currentOrder => currentOrder.StatusHistory)
+            .SingleOrDefaultAsync(currentOrder => currentOrder.Id == orderId &&
+                (!storeId.HasValue || currentOrder.StoreId == storeId.Value) &&
+                db.Stores.Any(store => store.Id == currentOrder.StoreId && store.OrganizationId == organizationId), cancellationToken);
+        if (order is null)
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.NotFound);
+        }
+
+        if (!OrderCancellations.CanCancel(order.Status))
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
+        }
+
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            order.CancelReason = cancellation.Reason;
+            order.CancelNote = cancellation.Note;
+            order.CancelledBy = cancellation.CancelledBy;
+            await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            // Where the partner was is no longer anyone's business.
+            db.DeliveryLocations.RemoveRange(db.DeliveryLocations.Where(location => location.OrderId == order.Id));
+            var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
+            if (customerId.HasValue)
+            {
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, OrderStatus.Cancelled));
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
+        }
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
+        {
+            db.ChangeTracker.Clear();
             return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
         }
     }
@@ -549,8 +799,15 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
     public Task<UserContext?> GetUserContextAsync(string externalSubject, CancellationToken cancellationToken = default) => db.Users
         .AsNoTracking()
         .Where(user => (user.ExternalSubject == externalSubject || user.Id.ToString() == externalSubject) && user.IsActive)
-        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory))
+        .Select(user => new UserContext(user.Id, user.OrganizationId, user.StoreId, user.Role, user.StaffCategory,
+            user.StoreAssignments
+                .Where(row => row.IsActive && row.EffectiveFrom <= DateTime.UtcNow && (row.EffectiveTo == null || row.EffectiveTo > DateTime.UtcNow) && row.Store.IsActive && row.Store.OrganizationId == user.OrganizationId)
+                .Select(row => row.StoreId)
+                .ToList()))
         .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default) =>
+        await db.Orders.AsNoTracking().Where(order => order.Id == orderId).Select(order => (Guid?)order.StoreId).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<bool> TryCreateOrderAsync(Order order, IReadOnlyCollection<InventoryAdjustment> inventoryAdjustments, CancellationToken cancellationToken = default)
     {
@@ -584,12 +841,13 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
                 inventory.AvailableQuantity -= adjustment.Quantity;
             }
 
+            order.OrderNumber = await NextOrderNumberAsync(order.StoreId, transaction, cancellationToken);
             db.Orders.Add(order);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return true;
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             concurrencyLost = true;
             await transaction.RollbackAsync(cancellationToken);
@@ -618,7 +876,13 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice,
+        CouponCode: order.CouponCode,
+        CouponDiscount: order.CouponDiscount,
+        DeliverySlotStart: order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
+        DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null);
 
     public Task<int> GetUnreadNotificationCountAsync(Guid customerId, CancellationToken cancellationToken = default) =>
         db.Notifications.CountAsync(notification => notification.CustomerId == customerId && !notification.IsRead, cancellationToken);
@@ -675,6 +939,8 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             order.Status = OrderStatus.Cancelled;
             order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
             await EndPaymentAsync(order, wasAwaitingPayment, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
 
             // The stock the order took goes back to the store, line by line. Orders from before packs existed have no variant and took none from here.
             foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
@@ -689,14 +955,14 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
             var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
             if (customerId.HasValue)
             {
-                db.Notifications.Add(CreateStatusNotification(customerId.Value, order.Id, OrderStatus.Cancelled));
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, OrderStatus.Cancelled));
             }
 
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return new CancelCommitResult(CancelCommitStatus.Cancelled, MapOrder(order));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
             // The shop accepted it, or another buyer took stock from the same row, at the same moment: look again on fresh data.
             concurrencyLost = true;
@@ -705,13 +971,4 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         }
     }
 
-    private static Notification CreateStatusNotification(Guid customerId, Guid orderId, OrderStatus status) => new()
-    {
-        CustomerId = customerId,
-        OrderId = orderId,
-        Type = "OrderStatusChanged",
-        Title = status == OrderStatus.Cancelled ? "Order cancelled" : "Order status updated",
-        Message = status == OrderStatus.Cancelled ? "Your order was cancelled." : $"Your order is now {status}.",
-        IsRead = false
-    };
 }

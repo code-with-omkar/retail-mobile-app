@@ -6,6 +6,7 @@ import { ButtonComponent } from '../../../shared/components/button/button.compon
 import { InputComponent } from '../../../shared/components/input/input.component';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../shared/services/toast.service';
+import { Role } from '../../../core/models/domain.model';
 
 @Component({
   selector: 'app-login',
@@ -23,6 +24,8 @@ import { ToastService } from '../../../shared/services/toast.service';
         </div>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+          <p class="login-error" role="alert" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
           <app-input
             label="Username or email"
             type="text"
@@ -46,23 +49,20 @@ import { ToastService } from '../../../shared/services/toast.service';
             [disabled]="loginForm.invalid || isLoading()"
             variant="primary"
           ></app-button>
+          <button type="button" class="forgot" (click)="forgot()">Forgot password?</button>
         </form>
-
-        <div class="login-footer">
-          <p class="demo-notice">
-            Development admin: admin / QuickCartAdmin123!
-          </p>
-        </div>
       </div>
     </div>
   `,
   styles: [`
+    .forgot { color: #FFE27A; font: 700 13px inherit; justify-self: start; border: 0; background: none; padding: 0; cursor: pointer; text-decoration: underline; }
+
     .login-container {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(145deg, #2A1BFF 0%, #6A11E8 50%, #B00699 100%);
+      background: transparent;
       padding: 20px;
     }
 
@@ -89,30 +89,39 @@ import { ToastService } from '../../../shared/services/toast.service';
       margin: 0 auto 18px;
       font-weight: 800;
       font-size: 26px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       box-shadow: 0 8px 24px rgba(255,212,0,0.35);
     }
 
     h1 {
       margin: 0 0 8px;
       font-size: 22px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       font-weight: 700;
-      color: #fff;
+      color:var(--ink);
       letter-spacing: -0.5px;
     }
 
     h1 span {
-      color: #FFD400;
+      color: var(--ink);
     }
 
     .login-header p {
       margin: 0;
-      color: #E9E4FF;
+      color:var(--muted);
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .login-error {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #FDECEA;
+      color: #9B2414;
+      font: 700 12px/1.4 'Plus Jakarta Sans', sans-serif;
     }
 
     .login-form {
@@ -120,20 +129,6 @@ import { ToastService } from '../../../shared/services/toast.service';
       flex-direction: column;
       gap: 16px;
       margin-bottom: 24px;
-    }
-
-    .login-footer {
-      text-align: center;
-      padding-top: 24px;
-      border-top: 1px solid rgba(255,255,255,0.25);
-    }
-
-    .demo-notice {
-      margin: 0;
-      font-size: 10px;
-      color: #E9E4FF;
-      line-height: 1.5;
-      font-family: 'Inter', sans-serif;
     }
   `],
 })
@@ -144,6 +139,7 @@ export class LoginComponent {
   private router = inject(Router);
 
   isLoading = signal(false);
+  errorMessage = signal<string | null>(null);
   loginForm: FormGroup;
 
   constructor() {
@@ -153,19 +149,28 @@ export class LoginComponent {
     });
   }
 
+  forgot(): void { this.router.navigate(['/forgot-password']); }
+
   onSubmit(): void {
     if (this.loginForm.invalid) {
       return;
     }
 
     this.isLoading.set(true);
+    this.errorMessage.set(null);
     this.auth.login(this.loginForm.value).subscribe({
       next: () => {
         this.toast.success('Login successful');
-        this.router.navigate(['/admin/dashboard']);
+        // The dashboard is the administrators' (the server refuses store staff), so staff start on Today.
+        const staff = this.auth.userContext?.()?.role === Role.StoreStaff;
+        const temporary = !!this.auth.userContext?.()?.mustChangePassword;
+        this.router.navigate([temporary ? '/change-password' : staff ? '/today' : '/admin/dashboard']);
       },
       error: (error: any) => {
-        this.toast.error(error.message || 'Login failed');
+        // The server's own words when it sent some (wrong password), otherwise the reason found here.
+        const message = error.error?.message || error.message || 'Login failed';
+        this.errorMessage.set(message);
+        this.toast.error(message);
         this.isLoading.set(false);
       },
     });

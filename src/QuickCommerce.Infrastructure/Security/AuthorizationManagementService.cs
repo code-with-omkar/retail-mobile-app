@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using QuickCommerce.Application.Services;
 using QuickCommerce.Application.DTOs;
 using QuickCommerce.Application.Interfaces;
 using QuickCommerce.Domain;
@@ -8,8 +10,105 @@ namespace QuickCommerce.Infrastructure.Security;
 
 public sealed class AuthorizationManagementService(
     QuickCommerceDbContext db,
-    ICurrentUserContextResolver currentUserContextResolver) : IAuthorizationManagementService
+    ICurrentUserContextResolver currentUserContextResolver,
+    IPasswordHasher<User>? passwordHasher = null) : IAuthorizationManagementService
 {
+    public async Task<TemporaryPasswordResponse?> SetTemporaryPasswordAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        // Your own password is changed with "Change password", which asks for the current one.
+        if (!CanManageAuthorization(context) || context!.UserId == userId)
+        {
+            return null;
+        }
+
+        var user = await db.Users.Include(item => item.Credential)
+            .SingleOrDefaultAsync(item => item.Id == userId && item.OrganizationId == context.OrganizationId && item.IsActive && item.Role != Role.Customer, cancellationToken);
+        if (user is null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return null;
+        }
+
+        var password = TemporaryPasswords.Create();
+        var hash = (passwordHasher ?? new PasswordHasher<User>()).HashPassword(user, password);
+        var now = DateTime.UtcNow;
+        if (user.Credential is null)
+        {
+            db.UserCredentials.Add(new UserCredential { UserId = user.Id, PasswordHash = hash, MustChangePassword = true, CreatedBy = context.UserId.ToString() });
+        }
+        else
+        {
+            user.Credential.PasswordHash = hash;
+            user.Credential.PasswordChangedAt = now;
+            user.Credential.MustChangePassword = true;
+            user.Credential.FailedLoginCount = 0;
+            user.Credential.LockedUntil = null;
+            user.Credential.IsActive = true;
+            user.Credential.UpdatedAt = now;
+            user.Credential.UpdatedBy = context.UserId.ToString();
+        }
+
+        // Whoever was signed in with the old password is signed out.
+        foreach (var token in await db.RefreshTokens.Where(item => item.UserId == user.Id && item.RevokedAt == null).ToListAsync(cancellationToken))
+        {
+            token.RevokedAt = now;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return new TemporaryPasswordResponse(password);
+    }
+
+    public async Task<ManagedUserPage> GetUsersPageAsync(ManagedUserQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        if (!CanManageAuthorization(context))
+        {
+            return new ManagedUserPage([], 0, query.Page, query.PageSize, 0, 0, 0);
+        }
+
+        var all = db.Users.AsNoTracking().Where(user => user.OrganizationId == context!.OrganizationId);
+        var searched = all;
+        if (query.Search is { } search)
+        {
+            searched = searched.Where(user => user.DisplayName.Contains(search) || (user.Email != null && user.Email.Contains(search)));
+        }
+
+        // "Admin" is the older name of an application administrator, so the two are one choice. An unknown name matches nobody.
+        var wanted = (query.Roles ?? []).Where(name => !string.IsNullOrWhiteSpace(name)).ToArray();
+        var roles = wanted.SelectMany(name => name == "ApplicationAdmin" ? [Role.Admin, Role.ApplicationAdmin] : Enum.TryParse<Role>(name, out var role) ? new[] { role } : []).Distinct().ToArray();
+        var ofRoles = wanted.Length == 0 ? searched : searched.Where(user => roles.Contains(user.Role));
+        var users = query.Active is { } active ? ofRoles.Where(user => user.IsActive == active) : ofRoles;
+
+        // Each filter's counts follow the other filters, not its own ticks.
+        var forRoles = query.Active is { } only ? searched.Where(user => user.IsActive == only) : searched;
+        var roleCounts = (await forRoles.GroupBy(user => user.Role).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken))
+            .GroupBy(item => item.Key == Role.Admin ? nameof(Role.ApplicationAdmin) : item.Key.ToString())
+            .ToDictionary(group => group.Key, group => group.Sum(item => item.Count));
+        var matchingActive = await ofRoles.CountAsync(user => user.IsActive, cancellationToken);
+        var matchingInactive = await ofRoles.CountAsync(user => !user.IsActive, cancellationToken);
+
+        var total = await users.CountAsync(cancellationToken);
+        var ordered = query.Sort switch
+        {
+            "name-desc" => users.OrderByDescending(user => user.DisplayName).ThenBy(user => user.Id),
+            "email" => users.OrderBy(user => user.Email).ThenBy(user => user.Id),
+            "newest" => users.OrderByDescending(user => user.CreatedAt).ThenBy(user => user.Id),
+            _ => users.OrderBy(user => user.DisplayName).ThenBy(user => user.Id)
+        };
+        var page = await ordered
+            .Include(user => user.UserRoles).ThenInclude(userRole => userRole.Role).ThenInclude(role => role.RolePermissions).ThenInclude(rolePermission => rolePermission.Permission)
+            .Include(user => user.StoreAssignments)
+            .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
+        var allCount = await all.CountAsync(cancellationToken);
+        var activeCount = await all.CountAsync(user => user.IsActive, cancellationToken);
+        var roleCount = await all.Select(user => user.Role).Distinct().CountAsync(cancellationToken);
+        return new ManagedUserPage(page.Select(MapUser).ToArray(), total, query.Page, query.PageSize, allCount, activeCount, roleCount, roleCounts, matchingActive, matchingInactive);
+    }
+
     public async Task<IReadOnlyList<ManagedUserResponse>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
@@ -113,7 +212,7 @@ public sealed class AuthorizationManagementService(
         user.Role = request.Role;
         user.StaffCategory = request.Role == Role.StoreStaff ? request.StaffCategory : null;
         user.IsActive = request.IsActive;
-        var authorizationRole = await db.AuthorizationRoles.SingleOrDefaultAsync(role => role.Code == RoleCode(request.Role) && role.IsActive, cancellationToken);
+        var authorizationRole = await db.AuthorizationRoles.Include(role => role.RolePermissions).ThenInclude(item => item.Permission).SingleOrDefaultAsync(role => role.Code == RoleCode(request.Role) && role.IsActive, cancellationToken);
         if (authorizationRole is null)
         {
             return null;
@@ -122,6 +221,12 @@ public sealed class AuthorizationManagementService(
         foreach (var userRole in user.UserRoles)
         {
             userRole.IsActive = userRole.RoleId == authorizationRole.Id;
+        }
+
+        // A role they have never had needs its own link, otherwise the account is left with no role at all.
+        if (user.UserRoles.All(userRole => userRole.RoleId != authorizationRole.Id))
+        {
+            user.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = authorizationRole.Id, Role = authorizationRole, IsActive = true });
         }
 
         var requestedStoreIdSet = requestedStoreIds.ToHashSet();
@@ -225,9 +330,10 @@ public sealed class AuthorizationManagementService(
             return [];
         }
 
-        return await db.Stores.AsNoTracking().Where(store => store.OrganizationId == context!.OrganizationId && store.IsActive)
+        // Closed stores are listed too, so an administrator can open them again.
+        return await db.Stores.AsNoTracking().Where(store => store.OrganizationId == context!.OrganizationId)
             .OrderBy(store => store.Name)
-            .Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive))
+            .Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive, store.Code, store.PhoneNumber))
             .ToListAsync(cancellationToken);
     }
 

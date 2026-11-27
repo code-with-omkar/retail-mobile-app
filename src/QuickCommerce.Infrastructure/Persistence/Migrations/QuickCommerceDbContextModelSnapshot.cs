@@ -22,6 +22,156 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("QuickCommerce.Domain.Ad", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClickCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Placement")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Target")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("ViewCount")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("Placement", "IsActive");
+
+                    b.ToTable("Ads", t =>
+                        {
+                            t.HasCheckConstraint("CK_Ads_Counts", "[ViewCount] >= 0 AND [ClickCount] >= 0");
+
+                            t.HasCheckConstraint("CK_Ads_Placement", "[Placement] IN ('home','home_middle','categories','search','cart','order','product')");
+
+                            t.HasCheckConstraint("CK_Ads_TargetType", "[TargetType] IN ('None','Product','Category','Offer','Url')");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AnalyticsDaily", b =>
+                {
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(24)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<Guid>("StoreKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Events")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Sessions")
+                        .HasColumnType("int");
+
+                    b.HasKey("Day", "Name", "StoreKey");
+
+                    b.ToTable("AnalyticsDaily", t =>
+                        {
+                            t.HasCheckConstraint("CK_AnalyticsDaily_Counts", "[Events] >= 0 AND [Sessions] >= 0 AND [Sessions] <= [Events]");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.AnalyticsEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(24)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("IX_AnalyticsEvents_OccurredAt");
+
+                    b.HasIndex("Name", "OccurredAt")
+                        .HasDatabaseName("IX_AnalyticsEvents_Name_OccurredAt");
+
+                    b.ToTable("AnalyticsEvents");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -307,6 +457,221 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.Campaign", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Animation")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("BodyEn")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BodyMr")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("CardDesign")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("DiscountPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FeePaise")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Notify")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("NotRequired");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Ribbon")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("ShowOnLoad")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("TitleMr")
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartsAt")
+                        .HasFilter("[PublishedAt] IS NULL AND [IsActive] = 1");
+
+                    b.ToTable("Campaigns", t =>
+                        {
+                            t.HasCheckConstraint("CK_Campaigns_CardDesign", "[CardDesign] IS NULL OR [CardDesign] IN ('diwali','ganesh','navratri','holi','sankranti','padwa','eid','christmas','fresh','weekend','bigsaver','combo','freeship','newin')");
+
+                            t.HasCheckConstraint("CK_Campaigns_Discount", "[DiscountPercent] BETWEEN 0 AND 90 AND ([DiscountPercent] = 0 OR [EndsAt] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Campaigns_RecipientCount", "[RecipientCount] >= 0 AND [FeePaise] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderOrderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CampaignId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CampaignPayments_ProviderOrderId")
+                        .HasFilter("[ProviderOrderId] IS NOT NULL");
+
+                    b.HasIndex("ProviderPaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CampaignPayments_ProviderPaymentId")
+                        .HasFilter("[ProviderPaymentId] IS NOT NULL");
+
+                    b.HasIndex("Status", "UpdatedAt");
+
+                    b.ToTable("CampaignPayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CampaignPayments_Amount", "[AmountPaise] > 0 AND [Attempts] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignProduct", b =>
+                {
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CampaignId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("CampaignProducts");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
+                {
+                    b.Property<Guid>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("CampaignId", "StoreId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("CampaignStores");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Property<Guid>("Id")
@@ -485,6 +850,186 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("CheckoutRequests", (string)null);
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CommissionRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Percent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("CommissionRates", t =>
+                        {
+                            t.HasCheckConstraint("CK_CommissionRates_Percent", "[Percent] >= 0 AND [Percent] <= 100");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.Coupon", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Animation")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Design")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("FirstOrderOnly")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal?>("MaxDiscount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MinSubtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("PerCustomerLimit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Ribbon")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("ShowAsPopup")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ShowInApp")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("TotalLimit")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsedCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Coupons", t =>
+                        {
+                            t.HasCheckConstraint("CK_Coupons_Amounts", "[Value] >= 0 AND [MinSubtotal] >= 0 AND ([MaxDiscount] IS NULL OR [MaxDiscount] > 0) AND [UsedCount] >= 0");
+
+                            t.HasCheckConstraint("CK_Coupons_Kind", "[Kind] IN ('Percent','Flat','FreeDelivery')");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CouponRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("CouponId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal?>("MaxDiscount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("CouponId", "UserId");
+
+                    b.ToTable("CouponRedemptions", t =>
+                        {
+                            t.HasCheckConstraint("CK_CouponRedemptions_Amount", "[Amount] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -493,6 +1038,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<bool>("OffersEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -590,17 +1140,130 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.DeliveryLocation", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("float");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("DeliveryLocations", t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliveryLocations_Range", "[Latitude] BETWEEN -90 AND 90 AND [Longitude] BETWEEN -180 AND 180");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.DeliverySlotSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("AsapAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CloseMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CutoffMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DaysAhead")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("OpenMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("DeliverySlotSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_DeliverySlotSettings_Ranges", "[OpenMinutes] >= 0 AND [CloseMinutes] <= 1440 AND [CloseMinutes] > [OpenMinutes] AND [WindowMinutes] > 0 AND [Capacity] >= 1 AND [CutoffMinutes] >= 0 AND [DaysAhead] BETWEEN 1 AND 7");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
+                {
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("CustomerId", "ProductId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("CustomerId", "CreatedAt");
+
+                    b.ToTable("FavouriteProducts", (string)null);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("CampaignId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Order");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DataJson")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
@@ -627,9 +1290,49 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("OrderId");
 
+                    b.HasIndex("CampaignId", "CustomerId")
+                        .IsUnique()
+                        .HasFilter("[CampaignId] IS NOT NULL");
+
                     b.HasIndex("CustomerId", "IsRead", "CreatedAt");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OfferFee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AmountPaise")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LoadAmountPaise")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique()
+                        .HasFilter("[StoreId] IS NOT NULL");
+
+                    b.ToTable("OfferFees", t =>
+                        {
+                            t.HasCheckConstraint("CK_OfferFees_Amount", "[AmountPaise] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Order", b =>
@@ -638,7 +1341,44 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CancelNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("CancelledBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("CashCollected")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CommissionAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CommissionPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("CouponCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("CouponDiscount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("DeliveryAddress")
@@ -649,9 +1389,33 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("DeliveryAddressId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DeliveryFailedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeliveryFailureNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("DeliveryFailureReason")
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
                     b.Property<decimal>("DeliveryFee")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("DeliveryOtp")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<Guid?>("DeliveryPartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeliverySlotEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliverySlotStart")
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("EstimatedDeliveryMinutes")
                         .HasColumnType("int");
@@ -666,10 +1430,24 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<double>("Longitude")
                         .HasColumnType("float");
 
+                    b.Property<string>("OrderNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("OrderNumber")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("OtpFailures")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("OtpLockedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OutOfStockChoice")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("PaymentExpiresAt")
                         .HasColumnType("datetime2");
@@ -688,11 +1466,25 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("NotRequired");
 
+                    b.Property<DateTime?>("PickedUpAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ReceiverName")
                         .HasMaxLength(120)
                         .HasColumnType("nvarchar(120)");
 
                     b.Property<string>("ReceiverPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("RejectedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RejectionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RejectionReason")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
@@ -730,12 +1522,197 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_Orders_PaymentExpiresAt")
                         .HasFilter("[PaymentExpiresAt] IS NOT NULL");
 
+                    b.HasIndex("DeliveryPartnerId", "Status")
+                        .HasDatabaseName("IX_Orders_DeliveryPartner")
+                        .HasFilter("[DeliveryPartnerId] IS NOT NULL");
+
                     b.HasIndex("StoreId", "CreatedAt");
+
+                    b.HasIndex("StoreId", "DeliverySlotStart")
+                        .HasDatabaseName("IX_Orders_StoreSlot")
+                        .HasFilter("[DeliverySlotStart] IS NOT NULL");
 
                     b.ToTable("Orders", t =>
                         {
                             t.HasCheckConstraint("CK_Orders_Fees", "[DeliveryFee] >= 0 AND [HandlingFee] >= 0 AND [SubtotalAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_Orders_Slot", "([DeliverySlotStart] IS NULL AND [DeliverySlotEnd] IS NULL) OR ([DeliverySlotStart] IS NOT NULL AND [DeliverySlotEnd] > [DeliverySlotStart])");
                         });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChangedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangesJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("NewSubtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("OldSubtotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RefundFailure")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("RefundPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("RefundStatus")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("RefundStatus")
+                        .HasFilter("[RefundStatus] IN ('Pending', 'Started')");
+
+                    b.ToTable("OrderAdjustments", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderAdjustments_Refund", "[RefundPaise] >= 0 AND [NewSubtotal] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("ApprovedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CashPaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CashPaidBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ClaimedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DecidedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RefundMethod")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "StoreId", "CreatedAt");
+
+                    b.ToTable("OrderIssues", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderIssues_Amounts", "[ClaimedAmount] >= 0 AND ([ApprovedAmount] IS NULL OR [ApprovedAmount] >= 0)");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderIssueItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("VariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId");
+
+                    b.ToTable("OrderIssueItem");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.OrderItem", b =>
@@ -783,6 +1760,70 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.HasIndex("VariantId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderNumberCounter", b =>
+                {
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("StoreId", "Day");
+
+                    b.ToTable("OrderNumberCounters", t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderNumberCounters_LastNumber", "[LastNumber] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderRating", b =>
+                {
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DeliveryPartnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("DeliveryStars")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StoreStars")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("OrderId");
+
+                    b.HasIndex("DeliveryPartnerId", "CreatedAt")
+                        .HasFilter("[DeliveryPartnerId] IS NOT NULL");
+
+                    b.HasIndex("StoreId", "CreatedAt");
+
+                    b.ToTable("OrderRatings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OrderRatings_DeliveryStars", "[DeliveryStars] IS NULL OR [DeliveryStars] BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("CK_OrderRatings_StoreStars", "[StoreStars] BETWEEN 1 AND 5");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.OrderStatusHistory", b =>
@@ -865,6 +1906,55 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.OtpChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<string>("RequestedFromIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Phone", "CreatedAt");
+
+                    b.ToTable("OtpChallenges", (string)null);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.PasswordResetCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -928,6 +2018,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("PartialRefundedPaise")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Provider")
                         .IsRequired()
@@ -1014,6 +2107,137 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UX_PaymentEvents_ProviderEvent");
 
                     b.ToTable("PaymentEvents", (string)null);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementBid", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AmountPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Pincode")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ProviderOrderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderPaymentId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderOrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_ProviderOrderId")
+                        .HasFilter("[ProviderOrderId] IS NOT NULL");
+
+                    b.HasIndex("ProviderPaymentId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_ProviderPaymentId")
+                        .HasFilter("[ProviderPaymentId] IS NOT NULL");
+
+                    b.HasIndex("PaymentStatus", "UpdatedAt");
+
+                    b.HasIndex("Pincode", "WeekStart")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PlacementBids_Leading")
+                        .HasFilter("[Status] = 'Leading'");
+
+                    b.HasIndex("StoreId", "WeekStart");
+
+                    b.ToTable("PlacementBids", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlacementBids_Amount", "[AmountPaise] > 0 AND [Attempts] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementRules", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MaxWeeksAhead")
+                        .HasColumnType("int");
+
+                    b.Property<long>("MinBidPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MinStepPaise")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlacementRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PlacementRules_Values", "[MinBidPaise] > 0 AND [MinStepPaise] >= 0 AND [MaxWeeksAhead] BETWEEN 1 AND 26");
+                        });
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Product", b =>
@@ -1259,6 +2483,96 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.ReplacementProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LineLabel")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("LineName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<Guid>("LineProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LineVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NewLabel")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("NewName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<Guid>("NewProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("NewQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("NewUnitMrp")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("NewUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("NewVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("OldQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OldUnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProposedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ReplacementProposals_OnePending")
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.ToTable("ReplacementProposals", t =>
+                        {
+                            t.HasCheckConstraint("CK_ReplacementProposals_Quantity", "[OldQuantity] > 0 AND [NewQuantity] > 0 AND [NewUnitPrice] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
@@ -1353,6 +2667,25 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.SlotBooking", b =>
+                {
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SlotStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Booked")
+                        .HasColumnType("int");
+
+                    b.HasKey("StoreId", "SlotStart");
+
+                    b.ToTable("SlotBookings", t =>
+                        {
+                            t.HasCheckConstraint("CK_SlotBookings_Booked", "[Booked] >= 0");
+                        });
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Store", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1363,6 +2696,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1392,6 +2729,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasColumnType("float(9)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("IsActive");
 
@@ -1581,6 +2922,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<int>("AvailableQuantity")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("PriceOverride")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("ReorderThreshold")
                         .HasColumnType("int");
 
@@ -1597,6 +2941,8 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.ToTable("StoreVariantInventory", t =>
                         {
                             t.HasCheckConstraint("CK_StoreVariantInventory_NotNegative", "[AvailableQuantity] >= 0");
+
+                            t.HasCheckConstraint("CK_StoreVariantInventory_PriceOverride", "[PriceOverride] IS NULL OR [PriceOverride] > 0");
                         });
                 });
 
@@ -1622,6 +2968,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("nvarchar(160)");
 
+                    b.Property<DateTime?>("EmailVerifiedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("ExternalSubject")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1630,6 +2979,10 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<string>("FirstName")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("GoogleSubject")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1644,6 +2997,9 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Property<string>("PhoneNumber")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("PhoneVerifiedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -1670,6 +3026,16 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExternalSubject")
                         .IsUnique();
+
+                    b.HasIndex("GoogleSubject")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Users_GoogleSubject")
+                        .HasFilter("[GoogleSubject] IS NOT NULL");
+
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Users_VerifiedPhone")
+                        .HasFilter("[PhoneVerifiedAt] IS NOT NULL");
 
                     b.HasIndex("StoreId");
 
@@ -1821,6 +3187,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("LockedUntil")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime>("PasswordChangedAt")
                         .HasColumnType("datetime2");
@@ -2039,6 +3410,20 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.Ad", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.ApprovalRequest", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.User", "ApprovedByUser")
@@ -2069,6 +3454,47 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Organization");
 
                     b.Navigation("RequestedByUser");
+
+                    b.Navigation("Store");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignPayment", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignProduct", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany("Products")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CampaignStore", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Campaign", null)
+                        .WithMany("Stores")
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Store");
                 });
@@ -2149,6 +3575,38 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.CommissionRate", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.Coupon", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.CouponRedemption", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Coupon", null)
+                        .WithMany()
+                        .HasForeignKey("CouponId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Customer", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.User", "User")
@@ -2169,8 +3627,45 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.DeliveryLocation", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithOne()
+                        .HasForeignKey("QuickCommerce.Domain.DeliveryLocation", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.DeliverySlotSetting", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.FavouriteProduct", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("QuickCommerce.Domain.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Notification", b =>
                 {
+                    b.HasOne("QuickCommerce.Domain.Campaign", "Campaign")
+                        .WithMany()
+                        .HasForeignKey("CampaignId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("QuickCommerce.Domain.Customer", "Customer")
                         .WithMany("Notifications")
                         .HasForeignKey("CustomerId")
@@ -2182,15 +3677,57 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.Navigation("Campaign");
+
                     b.Navigation("Customer");
                 });
 
-            modelBuilder.Entity("QuickCommerce.Domain.Order", b =>
+            modelBuilder.Entity("QuickCommerce.Domain.OfferFee", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.Store", null)
                         .WithMany()
                         .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.Order", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderAdjustment", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderIssue", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderIssueItem", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.OrderIssue", null)
+                        .WithMany("Items")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -2212,6 +3749,24 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("VariantId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderNumberCounter", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderRating", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithOne()
+                        .HasForeignKey("QuickCommerce.Domain.OrderRating", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.OrderStatusHistory", b =>
@@ -2239,6 +3794,17 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                         .HasForeignKey("OrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.PlacementBid", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", "Store")
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Store");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Product", b =>
@@ -2279,6 +3845,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.ReplacementProposal", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Order", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.RolePermission", b =>
                 {
                     b.HasOne("QuickCommerce.Domain.AuthorizationPermission", "Permission")
@@ -2296,6 +3871,15 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.SlotBooking", b =>
+                {
+                    b.HasOne("QuickCommerce.Domain.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Store", b =>
@@ -2418,6 +4002,13 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("UserRoles");
                 });
 
+            modelBuilder.Entity("QuickCommerce.Domain.Campaign", b =>
+                {
+                    b.Navigation("Products");
+
+                    b.Navigation("Stores");
+                });
+
             modelBuilder.Entity("QuickCommerce.Domain.Cart", b =>
                 {
                     b.Navigation("Items");
@@ -2435,6 +4026,11 @@ namespace QuickCommerce.Infrastructure.Persistence.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("StatusHistory");
+                });
+
+            modelBuilder.Entity("QuickCommerce.Domain.OrderIssue", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("QuickCommerce.Domain.Organization", b =>

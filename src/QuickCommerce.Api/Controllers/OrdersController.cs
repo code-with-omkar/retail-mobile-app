@@ -32,8 +32,28 @@ public sealed class OrdersController(
             return Forbid();
         }
 
-        var orders = await data.GetScopedOrderSummariesAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        var orders = await data.GetScopedOrderSummariesAsync(scope.OrganizationId, await OperatingStoresAsync(scope, cancellationToken), scope.IsApplicationAdmin, cancellationToken);
         return Ok(new { success = true, data = orders });
+    }
+
+    /// <summary>The portal's order list, a page at a time, with the stores the caller may filter by. Not for customers.</summary>
+    [HttpGet("paged")]
+    public async Task<IActionResult> Paged([FromQuery] string? search, [FromQuery] QuickCommerce.Domain.OrderStatus[]? status, [FromQuery] Guid[]? storeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    {
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        var scope = context?.Role == QuickCommerce.Domain.Role.Customer ? null : await scopeService.ResolveAsync(cancellationToken);
+        if (scope is null)
+        {
+            return Forbid();
+        }
+
+        var stores = await OperatingStoresAsync(scope, cancellationToken);
+        var query = new AdminOrderQuery(search, status, storeId, page, pageSize).Clamped();
+        var (items, total) = await data.GetScopedOrderPageAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, query, cancellationToken);
+        var counts = await data.GetScopedOrderCountsAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, query, cancellationToken);
+        var choices = (await data.GetScopedStoresAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, cancellationToken))
+            .OrderBy(store => store.Name).Select(store => new AdminOrderStore(store.Id, store.Name, counts.ByStore.GetValueOrDefault(store.Id))).ToArray();
+        return Ok(new { success = true, data = new AdminOrderPage(items, total, query.Page, query.PageSize, choices, counts.ByStatus.ToDictionary(item => (int)item.Key, item => item.Value)) });
     }
 
     [HttpPost]
@@ -62,13 +82,28 @@ public sealed class OrdersController(
             : NotFound(new { success = false, message = "Order not found", errors = Array.Empty<string>() });
     }
 
+    /// <summary>
+    /// The stores whose orders staff see, which are the ones they can change statuses in: a store manager's assigned stores, otherwise the primary store.
+    /// Application admins are not limited by store. A user with no operating store sees none.
+    /// </summary>
+    private async Task<IReadOnlySet<Guid>> OperatingStoresAsync(QuickCommerce.Application.DTOs.AuthorizationScope scope, CancellationToken cancellationToken)
+    {
+        if (scope.IsApplicationAdmin)
+        {
+            return scope.StoreIds;
+        }
+
+        var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
+        return context?.OrderStoreIds ?? new HashSet<Guid>();
+    }
+
     private static object Failure(string message) => new { success = false, message, errors = Array.Empty<string>() };
 
     private async Task<OrderResponse?> GetScopedOrderAsync(Guid id, CancellationToken cancellationToken)
     {
         var scope = await scopeService.ResolveAsync(cancellationToken);
         if (scope is null) return null;
-        var orders = await data.GetScopedOrdersAsync(scope.OrganizationId, scope.StoreIds, scope.IsApplicationAdmin, cancellationToken);
+        var orders = await data.GetScopedOrdersAsync(scope.OrganizationId, await OperatingStoresAsync(scope, cancellationToken), scope.IsApplicationAdmin, cancellationToken);
         return orders.FirstOrDefault(order => order.Id == id) is { } order ? Map(order) : null;
     }
 
@@ -83,7 +118,7 @@ public sealed class OrdersController(
         order.Latitude,
         order.Longitude,
         order.CreatedAt,
-        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice)).ToArray(),
+        order.Items.Select(item => new OrderItemResponse(item.ProductId, item.ProductNameSnapshot, item.UnitPrice, item.Quantity, item.TotalPrice, item.VariantId, item.VariantLabelSnapshot)).ToArray(),
         order.StatusHistory.Select(history => new OrderStatusHistoryResponse(history.Status, history.ChangedAt)).ToArray(),
         order.SubtotalAmount,
         order.DeliveryFee,
@@ -93,5 +128,7 @@ public sealed class OrdersController(
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice);
 }

@@ -11,6 +11,18 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then(m => m.LoginComponent),
   },
   {
+    path: 'forgot-password',
+    canActivate: [NoAuthGuard],
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent),
+  },
+  {
+    path: 'change-password',
+    canActivate: [AuthGuard],
+    loadComponent: () =>
+      import('./features/auth/change-password/change-password.component').then(m => m.ChangePasswordComponent),
+  },
+  {
     path: '',
     component: ShellComponent,
     canActivate: [AuthGuard],
@@ -26,6 +38,8 @@ export const routes: Routes = [
       },
       {
         path: 'dashboard',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
         loadComponent: () =>
           import('./features/dashboard/dashboard.component').then(
             m => m.DashboardComponent
@@ -33,6 +47,8 @@ export const routes: Routes = [
       },
       {
         path: 'products',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/products/products.component').then(
             m => m.ProductsComponent
@@ -40,9 +56,119 @@ export const routes: Routes = [
       },
       {
         path: 'orders',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/orders/orders.component').then(
             m => m.OrdersComponent
+          ),
+      },
+      {
+        path: 'complaints',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/complaints/complaints.component').then(
+            m => m.ComplaintsComponent
+          ),
+      },
+      {
+        path: 'reports',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/reports/reports.component').then(
+            m => m.ReportsComponent
+          ),
+      },
+      {
+        path: 'stock',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/stock/stock.component').then(
+            m => m.StockComponent
+          ),
+      },
+      {
+        path: 'placement',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/placement/placement.component').then(
+            m => m.PlacementComponent
+          ),
+      },
+      {
+        path: 'campaigns',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/campaigns/campaigns.component').then(
+            m => m.CampaignsComponent
+          ),
+      },
+      {
+        path: 'behaviour',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/behaviour/behaviour.component').then(
+            m => m.BehaviourComponent
+          ),
+      },
+      {
+        path: 'today',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/today/today.component').then(
+            m => m.TodayComponent
+          ),
+      },
+      {
+        path: 'delivery-times',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/delivery-slots/delivery-slots.component').then(
+            m => m.DeliverySlotsComponent
+          ),
+      },
+      {
+        path: 'categories',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/categories/categories.component').then(
+            m => m.CategoriesComponent
+          ),
+      },
+      {
+        path: 'ads',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/ads/ads.component').then(
+            m => m.AdsComponent
+          ),
+      },
+      {
+        path: 'coupons',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/coupons/coupons.component').then(
+            m => m.CouponsComponent
+          ),
+      },
+      {
+        path: 'commission',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin] },
+        loadComponent: () =>
+          import('./features/commission/commission.component').then(
+            m => m.CommissionComponent
           ),
       },
       {
@@ -74,6 +200,8 @@ export const routes: Routes = [
       },
       {
         path: 'notifications',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
         loadComponent: () =>
           import('./features/notifications/notifications.component').then(
             m => m.NotificationsComponent
@@ -102,7 +230,7 @@ export const routes: Routes = [
       },
       {
         path: '',
-        redirectTo: 'dashboard',
+        redirectTo: 'today',
         pathMatch: 'full',
       },
     ],

@@ -74,7 +74,7 @@ public sealed class AccountService(
         }
 
         var normalizedEmail = AccountRules.NormalizeEmail(request.Email);
-        var user = await store.FindActiveCustomerByEmailAsync(normalizedEmail, cancellationToken);
+        var user = await store.FindActiveUserByEmailAsync(normalizedEmail, cancellationToken);
         if (user is null)
         {
             return AccountResult<bool>.Ok(true); // same answer whether or not the account exists
@@ -115,7 +115,7 @@ public sealed class AccountService(
             return Invalid<bool>(validation);
         }
 
-        var user = await store.FindActiveCustomerByEmailAsync(AccountRules.NormalizeEmail(request.Email), cancellationToken);
+        var user = await store.FindActiveUserByEmailAsync(AccountRules.NormalizeEmail(request.Email), cancellationToken);
         if (user is null)
         {
             return AccountResult<bool>.Invalid(InvalidCode);
@@ -159,7 +159,7 @@ public sealed class AccountService(
             return Invalid<bool>(validation);
         }
 
-        if (await store.FindActiveCustomerByIdAsync(userId, cancellationToken) is null)
+        if (await store.FindActiveUserByIdAsync(userId, cancellationToken) is null)
         {
             return AccountResult<bool>.NotFound("Account not found.");
         }

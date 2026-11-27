@@ -30,6 +30,9 @@ export type UpdateUserRequest = Partial<CreateUserRequest> & {
   id?: string;
 };
 
+export interface UserQuery { search: string; roles: string[]; statuses: string[]; sort: string; page: number; pageSize: number; }
+export interface UserPage { items: User[]; totalCount: number; page: number; pageSize: number; allCount: number; activeCount: number; roleCount: number; roleCounts?: Record<string, number> | null; matchingActive?: number; matchingInactive?: number; }
+
 @Injectable({ providedIn: 'root' })
 export class UserMasterService {
   private readonly permissionsSignal = signal<Permission[]>([]);
@@ -56,6 +59,35 @@ export class UserMasterService {
         })) as User[] | undefined,
       }))
     );
+  }
+
+  getUsersPage(query: UserQuery): Observable<ApiResponse<UserPage>> {
+    const params: Record<string, string | number | boolean | string[]> = { page: query.page, pageSize: query.pageSize, sort: query.sort };
+    if (query.search) params['search'] = query.search;
+    if (query.roles.length) params['role'] = query.roles;
+    // both ticked is the same as neither
+    if (query.statuses.length === 1) params['active'] = query.statuses[0] === UserStatus.Active;
+    return this.api.get<UserPage>('/users/paged', { params }).pipe(
+      map(response => ({
+        ...response,
+        data: response.data && {
+          ...response.data,
+          items: response.data.items.map(user => ({
+            ...user,
+            firstName: user.firstName ?? user.fullName,
+            lastName: user.lastName ?? '',
+            email: user.email ?? '',
+            status: user.isActive ? UserStatus.Active : UserStatus.Inactive,
+            permissions: user.permissions ?? [],
+          })),
+        },
+      }))
+    );
+  }
+
+  /** A new temporary password for a member of staff. It is returned once. */
+  setTemporaryPassword(userId: string): Observable<ApiResponse<{ temporaryPassword: string }>> {
+    return this.api.post<{ temporaryPassword: string }>('/users/' + userId + '/temporary-password');
   }
 
   getOrganizations(): Observable<ApiResponse<Organization[]>> {

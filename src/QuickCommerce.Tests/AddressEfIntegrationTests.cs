@@ -12,6 +12,7 @@ namespace QuickCommerce.Tests;
 /// scoping and the table rules. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING to a connection string for a
 /// DISPOSABLE database. Everything it adds is uniquely named and removed again. Never point it at a database you care about.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class AddressEfIntegrationTests
 {
     private static CustomerAddress New(string label, double latitude = 19.0, double longitude = 72.8) => new()

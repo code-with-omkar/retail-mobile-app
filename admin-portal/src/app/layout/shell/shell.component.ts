@@ -1,12 +1,19 @@
-import { Component, OnInit, computed, signal, inject } from '@angular/core';
+import { Component, OnInit, computed, signal, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent, NavItem } from '../sidebar/sidebar.component';
+import { OrgSwitcherComponent } from '../org-switcher/org-switcher.component';
+import { AlertsService } from '../../core/services/alerts.service';
+import { DecorateDirective } from './decorate';
+import { menuFor } from './menu';
+import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
+import { tipForUrl } from '../../shared/components/help-tip/tips';
 import { ToastContainerComponent } from '../../shared/components/toast-container/toast-container.component';
 import { AuthService } from '../../core/services/auth.service';
-import { Role, StaffCategory } from '../../core/models/domain.model';
+import { ConfigService } from '../../core/services/config.service';
+import { Role } from '../../core/models/domain.model';
 
 @Component({
   selector: 'app-shell',
@@ -17,6 +24,9 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
     HeaderComponent,
     SidebarComponent,
     ToastContainerComponent,
+    OrgSwitcherComponent,
+    HelpTipComponent,
+    DecorateDirective,
   ],
   template: `
     <main class="shell">
@@ -25,9 +35,11 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
         (onUserMenu)="onUserMenu()"
       ></app-sidebar>
 
-      <section class="content">
+      <section class="content" appDecorate>
+        <app-org-switcher></app-org-switcher>
         <app-header
           [dateLabel]="dateLabel()"
+          [showApi]="isAdmin()"
           [isOnline]="isOnline()"
           (onSearch)="onSearch()"
           (onNotifications)="onNotifications()"
@@ -39,10 +51,10 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
           <strong>{{ authService.userContext()?.displayName || 'User' }}</strong>
           <span>{{ authService.userContext()?.email || 'Username unavailable' }}</span>
           <span>{{ authService.userContext()?.role || 'User' }}</span>
-          <button type="button" (click)="viewProfile()">View Profile</button>
-          <button type="button" (click)="logout()">Logout</button>
+          <button type="button" class="act" (click)="viewProfile()">View profile</button>
         </div>
 
+        <div class="page-help" *ngIf="tipKey() as key"><app-tip [key]="key"></app-tip><span>Help · मदत</span></div>
         <router-outlet></router-outlet>
       </section>
     </main>
@@ -54,7 +66,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       height: 100vh;
       align-items: flex-start;
       display: flex;
-      background: linear-gradient(165deg, #2A1BFF 0%, #6A11E8 45%, #B00699 100%);
+      background: transparent;
       overflow: hidden;
     }
 
@@ -62,14 +74,22 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       width: min(100%, 1440px);
       height: 100vh;
       min-height: 0;
-      padding: 38px 52px 56px 28px;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 40px 14px 28px;
       margin: auto;
       flex: 1;
       overflow-y: auto;
       position: relative;
       scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.3) transparent;
+      scrollbar-color: #B9B2D9 transparent;
     }
+
+    /* other screens keep their natural height and the page scrolls; a list screen takes the rest of the window */
+    .content > * { flex-shrink: 0; }
+    .content ::ng-deep app-orders, .content ::ng-deep app-user-master, .content ::ng-deep app-stores, .content ::ng-deep app-categories, .content ::ng-deep app-delivery-slots, .content ::ng-deep app-commission, .content ::ng-deep app-ads, .content ::ng-deep app-coupons, .content ::ng-deep app-campaigns, .content ::ng-deep app-approvals, .content ::ng-deep app-complaints, .content ::ng-deep app-notifications, .content ::ng-deep app-placement { flex: 1 1 0; min-height: 430px; display: flex; flex-direction: column; }
+
+    .page-help { display: flex; align-items: center; gap: 7px; margin: -8px 0 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
 
     .profile-menu {
       position: absolute;
@@ -80,14 +100,15 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       gap: 8px;
       min-width: 220px;
       padding: 18px;
-      background: var(--card-bg, #EAE4FF);
+      background: #fff;
       border-radius: 24px;
+      border: 1px solid var(--line);
       box-shadow: 0 12px 32px rgba(20,17,24,0.18);
     }
 
     .profile-menu strong {
       color: var(--on-card, #141118);
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       font-size: 14px;
       font-weight: 800;
     }
@@ -95,7 +116,7 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
     .profile-menu span {
       color: var(--on-card-muted, #5E5A66);
       font-size: 11px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .profile-menu button {
@@ -106,13 +127,11 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
       color: var(--on-card, #141118);
       cursor: pointer;
       font-size: 13px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 700;
       transition: color 0.15s;
     }
 
-    .profile-menu button:hover { color: #B0008A; }
-    .profile-menu button:last-child:hover { color: #FB1A8E; }
 
     @media (max-width: 1000px) {
       .content { padding: 30px 25px 45px 16px; }
@@ -127,42 +146,33 @@ import { Role, StaffCategory } from '../../core/models/domain.model';
     }
   `],
 })
-export class ShellComponent implements OnInit {
+export class ShellComponent implements OnInit, OnDestroy {
   readonly authService = inject(AuthService);
   private router = inject(Router);
 
-  isOnline = signal(true);
   profileOpen = signal(false);
+  isOnline = signal(true);
+  private config = inject(ConfigService);
+  private apiTimer?: ReturnType<typeof setInterval>;
 
-  // Computed navigation based on user role
-  navItems = computed(() => {
-    const baseItems: NavItem[] = [
-      { label: 'Overview', icon: '◈', route: '/dashboard', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
-      { label: 'Catalog', icon: '▦', route: '/products', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] },
-      { label: 'Orders', icon: '↗', route: '/orders', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff], requiredPermissions: ['orders:read'] },
-      { label: 'Notifications', icon: '♧', route: '/notifications', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff, Role.Customer] },
-    ];
+  isAdmin(): boolean { return this.authService.hasRole(Role.ApplicationAdmin) || this.authService.hasRole(Role.Admin); }
 
-    // Admin-only items
-    if (this.authService.hasRole(Role.Admin)) {
-      baseItems.splice(2, 0, { label: 'Stores', icon: '⌂', route: '/stores', requiredRoles: [Role.Admin, Role.ApplicationAdmin, Role.StoreStaff] });
-      baseItems.splice(3, 0, { label: 'Users', icon: '◎', route: '/admin/users', requiredRoles: [Role.ApplicationAdmin], requiredPermissions: ['users:manage'] });
-      baseItems.splice(4, 0, { label: 'Roles', icon: '◇', route: '/admin/roles', requiredRoles: [Role.ApplicationAdmin], requiredPermissions: ['roles:manage'] });
-      baseItems.splice(5, 0, { label: 'Permissions', icon: '⊙', route: '/admin/permissions', requiredRoles: [Role.ApplicationAdmin], requiredPermissions: ['permissions:manage'] });
+  /** Any answer from the server, even a refusal, means it can be reached. */
+  async checkApi(): Promise<void> {
+    try {
+      await fetch(this.config.getBaseUrl(), { cache: 'no-store' });
+      this.isOnline.set(true);
+    } catch {
+      this.isOnline.set(false);
     }
+  }
 
-    const context = this.authService.userContext();
-    if (context?.staffCategory === StaffCategory.StoreManager) {
-      baseItems.push({ label: 'Approval Requests', icon: '✓', route: '/approvals', requiredRoles: [Role.StoreStaff] });
-    } else if (context?.staffCategory === StaffCategory.StoreEmployee) {
-      baseItems.push({ label: 'My Approval Requests', icon: '✓', route: '/approvals', requiredRoles: [Role.StoreStaff] });
-    }
-    return baseItems.filter(item => {
-      const roleAllowed = !item.requiredRoles?.length || item.requiredRoles.includes(context?.role ?? '');
-      const permissionAllowed = !item.requiredPermissions?.length || item.requiredPermissions.some(permission => context?.permissions?.includes(permission));
-      return roleAllowed && permissionAllowed;
-    });
-  });
+  // What this person may see (see menu.ts)
+  private alerts = inject(AlertsService);
+  navItems = computed(() => menuFor(this.authService.userContext()).map(item => (item.route === '/notifications' ? { ...item, badge: this.alerts.unread() } : item)));
+
+  /** The help for the page in front, if it has any. */
+  tipKey(): string | null { return tipForUrl(this.router.url ?? ''); }
 
   dateLabel = computed(() => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -174,9 +184,19 @@ export class ShellComponent implements OnInit {
     });
   });
 
+  private alertTimer?: ReturnType<typeof setInterval>;
+
+  ngOnDestroy(): void { clearInterval(this.alertTimer); clearInterval(this.apiTimer); }
+
   ngOnInit(): void {
-    // Optionally check API connectivity
-    // this.checkApiStatus();
+    if (this.isAdmin()) {
+      void this.checkApi();
+      this.apiTimer = setInterval(() => void this.checkApi(), 60 * 1000);
+    }
+    if (menuFor(this.authService.userContext()).some(item => item.route === '/notifications')) {
+      this.alerts.refresh();
+      this.alertTimer = setInterval(() => this.alerts.refresh(), 5 * 60 * 1000);
+    }
   }
 
   onSearch(): void {

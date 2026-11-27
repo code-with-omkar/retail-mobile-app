@@ -33,6 +33,7 @@ export interface AuthenticationUser {
   roles: string[];
   permissions: string[];
   staffCategory?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface CreateOrderRequest {

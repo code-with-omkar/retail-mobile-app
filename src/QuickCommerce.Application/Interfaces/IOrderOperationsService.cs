@@ -5,6 +5,7 @@ namespace QuickCommerce.Application.Interfaces;
 public interface IOrderOperationsService
 {
     Task<OrderOperationResult> ChangeStatusAsync(Guid orderId, ChangeOrderStatusRequest request, CancellationToken cancellationToken = default);
+    Task<OrderOperationResult> CancelAsync(Guid orderId, CancelOrderByStoreRequest request, CancellationToken cancellationToken = default);
 }
 
 public enum OrderOperationStatus

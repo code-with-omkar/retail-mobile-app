@@ -2,6 +2,12 @@ import { Component, Input, Output, EventEmitter, computed, inject } from '@angul
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
 
+/** The greeting for the time of day on this computer. */
+export function greetingFor(time: Date): string {
+  const hour = time.getHours();
+  return hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+}
+
 @Component({
   selector: 'app-header',
   standalone: true,
@@ -10,19 +16,12 @@ import { AuthService } from '../../core/services/auth.service';
     <header class="topbar">
       <div class="header-left">
         <p class="eyebrow">{{ dateLabel }}</p>
-        <h1>Good morning, {{ userName() }} <span>✦</span></h1>
+        <h1>{{ greeting() }}, {{ userName() }} <span>✦</span></h1>
       </div>
       <div class="top-actions">
-        <div class="status" [class.online]="isOnline">
-          <i [class.online]="isOnline"></i>
-          {{ isOnline ? 'API connected' : 'Demo mode' }}
-        </div>
-        <button class="icon-button" type="button" (click)="onSearch.emit()" title="Search">
-          ⌕
-        </button>
-        <button class="icon-button" type="button" (click)="onNotifications.emit()" title="Notifications">
-          ♧
-        </button>
+        <span class="api" *ngIf="showApi" role="status" [class.off]="!isOnline" [attr.title]="isOnline ? 'API connected' : 'API not reachable'" [attr.aria-label]="isOnline ? 'API connected' : 'API not reachable'">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="isOnline ? 'M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0M12 20h.01' : 'M3 3l18 18M8.5 16a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 5-2.7M14 5.2A15 15 0 0 1 22 9M12 20h.01'"/></svg>
+        </span>
         <button class="logout-button" type="button" (click)="onLogout.emit()">
           Logout
         </button>
@@ -37,18 +36,18 @@ import { AuthService } from '../../core/services/auth.service';
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 38px;
+      margin-bottom: 18px;
     }
 
     .header-left { flex: 1; }
 
     .eyebrow {
       margin: 0 0 7px;
-      color: #E9E4FF;
+      color:var(--muted);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       text-transform: uppercase;
     }
 
@@ -56,35 +55,21 @@ import { AuthService } from '../../core/services/auth.service';
       margin: 0;
       font-size: 25px;
       letter-spacing: -0.8px;
-      font-family: 'Space Grotesk', sans-serif;
+      font-family: 'Bricolage Grotesque', sans-serif;
       font-weight: 800;
-      color: #fff;
+      color:var(--ink);
     }
 
-    h1 span { color: #FFD400; font-size: 20px; }
+    h1 span { color: var(--ink); font-size: 20px; }
 
     .top-actions { display: flex; align-items: center; gap: 11px; }
 
-    .status {
-      color: #141118;
-      background: #02F34C;
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .status i { display: inline-block; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
-    .status i.online { background: #fff; }
-    .status:not(.online) { background: #FFD400; }
+    .api { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #D9F7E3; color: #15803D; }
+    .api.off { background: #FFE0E6; color: #BE123C; }
 
     .icon-button {
       border: 0;
-      background: #EAE4FF;
+      background: #F5F5F7;
       color: #141118;
       cursor: pointer;
       width: 36px;
@@ -100,8 +85,8 @@ import { AuthService } from '../../core/services/auth.service';
     .icon-button:hover { background: #FFF1A8; }
 
     .logout-button {
-      border: 0;
-      background: #EAE4FF;
+      border: 1px solid #D9D7DF;
+      background: #fff;
       color: #141118;
       cursor: pointer;
       min-height: 36px;
@@ -109,11 +94,11 @@ import { AuthService } from '../../core/services/auth.service';
       border-radius: 999px;
       font-size: 11px;
       font-weight: 800;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
       transition: background .2s;
     }
 
-    .logout-button:hover { background: #FB1A8E; }
+    .logout-button:hover { background: #FFF1A8; }
 
     .mini-avatar {
       display: grid;
@@ -127,13 +112,12 @@ import { AuthService } from '../../core/services/auth.service';
       font-size: 11px;
       cursor: pointer;
       transition: transform .2s;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .mini-avatar:hover { transform: scale(1.06); }
 
     @media (max-width: 1000px) {
-      .status { display: none; }
       h1 { font-size: 20px; }
     }
 
@@ -148,11 +132,15 @@ export class HeaderComponent {
   private authService = inject(AuthService);
 
   @Input() dateLabel = '';
+  /** The connection mark, for administrators only. */
+  @Input() showApi = false;
   @Input() isOnline = true;
   @Output() onSearch = new EventEmitter<void>();
   @Output() onNotifications = new EventEmitter<void>();
   @Output() onUserMenu = new EventEmitter<void>();
   @Output() onLogout = new EventEmitter<void>();
+
+  greeting(): string { return greetingFor(new Date()); }
 
   readonly userName = computed(() => this.authService.userContext()?.displayName || 'User');
   readonly userInitials = computed(() => {

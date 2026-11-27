@@ -15,6 +15,12 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.LastName).HasMaxLength(80);
         builder.Property(user => user.Email).HasMaxLength(160);
         builder.Property(user => user.PhoneNumber).HasMaxLength(20);
+        builder.Property(user => user.PhoneVerifiedAt).HasColumnType("datetime2");
+        builder.Property(user => user.EmailVerifiedAt).HasColumnType("datetime2");
+        builder.Property(user => user.GoogleSubject).HasMaxLength(64);
+        // A verified number belongs to one account; unverified numbers (typed in a profile) can repeat.
+        builder.HasIndex(user => user.PhoneNumber).IsUnique().HasFilter("[PhoneVerifiedAt] IS NOT NULL").HasDatabaseName("UX_Users_VerifiedPhone");
+        builder.HasIndex(user => user.GoogleSubject).IsUnique().HasFilter("[GoogleSubject] IS NOT NULL").HasDatabaseName("UX_Users_GoogleSubject");
         builder.Property(user => user.CreatedBy).HasMaxLength(200);
         builder.Property(user => user.UpdatedBy).HasMaxLength(200);
         builder.Property(user => user.Role).HasConversion<string>().HasMaxLength(32).IsRequired();

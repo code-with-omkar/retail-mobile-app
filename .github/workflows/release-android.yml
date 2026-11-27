@@ -1,0 +1,70 @@
+name: Release (Android)
+
+# Builds the signed bundle for Google Play. Run it by hand (Actions, Release (Android), Run workflow) or push a tag like customer-v1.0.0.
+# One-time setup: add these repository secrets (Settings, Secrets and variables, Actions):
+#   ANDROID_KEYSTORE_BASE64  the upload key file, as base64 (PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("quickcart-upload.jks")))
+#   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   API_BASE_URL_PROD        the https address of the production API
+# and, to turn Google sign-in on, GOOGLE_SERVER_CLIENT_ID (the web client id).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["customer-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Put the upload key in place (never printed, never committed)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/upload.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+      - name: Put the Google Maps key in place (never printed, never committed)
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+        run: echo "MAPS_API_KEY=$MAPS_API_KEY" >> android/local.properties
+      - name: Build the signed app bundle
+        env:
+          RELEASE_REQUIRE_SIGNING: "true"
+        run: >
+          flutter build appbundle --release
+          --dart-define=APP_ENV=prod
+          --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL_PROD }}
+          --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+          --obfuscate --split-debug-info=build/symbols
+      - uses: actions/upload-artifact@v4
+        with:
+          name: customer-app-bundle
+          path: |
+            mobile/build/app/outputs/bundle/release/app-release.aab
+            mobile/build/symbols

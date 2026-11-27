@@ -5,6 +5,7 @@ using Xunit;
 
 namespace QuickCommerce.Tests;
 
+[Collection("SqlServer")]
 public sealed class PersistenceModelTests
 {
     [Fact]

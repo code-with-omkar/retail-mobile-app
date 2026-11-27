@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,15 +193,15 @@ void main() {
       final app = await _open(tester, orders: [_active('ORD-1')]);
       await _goOrders(tester);
       await _openOrder(tester, 'ORD-1');
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(LucideIcons.check), findsOneWidget);
 
       _setStage(app, 'ORD-1', OrderStage.packed);
       await _elapse(tester, 15);
-      expect(find.byIcon(Icons.check), findsNWidgets(2));
+      expect(find.byIcon(LucideIcons.check), findsNWidgets(2));
 
       _setStage(app, 'ORD-1', OrderStage.delivered);
       await _elapse(tester, 15);
-      expect(find.byIcon(Icons.check), findsNWidgets(4));
+      expect(find.byIcon(LucideIcons.check), findsNWidgets(4));
       final calls = app.orders.listCalls;
       await _elapse(tester, 120);
       expect(app.orders.listCalls, calls);
@@ -250,6 +251,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Could not open the phone app.'), findsOneWidget);
+    });
+
+    testWidgets('while out for delivery the customer sees the partner, a Call button and the delivery code', (tester) async {
+      final app = await _open(tester, orders: [sampleOrder(number: 'ORD-1', stage: OrderStage.onTheWay, deliveryPartnerName: 'Rina', deliveryPartnerPhone: '9000000001', deliveryOtp: '4821')]);
+      await _goOrders(tester);
+      await _openOrder(tester, 'ORD-1');
+
+      expect(find.text('Delivery partner'), findsOneWidget);
+      expect(find.text('Rina'), findsOneWidget);
+      expect(tester.widget<Text>(find.byKey(const Key('delivery-code'))).data, '4821');
+      expect(find.text('Give this code to the delivery partner only when your order arrives.'), findsOneWidget);
+
+      await tester.tap(find.text('Call'));
+      await tester.pumpAndSettle();
+      expect(app.phone.dialled, ['9000000001']);
+    });
+
+    testWidgets('with no delivery code (not out yet, or already delivered) nothing about a partner is shown', (tester) async {
+      await _open(tester, orders: [_active('ORD-1', stage: OrderStage.packed)]);
+      await _goOrders(tester);
+      await _openOrder(tester, 'ORD-1');
+
+      expect(find.text('Delivery partner'), findsNothing);
+      expect(find.byKey(const Key('delivery-code')), findsNothing);
     });
 
     testWidgets('a store without a phone shows its name and no Call button', (tester) async {
@@ -467,7 +492,7 @@ void main() {
 
   group('the notifications screen', () {
     Future<void> openBell(WidgetTester tester) async {
-      await tester.tap(find.byIcon(Icons.notifications_none_rounded).first);
+      await tester.tap(find.byIcon(LucideIcons.bell).first);
       await tester.pumpAndSettle();
     }
 

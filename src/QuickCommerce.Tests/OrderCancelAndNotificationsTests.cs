@@ -96,16 +96,17 @@ public sealed class OrderCancelAndNotificationsTests
     }
 
     [Fact]
-    public async Task Cancelling_writes_one_notification_for_the_customer()
+    public async Task Cancelling_writes_one_notification_for_the_customer_after_the_order_placed_one()
     {
         var rig = NewRig();
         var order = await rig.PlaceAsync();
 
         await rig.Orders.CancelAsync(order.Id);
 
-        var notification = Assert.Single(rig.Data.Notifications);
-        Assert.Equal((rig.Customer.Id, order.Id, "Order cancelled", "Your order was cancelled."), (notification.CustomerId, notification.OrderId, notification.Title, notification.Message));
-        Assert.Equal(1, await rig.Notifications.GetUnreadCountAsync());
+        Assert.Equal(2, rig.Data.Notifications.Count);
+        var notification = Assert.Single(rig.Data.Notifications, item => item.Type == NotificationTypes.OrderCancelled);
+        Assert.Equal((rig.Customer.Id, order.Id, "Order cancelled", $"Your order {order.OrderNumber} was cancelled."), (notification.CustomerId, notification.OrderId, notification.Title, notification.Message));
+        Assert.Equal(2, await rig.Notifications.GetUnreadCountAsync());
     }
 
     [Fact]
@@ -121,7 +122,7 @@ public sealed class OrderCancelAndNotificationsTests
         Assert.Equal(CancelOrderStatus.Succeeded, second.Status);
         Assert.Equal(first.Order!.Id, second.Order!.Id);
         Assert.Equal(before, rig.Stock);
-        Assert.Single(rig.Data.Notifications);
+        Assert.Equal(2, rig.Data.Notifications.Count); // order placed, order cancelled: nothing twice
         Assert.Equal(2, rig.Data.Orders.Single().StatusHistory.Count);
     }
 
@@ -144,7 +145,7 @@ public sealed class OrderCancelAndNotificationsTests
         Assert.False(string.IsNullOrWhiteSpace(result.Message));
         Assert.Equal(status, rig.Data.Orders.Single().Status);
         Assert.Equal(stock, rig.Stock);
-        Assert.Empty(rig.Data.Notifications);
+        Assert.Equal(NotificationTypes.OrderPlaced, Assert.Single(rig.Data.Notifications).Type); // only the one from placing it
     }
 
     [Fact]

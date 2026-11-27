@@ -53,6 +53,12 @@ public interface IAccountStore
     Task<AccountUserInfo?> FindActiveCustomerByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default);
     Task<AccountUserInfo?> FindActiveCustomerByIdAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>Any active account (customer or staff) with this email, for password reset.</summary>
+    Task<AccountUserInfo?> FindActiveUserByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default);
+
+    /// <summary>Any active account, for changing its own password.</summary>
+    Task<AccountUserInfo?> FindActiveUserByIdAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<int> CountResetCodesSinceAsync(Guid userId, DateTime sinceUtc, CancellationToken cancellationToken = default);
 
     /// <summary>Invalidates the user's open codes and stores the new one.</summary>

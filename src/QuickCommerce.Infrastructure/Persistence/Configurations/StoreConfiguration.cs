@@ -19,6 +19,8 @@ public sealed class StoreConfiguration : IEntityTypeConfiguration<Store>
         builder.Property(store => store.Longitude).HasPrecision(9, 6);
         builder.Property(store => store.ServiceRadiusKm).HasPrecision(9, 2);
         builder.Property(store => store.PhoneNumber).HasMaxLength(20);
+        builder.Property(store => store.Code).HasMaxLength(8);
+        builder.HasIndex(store => store.Code).IsUnique().HasFilter("[Code] IS NOT NULL");
         builder.HasIndex(store => store.IsActive);
         builder.HasIndex(store => new { store.OrganizationId, store.Name }).IsUnique();
     }

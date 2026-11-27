@@ -1,3 +1,570 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
-:root { font-family: 'DM Sans', sans-serif; color: #24302d; background: #f6f8f5; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
-* { box-sizing: border-box; } body { margin: 0; min-width: 320px; } button, input { font: inherit; }
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Light theme: a soft gradient over the whole screen, white cards, light menu and yellow actions. */
+:root {
+  --ink: #141118;
+  --muted: #241E3D;
+  --page: transparent;
+  --gradient: linear-gradient(135deg, #3A0CA3 0%, #5B16EE 52%, #7C45FF 100%);
+  --soft: #EEEAFF;
+  --card: #FFFFFF;
+  --line: #E6E3F0;
+  --yellow: #FFD400;
+  --success: #0B7A3E;
+  --danger: #C42F1D;
+  --card-bg: #FFFFFF;
+  --on-card: #141118;
+  --on-card-muted: #5E5A66;
+  --accent: #0B7A3E;
+  --row-line: #E6E3F0;
+  --display: 'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif; color: var(--ink);
+  font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; } body { margin: 0; min-width: 320px; min-height: 100vh; }
+html { min-height: 100%; background: var(--gradient) fixed; } button, input, select, textarea { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Lists: they scroll inside their own card with the header held at the top, and the scrollbar can be seen. */
+.table { max-height: 64vh; overflow: auto !important; border: 1px solid var(--line); }
+.table .head { position: sticky; top: 0; z-index: 2; background: var(--card); }
+/* Scrollbars are a thin gradient with no track, shown while the pointer is over the area that scrolls. */
+* { scrollbar-width: auto !important; scrollbar-color: auto !important; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+*:hover::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #22D3EE 0%, #818CF8 55%, #C084FC 100%); }
+*:hover::-webkit-scrollbar-thumb:horizontal { background: linear-gradient(90deg, #22D3EE 0%, #818CF8 55%, #C084FC 100%); }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin !important; scrollbar-color: transparent transparent !important; }
+  *:hover { scrollbar-color: #818CF8 transparent !important; }
+}
+
+/* Every screen uses the whole window, with the same heading. */
+app-shell .content, .content { width: 100% !important; max-width: none !important; }
+.content .page, .content .user-master-page, .content .notifications-page { max-width: none !important; width: 100%; margin-inline: 0 !important; }
+.content h2 { font-family: var(--display); font-size: 28px; letter-spacing: -1px; margin: 0 0 4px; color: var(--ink); }
+
+/* Messages sit on white so they can be read on the gradient. */
+p.error, p.notice { background: #fff !important; border-radius: 12px; padding: 8px 14px; align-self: flex-start; justify-self: start; width: fit-content; }
+p.error { color: #9B2414 !important; }
+p.notice { color: var(--success) !important; }
+
+/* One size for every action button. Pagination, tabs, tiles and icon buttons keep their own. */
+button.act, a.act, button.primary, button.ghost:not(.x), app-button button, button.go, a.go, button.approve, button.reject, button.logout-button, button.opener, button.show, button.fee-toggle + * button.act {
+  height: 36px !important; min-width: 104px; flex-shrink: 0; padding: 0 16px !important; font-size: 12px !important; font-weight: 800 !important; line-height: 1 !important;
+  border-radius: 999px !important; display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; box-sizing: border-box; text-decoration: none;
+}
+@media (max-width: 900px) { button.opener { display: inline-flex !important; } button.show { display: none !important; } }
+@media (min-width: 901px) { button.opener { display: none !important; } }
+button.primary, app-button button.primary { border: 1.5px solid #141118 !important; }
+
+/* Solid buttons: orange, and red to refuse or remove. */
+button.act, a.act, button.ghost:not(.x), app-button button.secondary, app-button button.ghost, button.go, a.go, button.logout-button, button.opener, button.show, button.pill, button.fee-toggle ~ * button.act {
+  background: #FFB366 !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .7) !important;
+}
+button.primary, app-button button.primary, button.act.give, button.act.pay, button.submit {
+  background: #FF8A1F !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .7) !important;
+}
+button.danger, button.act.danger, button.reject, app-button button.danger { background: #DC2626 !important; color: #fff !important; border: 1.5px solid rgba(255, 255, 255, .7) !important; }
+button.approve { background: #FF8A1F !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .7) !important; }
+button.act:hover:not(:disabled), button.primary:hover:not(:disabled), button.ghost:hover:not(:disabled), button.pill:hover:not(:disabled), button.approve:hover:not(:disabled), button.reject:hover:not(:disabled) { filter: brightness(1.1); }
+button.act:disabled, button.primary:disabled, button.ghost:disabled, button.pill:disabled, button.submit:disabled { opacity: .5; }
+
+button.ghost:not(.x), button.act.ghost, app-button button.ghost, app-button button.secondary, button.pill { background: #FFB366 !important; }
+button.logout-button { background: #FFB366 !important; }
+button.act.danger { background: #DC2626 !important; }
+button.act.give, button.act.pay { background: #FF8A1F !important; color: #141118 !important; }
+
+/* Buttons that belong together stay in one row; a wide list scrolls sideways instead. */
+.actions, .top-actions, .row-actions, .buttons, .band-actions, .filters, app-side-panel footer, app-side-panel footer > * { flex-wrap: nowrap !important; }
+.actions { display: flex; gap: 6px; align-items: center; }
+app-data-table td:has(button), app-data-table td:has(a.act) { white-space: nowrap; }
+app-data-table td button, app-data-table td a.act { margin-right: 6px; }
+app-data-table td .actions button, app-data-table td .actions a.act { margin-right: 0; }
+.top-actions, .actions, .row-actions { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+
+/* Tick boxes are switches. */
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; width: 34px !important; min-width: 34px; height: 20px !important; margin: 0; padding: 0 !important;
+  border: 0 !important; border-radius: 999px !important; background: #B9B5C9 !important; position: relative; cursor: pointer; flex-shrink: 0; vertical-align: middle; transition: background .18s;
+}
+input[type=checkbox]::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(20,17,24,.4); transition: transform .18s; }
+input[type=checkbox]:checked { background: #FFD400 !important; box-shadow: inset 0 0 0 1.5px #141118; }
+input[type=checkbox]:checked::after { background: #141118; }
+input[type=checkbox]:checked::after { transform: translateX(14px); }
+input[type=checkbox]:disabled { opacity: .45; cursor: default; }
+@media (prefers-reduced-motion: reduce) { input[type=checkbox], input[type=checkbox]::after { transition: none; } }
+
+/* deep-surfaces:start */
+/* On the deep background text is white; everything with a light background has dark text again. */
+app-root { --ink: #FFFFFF; --muted: #E9E4FF; color: var(--ink); display: block; }
+input, select, textarea, option { --ink: #141118; --muted: #5E5A66; color: #141118; }
+app-ads .act,
+app-ads .badge,
+app-ads .badge-ended,
+app-ads .badge-off,
+app-ads .badge-scheduled,
+app-ads .card,
+app-ads .chip,
+app-ads .chip.on,
+app-ads .primary,
+app-ads .table,
+app-ads .thumb,
+app-ads input,
+app-ads select,
+app-approvals .approve,
+app-approvals .error,
+app-approvals .eyebrow,
+app-approvals .green .icon,
+app-approvals .lavender .icon,
+app-approvals .list article:nth-child(4n+1),
+app-approvals .list article:nth-child(4n+2),
+app-approvals .list article:nth-child(4n+3),
+app-approvals .list article:nth-child(4n+4),
+app-approvals .section-head .num,
+app-approvals .stat.green,
+app-approvals .stat.lavender,
+app-approvals .stat.pink,
+app-approvals .stat.yellow,
+app-approvals .status,
+app-approvals .status.approved,
+app-approvals .status.pending,
+app-approvals .submit,
+app-approvals .yellow .icon,
+app-approvals input,
+app-approvals select,
+app-behaviour .bar,
+app-behaviour .card,
+app-behaviour .col,
+app-behaviour .fill,
+app-behaviour .rank i,
+app-behaviour .rank.pink i,
+app-behaviour .step-no,
+app-behaviour .steps .head-row,
+app-behaviour .tile,
+app-behaviour .tile.hero,
+app-behaviour select,
+app-bulk-upload .act,
+app-bulk-upload .num,
+app-bulk-upload .primary,
+app-bulk-upload th,
+app-button button.primary,
+app-button button.secondary,
+app-campaigns .act,
+app-campaigns .act.pay,
+app-campaigns .badge,
+app-campaigns .badge-awaitingpayment,
+app-campaigns .badge-scheduled,
+app-campaigns .badge-sent,
+app-campaigns .card,
+app-campaigns .chip,
+app-campaigns .chip.on,
+app-campaigns .design-tile,
+app-campaigns .fee-toggle,
+app-campaigns .primary,
+app-campaigns .swatch.plain,
+app-campaigns .table,
+app-campaigns input,
+app-campaigns textarea,
+app-categories .box,
+app-categories .box-head,
+app-categories .chooser,
+app-categories .letter,
+app-categories .pill,
+app-categories .primary,
+app-categories .product,
+app-categories .product.changed,
+app-categories .state,
+app-categories .state.off,
+app-categories h3 small,
+app-categories input,
+app-categories select,
+app-commission .act,
+app-commission .act.dark,
+app-commission .act.ghost,
+app-commission .bar,
+app-commission .bar i,
+app-commission .tile,
+app-commission .tile.hero,
+app-commission input,
+app-commission select,
+app-coupons .act,
+app-coupons .badge,
+app-coupons .badge-active,
+app-coupons .badge-expired,
+app-coupons .badge-off,
+app-coupons .badge-scheduled,
+app-coupons .badge-usedup,
+app-coupons .card,
+app-coupons .design-tile,
+app-coupons .primary,
+app-coupons .table,
+app-coupons input,
+app-coupons select,
+app-dashboard .count,
+app-dashboard .empty,
+app-dashboard .green,
+app-dashboard .icon,
+app-dashboard .lavender,
+app-dashboard .live,
+app-dashboard .pink,
+app-dashboard .status,
+app-dashboard .tile,
+app-dashboard .tile.hero,
+app-dashboard .yellow,
+app-data-table .frame,
+app-data-table th,
+app-data-table tr.active td,
+app-delivery-slots .act,
+app-delivery-slots .act.ghost,
+app-delivery-slots .chip,
+app-delivery-slots .chip.on,
+app-delivery-slots .default,
+app-delivery-slots .primary,
+app-delivery-slots input,
+app-delivery-slots select,
+app-dialog .dialog,
+app-dialog .dialog-actions,
+app-error-state .error-icon,
+app-file-upload .bubble,
+app-file-upload .chips span,
+app-file-upload .choose,
+app-file-upload .drop,
+app-file-upload .remove,
+app-file-upload figure,
+app-filter-layout .find,
+app-filter-layout .fold,
+app-filter-layout .n,
+app-filter-layout .opener,
+app-filter-layout .option.on,
+app-filter-layout .panel,
+app-filter-layout .show,
+app-filter-layout app-filter-layout [filterSearch],
+app-header .icon-button,
+app-header .logout-button,
+app-header .mini-avatar,
+app-header .status,
+app-header .status i,
+app-header .status i.online,
+app-header .status:not(.online),
+app-input .input-field,
+app-loader .cards i:nth-child(2),
+app-loader .cards i:nth-child(3),
+app-loader .cards span,
+app-login .login-error,
+app-login .logo,
+app-not-found .error-container,
+app-not-found .error-content,
+app-notifications .act,
+app-notifications .kind,
+app-notifications .new,
+app-notifications select,
+app-orders .act,
+app-orders .act.danger,
+app-orders .act.ghost,
+app-orders .act.give,
+app-orders .badge,
+app-orders .badge-cancelled,
+app-orders .badge-delivered,
+app-orders .badge-processing,
+app-orders .chip,
+app-orders .chip.on,
+app-orders .new,
+app-orders .replace,
+app-orders input,
+app-orders select,
+app-org-switcher .error,
+app-org-switcher .readonly,
+app-pagination button,
+app-pagination button.on,
+app-pagination select,
+app-permission-master .chip,
+app-permission-master .chip b,
+app-permission-master .chip.active,
+app-permission-master .chip.all.active,
+app-permission-master .error,
+app-permission-master .eyebrow,
+app-permission-master .green .icon,
+app-permission-master .grid .card,
+app-permission-master .grid .card:nth-child(4n+1),
+app-permission-master .grid .card:nth-child(4n+1) header,
+app-permission-master .grid .card:nth-child(4n+2),
+app-permission-master .grid .card:nth-child(4n+2) header,
+app-permission-master .grid .card:nth-child(4n+3),
+app-permission-master .grid .card:nth-child(4n+3) header,
+app-permission-master .grid .card:nth-child(4n+4),
+app-permission-master .group,
+app-permission-master .lavender .icon,
+app-permission-master .pink .icon,
+app-permission-master .search,
+app-permission-master .stat,
+app-permission-master .stat .icon,
+app-permission-master .state.off,
+app-permission-master .state.on,
+app-permission-master .yellow .icon,
+app-permission-master code,
+app-phone-preview .ad,
+app-phone-preview .block,
+app-phone-preview .coupon,
+app-phone-preview .cta,
+app-phone-preview .lang button,
+app-phone-preview .lang button.on,
+app-phone-preview .phone,
+app-phone-preview .popup,
+app-phone-preview .replay button,
+app-phone-preview .slim,
+app-phone-preview .tag,
+app-phone-preview .x,
+app-placement .act,
+app-placement .act.pay,
+app-placement .badge,
+app-placement .badge-awaitingpayment,
+app-placement .badge-leading,
+app-placement .card,
+app-placement .mine,
+app-placement .primary,
+app-placement .table,
+app-placement input,
+app-placement select,
+app-products .act,
+app-products .act.give,
+app-products .badge,
+app-products .badge.off,
+app-products .card,
+app-products .mine,
+app-products .noimg,
+app-products .photo img,
+app-products .primary,
+app-products .search,
+app-products .table,
+app-products .thumb,
+app-products input,
+app-products select,
+app-products textarea,
+app-profile .avatar,
+app-profile .eyebrow,
+app-profile article:nth-child(4n+1),
+app-profile article:nth-child(4n+1) .label,
+app-profile article:nth-child(4n+2),
+app-profile article:nth-child(4n+2) .label,
+app-profile article:nth-child(4n+3),
+app-profile article:nth-child(4n+3) .label,
+app-profile article:nth-child(4n+4),
+app-reports .act,
+app-reports .card,
+app-reports .chart,
+app-reports .green,
+app-reports .lavender,
+app-reports .pink,
+app-reports .presets button.on,
+app-reports .primary,
+app-reports .yellow,
+app-reports input,
+app-reports select,
+app-role-master .badge,
+app-role-master .band,
+app-role-master .count,
+app-role-master .detail,
+app-role-master .dirty,
+app-role-master .empty,
+app-role-master .error,
+app-role-master .eyebrow,
+app-role-master .group header,
+app-role-master .group header button,
+app-role-master .group-count,
+app-role-master .permission,
+app-role-master .permission:has(input:checked),
+app-role-master .role-card,
+app-role-master .role-card.selected,
+app-role-master .search,
+app-role-master input[type=checkbox],
+app-role-master input[type=checkbox]:checked,
+app-select .select-field,
+app-select .select-field option,
+app-shell .profile-menu,
+app-side-panel .close,
+app-side-panel .panel,
+app-sidebar .brand-mark,
+app-sidebar .nav-link.active,
+app-stock .act,
+app-stock .table,
+app-stock input,
+app-stock select,
+app-stores .facts a,
+app-stores .facts span,
+app-stores .pill,
+app-stores .pill.active,
+app-stores .t0,
+app-stores .t1,
+app-stores .t2,
+app-stores .t3,
+app-stores article,
+app-stores input,
+app-stores select,
+app-table .data-table,
+app-table .pagination,
+app-table .pagination button,
+app-table thead,
+app-table tr.selected,
+app-tip .bubble,
+app-tip .mark,
+app-toast-container .toast.error,
+app-toast-container .toast.info,
+app-toast-container .toast.success,
+app-toast-container .toast.warning,
+app-today .alert,
+app-today .alert.urgent,
+app-today .badge,
+app-today .card,
+app-today .dot,
+app-today .kpi.green,
+app-today .kpi.lavender,
+app-today .kpi.pink,
+app-today .kpi.yellow,
+app-today select,
+app-unauthorized .error-container,
+app-unauthorized .error-content,
+app-user-master .act,
+app-user-master .act.danger,
+app-user-master .assignment-item,
+app-user-master .assignment-item.selected,
+app-user-master .chip,
+app-user-master .chip.off,
+app-user-master .chip.on,
+app-user-master .num,
+app-user-master .search input,
+app-user-master .section,
+app-user-master .section-head em { --ink: #141118; --muted: #5E5A66; color: var(--ink); }
+/* deep-surfaces:end */
+
+/* One card colour everywhere: summary tiles are white like every other card. */
+app-dashboard .tile, app-dashboard .tile.hero, app-commission .tile, app-commission .tile.hero, app-behaviour .tile, app-behaviour .tile.hero,
+app-reports .kpi, app-approvals .stat, app-permission-master .stat, app-delivery-slots .default {
+  --ink: #141118; --muted: #5E5A66; background: #FFFFFF !important; color: #141118 !important;
+}
+app-dashboard .tile p, app-commission .tile p, app-behaviour .tile p, app-reports .kpi p, app-dashboard .tile small, app-commission .tile small, app-behaviour .tile small { color: #5E5A66; }
+/* Links on cards are green. */
+app-data-table td a:not(.act), app-side-panel .body a:not(.act), .card a:not(.act):not(.go) { color: #0B7A3E; font-weight: 700; }
+
+/* Messages appear at the bottom of the window, over the screen, so the list does not move. A success message leaves by itself. */
+p.error, p.notice {
+  position: fixed !important; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 500; margin: 0 !important; max-width: min(640px, calc(100vw - 32px));
+  padding: 12px 20px !important; font-size: 13px !important; border-radius: 999px !important; box-shadow: 0 14px 36px rgba(8, 4, 40, .4); pointer-events: none; animation: toast-in .25s ease-out;
+}
+p.error { border-left: 6px solid #D7263D; }
+p.notice { border-left: 6px solid #0B7A3E; animation: toast-in .25s ease-out, toast-out .4s ease-in 6s forwards; }
+p.error ~ p.notice, p.error + p.notice { bottom: 76px; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes toast-out { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { p.error { animation: none; } p.notice { animation: toast-out .01s linear 6s forwards; } }
+
+/* Cards sit on the gradient without outlines. */
+app-data-table .frame, app-filter-layout .panel, app-sidebar .sidebar, app-side-panel .panel header,
+.content .card, .content .tile, .content .tile.hero, .content .kpi, .content .stat, .content .table, .content .box, .content .detail, .content .default,
+.content .role-card, .content .grid .card, .content .request-form, app-profile article, app-stores article, app-delivery-slots .default, app-dashboard .empty, app-dashboard .live {
+  border: 0 !important;
+}
+.content .role-card.selected { background: #FFF6C2 !important; }
+/* the other buttons are light orange too, so their text is dark */
+button.ghost:not(.x), button.act.ghost, app-button button.ghost, app-button button.secondary, button.pill, button.logout-button { color: #141118 !important; }
+
+/* ---------- Buttons: flat light colours, a different one for neighbours (green, lavender, orange); red to refuse or remove ---------- */
+/* the main action */
+.content button.primary, .content button.act.give, .content button.act.pay, .content button.approve, .content app-button button.primary,
+app-root app-login button.primary, app-root app-change-password button.primary, app-root app-forgot-password button.primary {
+  background: #BDF0CF !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .55) !important;
+}
+/* the first of the other buttons */
+.content button.act:not(.give):not(.pay):not(.danger), .content a.act, .content button.ghost:not(.x), .content button.pill,
+.content app-button button.secondary, .content app-button button.ghost, app-root app-change-password button.ghost, app-root app-forgot-password button.ghost {
+  background: #DCD2FF !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .55) !important;
+}
+/* the second and third in the same row */
+.content :is(.act, .ghost:not(.x), .pill) + :is(.act, .ghost:not(.x), .pill):not(.danger):not(.give):not(.pay):not(.primary):not(.approve):not(.opener):not(.show):not(.logout-button):not(#x) { background: #FFB366 !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .55) !important; }
+.content :is(.act, .ghost:not(.x), .pill) + :is(.act, .ghost:not(.x), .pill) + :is(.act, .ghost:not(.x), .pill):not(.danger):not(.give):not(.pay):not(.primary):not(.approve):not(.opener):not(.show):not(.logout-button):not(#x) { background: #BDF0CF !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .55) !important; }
+/* logout */
+.content button.logout-button {
+  background: #FFB366 !important; color: #141118 !important; border: 1.5px solid rgba(255, 255, 255, .55) !important;
+}
+/* filters: black, with a yellow filter icon */
+.content button.opener, .content button.show {
+  background: #111014 !important; color: #fff !important; border: 1.5px solid rgba(255, 255, 255, .35) !important;
+}
+.content button.opener::before, .content button.show::before {
+  content: ''; width: 15px; height: 15px; flex-shrink: 0; background: #FFD400;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M3 4h18l-7 8v6l-4 2v-8z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M3 4h18l-7 8v6l-4 2v-8z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.content button.act.danger, .content button.danger, .content button.reject { background: #DC2626 !important; color: #fff !important; border: 1.5px solid rgba(255, 255, 255, .55) !important; }
+
+.content button.primary:hover:not(:disabled), .content button.act:hover:not(:disabled), .content a.act:hover, .content button.ghost:hover:not(:disabled), .content button.show:hover, .content button.opener:hover, .content button.logout-button:hover, .content button.card-tool:hover { filter: brightness(.95); }
+
+/* what is selected: yellow in the menu; orange in the filters, the pages and the switches */
+.shell app-sidebar .nav-link.active { background: #FFD400; color: #141118; }
+.shell app-sidebar .nav-link:hover:not(.active) { background: rgba(255, 212, 0, .24); color: #fff; }
+.shell app-sidebar .group, .shell app-sidebar .workspace-label { color: #FFE14D; }
+.content app-filter-layout .option.on { background: #FFE8D1; }
+.content app-filter-layout .link { color: #B45309; }
+.content app-filter-layout .option input { accent-color: #F97316; }
+.content app-pagination button.on { background: #FF8A1F; color: #141118; border-color: transparent; }
+.content app-data-table tr.active td { background: #FFEEDB; }
+.content app-data-table tr.active td:first-child { box-shadow: inset 4px 0 0 #FF8A1F; }
+input[type=checkbox]:checked { background: #F97316 !important; box-shadow: none; }
+input[type=checkbox]:checked::after { background: #fff; }
+
+/* ---------- Lists: the header stands apart from the rows, and each row from the next ---------- */
+.content app-data-table th, .content .table .head { background: #E6E0FA !important; color: #2A1E5C; box-shadow: inset 0 -2px 0 #9F8FE0; }
+.content app-data-table td { border-top: 1px solid #D5CEF0; }
+.content app-data-table tbody tr:nth-child(even) td { background: #F6F4FE; }
+.content app-data-table tbody tr.active td { background: #FFEEDB; }
+.content .table .row:not(.head) { border-top: 1px solid #D5CEF0; }
+
+/* ---------- Every screen fills the window, with or without records ---------- */
+.content router-outlet + * { flex: 1 0 auto; display: flex; flex-direction: column; }
+.content router-outlet + * > .page, .content router-outlet + * > section, .content router-outlet + * > main, .content router-outlet + * > div { flex: 1; display: flex; flex-direction: column; }
+.content app-filter-layout { flex: 1 0 auto; min-height: 320px; align-items: stretch; }
+.content app-filter-layout.fill { flex: 1 1 0; }
+/* the closed filters button keeps its own height; the list takes the rest */
+.content app-filter-layout.collapsed { grid-template-rows: auto minmax(0, 1fr); }
+/* Today fills the screen even on a quiet day */
+.content app-today .card:last-of-type { flex: 1 0 auto; align-content: start; }
+.content app-today .card.card-min:last-of-type { flex: 0 0 auto; }
+.content app-today .card:last-of-type { grid-template-rows: auto; grid-auto-rows: max-content; }
+.content app-today .card:last-of-type > .empty { flex: 1; align-self: stretch; align-content: center; }
+.content app-today .card:last-of-type:has(> .empty) { grid-template-rows: auto 1fr; }
+/* Overview fills the screen when no order is active */
+.content app-dashboard .live-orders { flex: 1 0 auto; display: flex; flex-direction: column; }
+.content app-dashboard .live-orders .empty { flex: 1; min-height: 120px; display: grid; place-items: center; }
+.content app-filter-layout > .body > app-data-table { flex: 1 1 0; min-height: 240px; display: flex; flex-direction: column; }
+.content app-data-table .frame { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.content app-data-table .scroll { flex: 1; min-height: 0; max-height: none !important; }
+.content app-data-table .state { margin: auto; }
+
+/* ---------- Icons for the actions and statuses in lists; the words are the tooltip ---------- */
+html body app-root [data-ic][data-ic][data-ic] {
+  font-size: 0 !important; width: 32px !important; height: 32px !important; min-width: 32px !important; padding: 0 !important; border-radius: 50% !important;
+  display: inline-flex !important; align-items: center; justify-content: center; flex-shrink: 0; vertical-align: middle; gap: 0 !important;
+}
+html body app-root [data-ic] > * { display: none; }
+html body app-root [data-ic]::before { content: ''; width: 17px; height: 17px; background: currentColor; -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
+html body app-root [data-tone][data-tone][data-tone] { width: 28px !important; height: 28px !important; min-width: 28px !important; border: 0 !important; }
+html body app-root [data-tone="wait"][data-tone][data-tone] { background: #FDEBD3; color: #9A4D00; }
+html body app-root [data-tone="go"][data-tone][data-tone] { background: #DDEBFF; color: #1D4ED8; }
+html body app-root [data-tone="done"][data-tone][data-tone] { background: #D5F5F6; color: #0E7490; }
+html body app-root [data-tone="bad"][data-tone][data-tone] { background: #FFE0E6; color: #BE123C; }
+html body app-root [data-tone="off"][data-tone][data-tone] { background: #ECEAF3; color: #5E5A66; }
+
+/* ---------- Cards: minimise to the heading, or maximise over the screen ---------- */
+.content .has-tools { position: relative; }
+.content .card-tools { position: absolute; top: 8px; right: 8px; z-index: 5; display: flex; gap: 4px; opacity: .85; }
+html body app-root button.card-tool[data-ic][data-ic] { width: 24px !important; height: 24px !important; min-width: 24px !important; border: 0 !important; background: #DCD2FF !important; color: #141118 !important; cursor: pointer; }
+html body app-root button.card-tool[data-ic][data-ic]:last-child { background: #BDF0CF !important; }
+html body app-root button.card-tool[data-ic]::before { width: 13px; height: 13px; }
+.content section.box .box-head, .content .card > h3:first-child, .content .card > header:first-child { padding-right: 60px; }
+.content app-data-table .frame.has-tools th:last-child { padding-right: 68px; }
+.content app-stores article .number { margin-top: 18px; }
+.content .card-min { height: auto !important; min-height: 0 !important; align-self: start; flex: 0 0 auto !important; }
+.content .card.card-min > :not(:first-child):not(.card-tools), .content app-stores article.card-min > :not(.top):not(.card-tools), .content .detail.card-min > :not(:first-child):not(.card-tools),
+.content section.box.card-min > .scroll, .content section.box.card-min .box-head > :not(h3) { display: none !important; }
+.content .frame.card-min .scroll { max-height: 42px !important; overflow: hidden !important; }
+.content .card-max { position: fixed !important; inset: 16px; z-index: 180; margin: 0 !important; max-height: none !important; overflow: auto; box-shadow: 0 0 0 100vmax rgba(12, 6, 45, .6); transform: none !important; background: #fff; color: #141118; }
+.content .frame.card-max, .content section.box.card-max { display: flex; flex-direction: column; }

@@ -6,7 +6,12 @@ namespace QuickCommerce.Application.Services;
 
 public sealed class CustomerOrderService(
     ICommerceStore data,
-    ICurrentUserContextResolver currentUserContextResolver) : ICustomerOrderService
+    ICurrentUserContextResolver currentUserContextResolver,
+    IDeliveryLookup? delivery = null,
+    IOrderChangeStore? changes = null,
+    IReplacementStore? replacements = null,
+    TimeProvider? timeProvider = null,
+    IOrderRatingLookup? ratings = null) : ICustomerOrderService
 {
     public async Task<IReadOnlyList<OrderResponse>?> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
@@ -27,10 +32,10 @@ public sealed class CustomerOrderService(
                 stores[order.StoreId] = store;
             }
 
-            result.Add(WithStore(Map(order), store));
+            result.Add(await WithDeliveryAsync(WithStore(Map(order), store), order, cancellationToken));
         }
 
-        return result;
+        return await WithRatingsAsync(result, cancellationToken);
     }
 
     public async Task<OrderResponse?> GetDetailsAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -42,7 +47,69 @@ public sealed class CustomerOrderService(
         }
 
         var order = await data.GetCustomerOrderAsync(orderId, context.UserId, context.OrganizationId, cancellationToken);
-        return order is null ? null : WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken));
+        if (order is null)
+        {
+            return null;
+        }
+
+        var detail = await WithDeliveryAsync(WithStore(Map(order), await data.GetStoreAsync(order.StoreId, cancellationToken)), order, cancellationToken);
+        // What the store changed while packing it, newest first, so the customer can see what they will receive and what was refunded.
+        if (changes is not null)
+        {
+            detail = detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).Where(item => item.ChangesJson != "[]").OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
+        }
+
+        if (replacements is not null)
+        {
+            // An open proposal the customer can still answer; an overdue one is not shown (it is closed by the maintenance job).
+            var now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+            var open = (await replacements.ListAsync(order.Id, cancellationToken)).FirstOrDefault(item => item.Status == "Pending" && item.ExpiresAt > now);
+            detail = detail with { Replacement = open is null ? null : ReplacementRules.ToInfo(open) };
+        }
+
+        return detail;
+    }
+
+    /// <summary>While the order is out for delivery the customer sees who has it and the code to give them at the door. Nobody else is shown the code.</summary>
+    /// <summary>Each order with the stars the customer gave it and its shop's average, for the order cards. Missing data just leaves them empty.</summary>
+    private async Task<IReadOnlyList<OrderResponse>> WithRatingsAsync(List<OrderResponse> orders, CancellationToken cancellationToken)
+    {
+        if (ratings is null || orders.Count == 0)
+        {
+            return orders;
+        }
+
+        var given = await ratings.ForOrdersAsync(orders.Select(order => order.Id).ToArray(), cancellationToken);
+        var averages = await ratings.StoreAveragesAsync(orders.Select(order => order.StoreId).Distinct().ToArray(), cancellationToken);
+        return orders.Select(order =>
+        {
+            given.TryGetValue(order.Id, out var mine);
+            var hasAverage = averages.TryGetValue(order.StoreId, out var average);
+            return order with
+            {
+                StoreRating = hasAverage ? average.Average : null,
+                StoreRatingCount = hasAverage ? average.Count : null,
+                MyStoreStars = mine?.StoreStars,
+                MyDeliveryStars = mine?.DeliveryStars,
+            };
+        }).ToArray();
+    }
+
+    private async Task<OrderResponse> WithDeliveryAsync(OrderResponse response, Order order, CancellationToken cancellationToken)
+    {
+        if (delivery is null || order.Status != OrderStatus.OutForDelivery || !order.DeliveryPartnerId.HasValue)
+        {
+            return response;
+        }
+
+        var partner = await delivery.GetPartnerAsync(order.DeliveryPartnerId.Value, cancellationToken);
+        var first = partner?.FirstName;
+        if (string.IsNullOrWhiteSpace(first))
+        {
+            first = partner?.DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        }
+
+        return response with { DeliveryPartnerName = first, DeliveryPartnerPhone = partner?.PhoneNumber, DeliveryOtp = order.DeliveryOtp };
     }
 
     public async Task<CancelOrderResult> CancelAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -93,5 +160,13 @@ public sealed class CustomerOrderService(
         order.ReceiverPhone,
         EstimatedDeliveryMinutes: order.EstimatedDeliveryMinutes,
         PaymentStatus: order.PaymentStatus,
-        PaymentExpiresAt: order.PaymentExpiresAt);
+        PaymentExpiresAt: order.PaymentExpiresAt,
+        Note: order.OrderNote,
+        OutOfStockChoice: order.OutOfStockChoice,
+        CouponCode: order.CouponCode,
+        CouponDiscount: order.CouponDiscount,
+        DeliverySlotStart: order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
+        DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null,
+        RejectionReason: order.RejectionReason,
+        CancelReason: order.CancelReason);
 }

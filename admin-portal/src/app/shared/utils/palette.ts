@@ -1,4 +1,4 @@
-/** Electric Yellow accent pairs (docs/DESIGN_SYSTEM.md): `solid` for headers/chips, `tint` for card surfaces. Text on both is ink #141118. */
+/** Soft accent pairs of the light theme: `solid` for headers/chips, `tint` for card surfaces. Text on both is ink #141118. */
 export interface Accent {
   solid: string;
   tint: string;
@@ -6,10 +6,10 @@ export interface Accent {
 }
 
 export const ACCENTS: Accent[] = [
-  { name: 'yellow', solid: '#FFD400', tint: '#FFF1A8' },
-  { name: 'green', solid: '#02F34C', tint: '#B9FFCF' },
-  { name: 'lavender', solid: '#B9A8FF', tint: '#EAE4FF' },
-  { name: 'pink', solid: '#FB1A8E', tint: '#FFC6E2' },
+  { name: 'yellow', solid: '#FFE27A', tint: '#FFF8DA' },
+  { name: 'green', solid: '#BDEBD0', tint: '#EAF8F0' },
+  { name: 'lavender', solid: '#D6CEFB', tint: '#F2EFFF' },
+  { name: 'pink', solid: '#F9CBE0', tint: '#FDEEF5' },
 ];
 
 /** Even/odd card rule: 1st yellow, 2nd green, 3rd lavender, 4th pink, then repeat. */

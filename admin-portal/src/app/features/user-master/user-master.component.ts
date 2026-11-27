@@ -1,10 +1,15 @@
+import { AuthService } from '../../core/services/auth.service';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ButtonComponent } from '../../shared/components/button/button.component';
 import { InputComponent } from '../../shared/components/input/input.component';
 import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
-import { LoadingComponent } from '../../shared/components/loading/loading.component';
+import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
+import { DEFAULT_PAGE_SIZE, PaginationComponent } from '../../shared/components/pagination/pagination.component';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 import { Accent, accentFor, initialsOf, roleAccent } from '../../shared/utils/palette';
 import { permissionGroup } from '../../shared/utils/palette';
 import { Organization, Permission, Role, StaffCategory, Store, User, UserStatus } from '../../core/models/domain.model';
@@ -13,20 +18,52 @@ import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../c
 @Component({
   selector: 'app-user-master',
   standalone: true,
-  imports: [
-    CommonModule,
+  imports: [CommonModule,
     ReactiveFormsModule,
     ButtonComponent,
     InputComponent,
     SelectComponent,
-    LoadingComponent,
-  ],
+    DataTableComponent,
+    CellDirective,
+    PaginationComponent,
+    SidePanelComponent, FilterLayoutComponent],
   templateUrl: './user-master.component.html',
   styleUrls: ['./user-master.component.css'],
 })
 export class UserMasterComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly userMasterService = inject(UserMasterService);
+
+  private readonly auth = inject(AuthService, { optional: true });
+  /** A temporary password just made, shown until the panel is closed. */
+  readonly temporary = signal<{ name: string; email: string; password: string } | null>(null);
+  readonly copied = signal(false);
+
+  /** Staff and delivery partners who are active; never customers, and never yourself (use Change password). */
+  canGivePassword(user: User): boolean { return user.role !== Role.Customer && user.status === UserStatus.Active && !!user.email && user.id !== this.auth?.getUserId?.(); }
+
+  givePassword(user: User): void {
+    if (!window.confirm(`Give ${user.firstName} ${user.lastName} a new temporary password? Their current password stops working.`)) return;
+    this.makePassword(user);
+  }
+
+  private makePassword(user: User): void {
+    this.apiError.set(null);
+    this.userMasterService.setTemporaryPassword(user.id).subscribe({
+      next: response => {
+        if (!response.data) { this.apiError.set(response.message ?? 'Could not make a temporary password.'); return; }
+        this.copied.set(false);
+        this.changedId.set(user.id);
+        this.temporary.set({ name: `${user.firstName} ${user.lastName}`.trim(), email: user.email, password: response.data.temporaryPassword });
+      },
+      error: error => this.apiError.set(error?.error?.message ?? error?.message ?? 'Could not make a temporary password.'),
+    });
+  }
+
+  copyPassword(): void {
+    const made = this.temporary();
+    if (made) navigator.clipboard?.writeText(made.password).then(() => this.copied.set(true), () => {});
+  }
 
   readonly users = signal<User[]>([]);
   readonly organizations = signal<Organization[]>([]);
@@ -37,19 +74,50 @@ export class UserMasterComponent implements OnInit {
   readonly isFormVisible = signal(false);
   readonly mode = signal<'create' | 'edit' | 'view'>('create');
   readonly searchTerm = signal('');
-  readonly statusFilter = signal('all');
-  readonly roleFilter = signal('all');
+  readonly filters = filterState('users', { sort: ['name'] });
+  private readonly roleCounts = signal<Record<string, number> | null>(null);
+  private readonly statusCounts = signal<{ active: number; inactive: number } | null>(null);
   readonly organizationFilter = signal('all');
-  readonly sortBy = signal('fullName');
-  readonly sortOrder = signal<'asc' | 'desc'>('asc');
   readonly page = signal(1);
-  readonly pageSize = signal(10);
+  readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
+  readonly total = signal(0);
+  readonly allCount = signal(0);
+  readonly activeCount = signal(0);
+  readonly roleCount = signal(0);
+  /** The user just opened or saved, marked in the list. */
+  readonly changedId = signal<string | null>(null);
+  private asked = 0;
+
+  readonly columns: DataColumn[] = [
+    { key: 'user', label: 'User' }, { key: 'org', label: 'Organization and store' }, { key: 'role', label: 'Role' },
+    { key: 'status', label: 'Status' }, { key: 'actions', label: 'Actions' },
+  ];
+  readonly sortOptions: SelectOption[] = [
+    { value: 'name', label: 'Name A to Z' }, { value: 'name-desc', label: 'Name Z to A' }, { value: 'email', label: 'Email' }, { value: 'newest', label: 'Newest first' },
+  ];
 
   readonly permissionCatalog = this.userMasterService.permissions;
   readonly roleDefinitions = signal<{ id: string; code: string; name: string; description?: string; isActive: boolean; permissions: Permission[] }[]>([]);
   readonly effectiveRolePermissions = computed(() => this.roleDefinitions().find(role => role.code === this.form.controls.role.value)?.permissions ?? []);
 
-  readonly roleOptions = computed<SelectOption[]>(() => this.roleDefinitions().map(role => ({ value: role.code, label: role.name })));
+  readonly roleOptions = computed<SelectOption[]>(() => {
+    const options: SelectOption[] = this.roleDefinitions().map(role => ({ value: role.code, label: role.name }));
+    // An organization administrator has no role code of their own; keep their role selectable so saving does not change it.
+    return this.selectedUser()?.role === Role.Admin ? [...options, { value: Role.Admin, label: 'Administrator' }] : options;
+  });
+  readonly groups = computed<FilterGroup[]>(() => {
+    const roles = this.roleCounts(), statuses = this.statusCounts();
+    return [
+      { key: 'role', label: 'Role', options: this.roleDefinitions().map(role => ({ value: role.code, label: role.name, count: roles ? roles[role.code] ?? 0 : undefined })) },
+      { key: 'status', label: 'Status', options: [
+        { value: UserStatus.Active, label: 'Active', count: statuses?.active },
+        { value: UserStatus.Inactive, label: 'Inactive', count: statuses?.inactive },
+      ] },
+      { key: 'sort', label: 'Sort by', single: true, required: true, options: this.sortOptions },
+    ];
+  });
+  onFilters(next: Selection): void { this.filters.set(next); this.filter(); }
+  clearFilters(): void { this.filters.clear(); this.searchTerm.set(''); this.filter(); }
   readonly staffCategoryOptions: SelectOption[] = [
     { value: StaffCategory.StoreManager, label: 'Store Manager' },
     { value: StaffCategory.StoreEmployee, label: 'Store Employee' },
@@ -82,65 +150,6 @@ export class UserMasterComponent implements OnInit {
     this.statusOptions.filter(option => option.value !== 'all')
   );
 
-  readonly filteredUsers = computed(() => {
-    const search = this.searchTerm().trim().toLowerCase();
-    const selectedStatus = this.statusFilter();
-    const selectedRole = this.roleFilter();
-    const selectedOrganization = this.organizationFilter();
-
-    const filtered = this.users().filter(user => {
-      const matchesSearch =
-        !search ||
-        user.email.toLowerCase().includes(search) ||
-        user.fullName.toLowerCase().includes(search) ||
-        user.role.toLowerCase().includes(search);
-
-      const matchesStatus =
-        selectedStatus === 'all' || user.status === selectedStatus;
-
-      const matchesRole =
-        selectedRole === 'all' || user.role === selectedRole;
-
-      const matchesOrg =
-        selectedOrganization === 'all' || user.organizationId === selectedOrganization;
-
-      return matchesSearch && matchesStatus && matchesRole && matchesOrg;
-    });
-
-    const currentSortBy = this.sortBy();
-    const currentSortOrder = this.sortOrder();
-
-    filtered.sort((a, b) => {
-      const valueA = this.getSortValue(a, currentSortBy);
-      const valueB = this.getSortValue(b, currentSortBy);
-
-      if (valueA < valueB) {
-        return currentSortOrder === 'asc' ? -1 : 1;
-      }
-      if (valueA > valueB) {
-        return currentSortOrder === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-
-    return filtered;
-  });
-
-  readonly totalPages = computed(() => {
-    const total = this.filteredUsers().length;
-    return Math.max(1, Math.ceil(total / this.pageSize()));
-  });
-
-  readonly paginatedUsers = computed(() => {
-    const start = (this.page() - 1) * this.pageSize();
-    const end = start + this.pageSize();
-    return this.filteredUsers().slice(start, end);
-  });
-
-  readonly activeCount = computed(() => this.users().filter(user => this.isActive(user)).length);
-  readonly inactiveCount = computed(() => this.users().length - this.activeCount());
-  readonly roleCount = computed(() => new Set(this.users().map(user => user.role)).size);
-
   form = this.fb.nonNullable.group({
     firstName: ['', [Validators.required, Validators.minLength(2)]],
     lastName: ['', [Validators.required, Validators.minLength(2)]],
@@ -167,17 +176,19 @@ export class UserMasterComponent implements OnInit {
     });
   }
 
-  onPageChange(page: number): void {
-    this.page.set(Math.min(Math.max(1, page), this.totalPages()));
+  goTo(page: number): void {
+    this.page.set(page);
+    this.changedId.set(null);
+    this.loadUsers();
   }
 
-  sortHeader(key: string): void {
-    const sameKey = this.sortBy() === key;
-    this.onSortChange({ sortBy: key, sortOrder: sameKey && this.sortOrder() === 'asc' ? 'desc' : 'asc' });
+  resize(size: number): void {
+    this.pageSize.set(size);
   }
 
-  sortMark(key: string): string {
-    return this.sortBy() === key ? (this.sortOrder() === 'asc' ? '▲' : '▼') : '';
+  /** A new search, filter or order starts at the first page. */
+  filter(): void {
+    this.goTo(1);
   }
 
   isActive(user: User): boolean {
@@ -204,12 +215,6 @@ export class UserMasterComponent implements OnInit {
     return accentFor(permissionGroup(permission.code));
   }
 
-  onSortChange(event: { sortBy: string; sortOrder: 'asc' | 'desc' }): void {
-    this.sortBy.set(event.sortBy);
-    this.sortOrder.set(event.sortOrder);
-    this.page.set(1);
-  }
-
   openCreateForm(): void {
     this.mode.set('create');
     this.selectedUser.set(null);
@@ -217,7 +222,8 @@ export class UserMasterComponent implements OnInit {
       firstName: '',
       lastName: '',
       email: '',
-      organizationId: '',
+      // the only organization there is, when there is only one
+      organizationId: this.organizations().length === 1 ? this.organizations()[0].id : '',
       storeId: '',
       storeIds: [],
       role: Role.Customer,
@@ -225,12 +231,16 @@ export class UserMasterComponent implements OnInit {
       status: UserStatus.Active,
       permissions: [],
     });
+    if (this.form.controls.organizationId.value) this.loadStores(this.form.controls.organizationId.value);
+    this.apiError.set(null);
     this.isFormVisible.set(true);
   }
 
   openEditForm(user: User): void {
     this.mode.set('edit');
     this.selectedUser.set(user);
+    this.changedId.set(user.id);
+    this.apiError.set(null);
     this.form.patchValue({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -250,6 +260,7 @@ export class UserMasterComponent implements OnInit {
   openViewForm(user: User): void {
     this.mode.set('view');
     this.selectedUser.set(user);
+    this.changedId.set(user.id);
     this.form.patchValue({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -284,7 +295,8 @@ export class UserMasterComponent implements OnInit {
       email: values.email.trim(),
       organizationId: values.organizationId,
       storeId: values.storeId || undefined,
-      storeIds: values.storeIds,
+      // Only store staff have the list of stores; anyone else is assigned to the primary store alone.
+      storeIds: values.role === Role.StoreStaff ? values.storeIds : values.storeId ? [values.storeId] : [],
       role: values.role,
       staffCategory: values.role === Role.StoreStaff ? values.staffCategory ?? undefined : undefined,
       status: values.status,
@@ -302,12 +314,18 @@ export class UserMasterComponent implements OnInit {
 
     this.isLoading.set(true);
     this.apiError.set(null);
+    const isNew = !(this.mode() === 'edit' && selectedUser);
 
     request.subscribe({
       next: response => {
         if (response.success) {
+          this.changedId.set(response.data?.id ?? selectedUser?.id ?? null);
           this.closeForm();
           this.loadUsers();
+          // A new member of staff cannot sign in without a password, so one is made at once.
+          if (isNew && values.role !== Role.Customer && values.status === UserStatus.Active && response.data?.id) {
+            this.makePassword({ ...response.data, firstName: payload.firstName, lastName: payload.lastName, email: payload.email });
+          }
           return;
         }
 
@@ -315,6 +333,7 @@ export class UserMasterComponent implements OnInit {
       },
       error: error => {
         this.apiError.set(error?.message ?? 'User management API is unavailable in the current backend.');
+        this.isLoading.set(false);
       },
       complete: () => {
         this.isLoading.set(false);
@@ -326,6 +345,7 @@ export class UserMasterComponent implements OnInit {
     const nextStatus = user.status === UserStatus.Active ? UserStatus.Inactive : UserStatus.Active;
 
     this.isLoading.set(true);
+    this.changedId.set(user.id);
     this.userMasterService.toggleUserStatus(user.id, nextStatus).subscribe({
       next: response => {
         if (response.success) {
@@ -336,16 +356,12 @@ export class UserMasterComponent implements OnInit {
       },
       error: error => {
         this.apiError.set(error?.message ?? 'User status update is unavailable until the backend contract is added.');
+        this.isLoading.set(false);
       },
       complete: () => {
         this.isLoading.set(false);
       },
     });
-  }
-
-  onOrganizationFilterChange(value: string): void {
-    this.organizationFilter.set(value);
-    this.page.set(1);
   }
 
   onOrganizationSelected(value: string): void {
@@ -361,16 +377,6 @@ export class UserMasterComponent implements OnInit {
 
   isStoreSelected(storeId: string): boolean {
     return (this.form.controls.storeIds.value ?? []).includes(storeId);
-  }
-
-  onStatusFilterChange(value: string): void {
-    this.statusFilter.set(value);
-    this.page.set(1);
-  }
-
-  onRoleFilterChange(value: string): void {
-    this.roleFilter.set(value);
-    this.page.set(1);
   }
 
   togglePermission(permissionCode: string): void {
@@ -412,6 +418,8 @@ export class UserMasterComponent implements OnInit {
       next: response => {
         if (response.success && response.data) {
           this.organizations.set(response.data);
+          // with one organization its stores are read at once, so the list can name each person's store
+          if (response.data.length === 1) this.loadStores(response.data[0].id);
         }
       },
       error: error => {
@@ -423,23 +431,28 @@ export class UserMasterComponent implements OnInit {
   private loadUsers(): void {
     this.isLoading.set(true);
     this.apiError.set(null);
+    const request = ++this.asked;
 
-    this.userMasterService.getUsers().subscribe({
+    this.userMasterService.getUsersPage({ search: this.searchTerm().trim(), roles: this.filters.of('role'), statuses: this.filters.of('status'), sort: this.filters.of('sort')[0] ?? 'name', page: this.page(), pageSize: this.pageSize() }).subscribe({
       next: response => {
+        if (request !== this.asked) return; // an older answer arriving late
+        this.isLoading.set(false);
         if (response.success && response.data) {
-          this.users.set(response.data.map(user => ({
-            ...user,
-            fullName: `${user.firstName} ${user.lastName}`.trim(),
-          })));
+          this.users.set(response.data.items.map(user => ({ ...user, fullName: `${user.firstName} ${user.lastName}`.trim() })));
+          this.total.set(response.data.totalCount);
+          this.allCount.set(response.data.allCount);
+          this.activeCount.set(response.data.activeCount);
+          this.roleCount.set(response.data.roleCount);
+          this.roleCounts.set(response.data.roleCounts ?? null);
+          this.statusCounts.set(response.data.roleCounts ? { active: response.data.matchingActive ?? 0, inactive: response.data.matchingInactive ?? 0 } : null);
           return;
         }
 
         this.apiError.set(response.message ?? 'Unable to load users.');
       },
       error: error => {
-        this.apiError.set(error?.message ?? 'User master data is unavailable until the backend exposes its user API.');
-      },
-      complete: () => {
+        if (request !== this.asked) return;
+        this.apiError.set(error?.message ?? 'Unable to load users.');
         this.isLoading.set(false);
       },
     });
@@ -484,18 +497,4 @@ export class UserMasterComponent implements OnInit {
     return store?.name ?? '—';
   }
 
-  private getSortValue(user: User, sortBy: string): string {
-    switch (sortBy) {
-      case 'fullName':
-        return `${user.firstName} ${user.lastName}`.toLowerCase();
-      case 'email':
-        return user.email.toLowerCase();
-      case 'role':
-        return user.role.toLowerCase();
-      case 'status':
-        return user.status.toLowerCase();
-      default:
-        return user.fullName.toLowerCase();
-    }
-  }
 }

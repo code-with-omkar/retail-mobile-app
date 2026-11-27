@@ -142,7 +142,10 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
         }
 
         var payment = await db.Payments.FirstOrDefaultAsync(item => item.OrderId == orderId, cancellationToken);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var note = PaymentTransitions.ExpireHold(order, payment, now);
+        await CouponUsage.ReleaseAsync(db, order.Id, now, cancellationToken);
+        await SlotUsage.ReleaseAsync(db, order, cancellationToken);
         foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
         {
             var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
@@ -154,6 +157,7 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
 
         await AddNoteAsync(order, note, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         db.ChangeTracker.Clear();
         return true;
     }
@@ -251,7 +255,7 @@ public sealed class EfPaymentStore(QuickCommerceDbContext db) : IPaymentStore
         var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).FirstOrDefaultAsync(cancellationToken);
         if (customerId.HasValue)
         {
-            db.Notifications.Add(new Notification { CustomerId = customerId.Value, OrderId = order.Id, Type = "PaymentUpdate", Title = note.Title, Message = note.Message });
+            db.Notifications.Add(NotificationCatalog.From(customerId.Value, order.Id, note));
         }
     }
 }

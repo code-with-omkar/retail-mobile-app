@@ -11,6 +11,7 @@ namespace QuickCommerce.Tests;
 /// at the same moment ends with exactly one of them having won. Opt-in, like the other SQL tests: set QUICKCOMMERCE_TEST_CONNECTION_STRING
 /// to a connection string for a DISPOSABLE database. Everything it adds is uniquely named and removed again.
 /// </summary>
+[Collection("SqlServer")]
 public sealed class OrderCancelEfIntegrationTests
 {
     private static string? ConnectionString => CheckoutEfIntegrationTests.ConnectionString;
@@ -54,8 +55,9 @@ public sealed class OrderCancelEfIntegrationTests
         Assert.Equal(OrderStatus.Cancelled, order.Status);
         Assert.Equal(2, order.StatusHistory.Count);
         var notes = await verify.Notifications.Where(n => n.OrderId == order.Id).ToListAsync();
-        var note = Assert.Single(notes);
-        Assert.Equal(("Order cancelled", "Your order was cancelled.", false), (note.Title, note.Message, note.IsRead));
+        Assert.Equal(2, notes.Count); // "Order placed", then "Order cancelled"
+        var note = Assert.Single(notes, n => n.Type == NotificationTypes.OrderCancelled);
+        Assert.Equal(("Order cancelled", $"Your order {order.OrderNumber} was cancelled.", false), (note.Title, note.Message, note.IsRead));
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public sealed class OrderCancelEfIntegrationTests
         Assert.Equal(1, results.Count(result => result.Status == CancelCommitStatus.Cancelled));
         Assert.Equal(10, await world.Stock());
         await using var verify = world.Db();
-        Assert.Equal(1, await verify.Notifications.CountAsync(n => n.OrderId == placed.Order!.Id));
+        Assert.Equal(1, await verify.Notifications.CountAsync(n => n.OrderId == placed.Order!.Id && n.Type == NotificationTypes.OrderCancelled));
         Assert.Equal(2, await verify.OrderStatusHistory.CountAsync(h => EF.Property<Guid>(h, "OrderId") == placed.Order!.Id));
     }
 
@@ -111,7 +113,7 @@ public sealed class OrderCancelEfIntegrationTests
             Assert.NotEqual(cancelled, accepted); // exactly one of the two
             Assert.Equal(cancelled ? OrderStatus.Cancelled : OrderStatus.Accepted, final.Status);
             Assert.Equal(cancelled ? 10 : 8, await world.Stock());
-            Assert.Equal(1, await verify.Notifications.CountAsync(n => n.OrderId == final.Id));
+            Assert.Equal(cancelled ? 2 : 1, await verify.Notifications.CountAsync(n => n.OrderId == final.Id)); // "placed", then "cancelled" if that won (accepting only updates the timeline)
         }
     }
 
@@ -171,8 +173,8 @@ public sealed class OrderCancelEfIntegrationTests
         Assert.Equal(17, placed.Order!.EstimatedDeliveryMinutes);
         Assert.Equal(17, (await verify.Orders.AsNoTracking().SingleAsync(o => o.Id == placed.Order.Id)).EstimatedDeliveryMinutes);
         Assert.Equal("02212345678", (await store.GetStoreAsync(world.Store.Id))!.PhoneNumber);
-        Assert.Equal(2, await store.GetUnreadNotificationCountAsync(customer));
-        Assert.Equal(2, await store.MarkAllNotificationsReadAsync(customer));
+        Assert.Equal(3, await store.GetUnreadNotificationCountAsync(customer)); // the two added above and "Order placed"
+        Assert.Equal(3, await store.MarkAllNotificationsReadAsync(customer));
         Assert.Equal(0, await store.MarkAllNotificationsReadAsync(customer));
         Assert.Equal(0, await store.GetUnreadNotificationCountAsync(customer));
         Assert.Equal(1, await store.GetUnreadNotificationCountAsync(other));

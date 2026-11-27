@@ -5,9 +5,11 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { AppComponent } from './app.component';
 import { routes } from './app/app.routes';
 import { AuthInterceptor } from './app/core/services/auth.interceptor';
+import { crashReportingProviders } from './app/core/crash-reporting';
 
 bootstrapApplication(AppComponent, {
   providers: [
+    ...crashReportingProviders(),
     provideRouter(routes),
     provideAnimationsAsync(),
     provideHttpClient(

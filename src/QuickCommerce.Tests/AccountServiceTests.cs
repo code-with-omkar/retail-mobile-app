@@ -615,6 +615,9 @@ public sealed class AccountServiceTests
         public Task<AccountUserInfo?> FindActiveCustomerByIdAsync(Guid id, CancellationToken ct = default) =>
             Task.FromResult(accounts.Where(a => a.Active && a.Id == id).Select(a => new AccountUserInfo(a.Id, a.Email, a.FullName)).FirstOrDefault());
 
+        public Task<AccountUserInfo?> FindActiveUserByEmailAsync(string email, CancellationToken ct = default) => FindActiveCustomerByEmailAsync(email, ct);
+        public Task<AccountUserInfo?> FindActiveUserByIdAsync(Guid id, CancellationToken ct = default) => FindActiveCustomerByIdAsync(id, ct);
+
         public Task<int> CountResetCodesSinceAsync(Guid userId, DateTime since, CancellationToken ct = default) => Task.FromResult(codes.Count(c => c.UserId == userId && c.CreatedUtc >= since));
 
         public Task CreateResetCodeAsync(Guid userId, string hash, DateTime created, DateTime expires, string? ip, CancellationToken ct = default)

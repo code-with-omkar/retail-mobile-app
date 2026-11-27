@@ -77,9 +77,9 @@ final festivals = <Festival>[
     subtitle: _festiveSubtitle,
     emoji: '🪔',
     start: DateTime(2026, 11, 1),
-    end: DateTime(2026, 11, 12),
-    colors: const [Color(0xFFFF6F00), Color(0xFFFFC400)],
-    onColor: Color(0xFF14111E),
+    end: DateTime(2026, 11, 30), // moved from 12 Nov so the Diwali look and animation can be seen; set it back to 12 Nov when no longer wanted
+    colors: const [Color(0xFF3A0A4A), Color(0xFF6E0F55), Color(0xFFB4321F)],
+    onColor: Colors.white,
     particle: FestivalParticle.sparkle,
     particleColors: const [
       Color(0xFFFFD54F),
@@ -219,12 +219,13 @@ final festivalAnimationProvider =
       FestivalAnimationNotifier.new,
     );
 
-
 /// How long the falling and the breathing last, counted from when Home first shows them since the app was opened.
 /// After that only the greeting banner stays. Tests change it with [festivalMotionDurationProvider].
 const festivalMotionDuration = Duration(seconds: 30);
 
-final festivalMotionDurationProvider = Provider<Duration>((ref) => festivalMotionDuration);
+final festivalMotionDurationProvider = Provider<Duration>(
+  (ref) => festivalMotionDuration,
+);
 
 /// True while the festival motion is still within its 30 seconds. It starts counting the first time it is read, which is when a festival
 /// is on and Home shows the banner.
@@ -252,4 +253,6 @@ class FestivalMotionNotifier extends Notifier<bool> {
   }
 }
 
-final festivalMotionProvider = NotifierProvider<FestivalMotionNotifier, bool>(FestivalMotionNotifier.new);
+final festivalMotionProvider = NotifierProvider<FestivalMotionNotifier, bool>(
+  FestivalMotionNotifier.new,
+);

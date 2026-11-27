@@ -1,7 +1,7 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -41,10 +41,10 @@ class _Catalog implements CatalogRepository {
   List<NearestStore> answer = const [NearestStore(id: 's1', name: 'Harbor Point', distanceKm: 1, estimatedMinutes: 10)];
 
   @override
-  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', Icons.eco_outlined)];
+  Future<List<Category>> categories({String? storeId}) async => const [Category('c1', 'Vegetables', LucideIcons.leaf)];
 
   @override
-  Future<List<NearestStore>> stores({required double latitude, required double longitude}) async {
+  Future<List<NearestStore>> stores({required double latitude, required double longitude, String? pincode}) async {
     storeCalls++;
     return answer;
   }

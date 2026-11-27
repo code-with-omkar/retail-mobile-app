@@ -38,7 +38,38 @@ public sealed record OrderResponse(
     string? StorePhone = null,
     int? EstimatedDeliveryMinutes = null,
     PaymentState PaymentStatus = PaymentState.NotRequired,
-    DateTime? PaymentExpiresAt = null);
+    DateTime? PaymentExpiresAt = null,
+    string? DeliveryPartnerName = null,
+    string? DeliveryPartnerPhone = null,
+    string? DeliveryOtp = null,
+    string? Note = null,
+    string? OutOfStockChoice = null,
+    IReadOnlyList<Interfaces.OrderChangeInfo>? Changes = null,
+    Interfaces.ReplacementInfo? Replacement = null,
+    string? CouponCode = null,
+    decimal CouponDiscount = 0,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null,
+    decimal? StoreRating = null,
+    int? StoreRatingCount = null,
+    int? MyStoreStars = null,
+    int? MyDeliveryStars = null,
+    string? RejectionReason = null,
+    string? CancelReason = null);
+
+/// <summary>What the portal's order list asks for. A store outside the caller's own is simply empty.</summary>
+public sealed record AdminOrderQuery(string? Search = null, IReadOnlyList<QuickCommerce.Domain.OrderStatus>? Statuses = null, IReadOnlyList<Guid>? StoreIds = null, int Page = 1, int PageSize = 20)
+{
+    public const int MaxPageSize = 100;
+    public AdminOrderQuery Clamped() => this with { Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), Page = Math.Max(1, Page), PageSize = Math.Clamp(PageSize, 1, MaxPageSize) };
+}
+
+public sealed record AdminOrderStore(Guid Id, string Name, int Count = 0);
+
+/// <summary>How many orders each filter value has: by status under the other filters, and by store under the other filters.</summary>
+public sealed record AdminOrderCounts(IReadOnlyDictionary<QuickCommerce.Domain.OrderStatus, int> ByStatus, IReadOnlyDictionary<Guid, int> ByStore);
+
+public sealed record AdminOrderPage(IReadOnlyList<AdminOrderResponse> Items, int TotalCount, int Page, int PageSize, IReadOnlyList<AdminOrderStore> Stores, IReadOnlyDictionary<int, int>? StatusCounts = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -49,7 +80,22 @@ public sealed record AdminOrderResponse(
     string Store,
     decimal TotalAmount,
     OrderStatus Status,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    Guid? DeliveryPartnerId = null,
+    string? DeliveryPartner = null,
+    string? Note = null,
+    string? OutOfStockChoice = null,
+    DateTime? DeliverySlotStart = null,
+    DateTime? DeliverySlotEnd = null,
+    string? RejectionReason = null,
+    string? RejectionNote = null,
+    string? RejectedBy = null,
+    string? CancelReason = null,
+    string? CancelNote = null,
+    string? CancelledBy = null,
+    string? DeliveryFailureReason = null,
+    string? DeliveryFailureNote = null,
+    DateTime? DeliveryFailedAt = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

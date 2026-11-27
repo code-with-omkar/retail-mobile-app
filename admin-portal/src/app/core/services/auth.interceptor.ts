@@ -10,6 +10,7 @@ import { Observable, catchError, finalize, map, shareReplay, switchMap, throwErr
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ConfigService } from './config.service';
+import { StorageService } from './storage.service';
 
 /**
  * HTTP interceptor to automatically add JWT tokens to requests.
@@ -20,7 +21,8 @@ export class AuthInterceptor implements HttpInterceptor {
   constructor(
     private auth: AuthService,
     private config: ConfigService,
-    private router: Router
+    private router: Router,
+    private storage: StorageService
   ) {}
 
   private refreshRequest$: Observable<string> | null = null;
@@ -42,6 +44,12 @@ export class AuthInterceptor implements HttpInterceptor {
           Authorization: `Bearer ${token}`,
         },
       });
+    }
+
+    // A platform administrator looking at another organization: the server shows that organization, read-only.
+    const organization = this.storage.getOrganization();
+    if (organization) {
+      request = request.clone({ setHeaders: { 'X-Organization-Id': organization } });
     }
 
     return next.handle(request).pipe(

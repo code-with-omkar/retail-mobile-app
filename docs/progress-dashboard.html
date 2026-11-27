@@ -120,7 +120,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
 
 <script type="application/json" id="plan-data">
 {
-"meta":{"title":"QuickCart customer mobile app","updated":"2026-10-07","version":1,
+"meta":{"title":"QuickCart customer mobile app","updated":"2026-11-19","version":1,
  "note":"Task status below is the baseline in this file. Changes you make in the browser are saved locally; use Export to share them, and ask Claude to fold an exported file back into this baseline."},
 "layers":{"M":"Mobile (Flutter)","A":"API (.NET)","D":"Database (EF/SQL)","W":"Admin portal (Angular)","I":"Infra / DevOps","Q":"QA / testing","X":"Decision / process"},
 "phases":[
@@ -155,7 +155,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"1.2","t":"API: per-store availability (in stock) on product responses","l":["A"],"s":"M","d":"Optional storeId on customer product routes returns inStock and lowStock flags (never quantities), overlaid fresh on every request; no N+1. No database change. See docs/plans/P1-store-availability-and-eta.md.","ac":["Response includes inStock for a storeId","No N+1 in query plan"],"a":["Application/Services","Infrastructure/Persistence"],"dep":["1.1"],"st":"done"},
  {"id":"1.3","t":"DB + API: MRP / discount fields","l":["D","A"],"s":"M","d":"Migration AddProductMrp: nullable Mrp (NULL = no discount, no backfill) with CHECK Mrp >= Price. API returns mrp and discountPercent on the customer routes. See docs/plans/P1-mrp-and-translations.md.","ac":["Additive migration reviewed (Up and Down)","Existing orders and admin views unaffected","Product DTO adds mrp and discountPercent"],"a":["Infrastructure/Persistence/Migrations","Application/DTOs/CatalogDtos.cs"],"dep":["1.1"],"st":"done"},
  {"id":"1.4","t":"DB + API: Marathi names (translations)","l":["D","A"],"s":"M","d":"Migration AddCatalogTranslations: ProductTranslations and CategoryTranslations (locale, name, description). Customer routes return a translations map (D14); English stays in the base columns; search matches translated names. See docs/plans/P1-mrp-and-translations.md.","ac":["Marathi returned when requested","English fallback when missing","Admin portal can still read products"],"a":["Domain","Infrastructure/Persistence","Application/DTOs"],"dep":["1.1"],"st":"done"},
- {"id":"1.5","t":"Product images: upload, storage, serving","l":["A","W"],"s":"M","d":"Admin uploads an image per product; served from IIS static path; ImageUrl is absolute. The app already shows a generated icon when no image exists.","ac":["Upload with size/type validation","ImageUrl resolves from the device","Admin portal has an upload control"],"a":["Api","admin-portal/src/app/features/products"],"dep":["1.1"],"st":"todo"},
+ {"id":"1.5","t":"Product images: upload, storage, serving","l":["A","W"],"s":"M","d":"Admin uploads an image per product; served from IIS static path; ImageUrl is absolute. The app already shows a generated icon when no image exists.","ac":["Upload with size/type validation","ImageUrl resolves from the device","Admin portal has an upload control"],"a":["Api","admin-portal/src/app/features/products"],"dep":["1.1"],"st":"doing"},
  {"id":"1.6","t":"API: store ETA from configuration (no hardcoded minutes)","l":["A","D"],"s":"S","d":"Estimate = BasePrepMinutes + ceil(distanceKm x MinutesPerKm) from validated configuration (Delivery section). No database change; per-store override comes with 1.12. See docs/plans/P1-store-availability-and-eta.md.","ac":["ETA returned with nearest store","Value comes from configuration or store settings"],"a":["Application/StoreSelectionService.cs"],"dep":["1.1"],"st":"done"},
  {"id":"1.7","t":"Mobile: CatalogRepository + providers; categories and Home from API","l":["M"],"s":"L","d":"Home, Categories, Category and Product screens load through CatalogRepository with loading, error+retry and Load more paging. Until 1.3/1.4/1.2 land, MRP/discount, Marathi names and availability use neutral defaults. Seed data remains for tests, offline mode (USE_SEED_DATA) and the demo order.","ac":["Home popular and deals from API","Category screen paginates","Seed data only used in tests"],"a":["mobile/lib/features/home","mobile/lib/data"],"dep":["0.5","1.1","1.3","1.4"],"st":"done"},
  {"id":"1.8","t":"Mobile: server-side search with debounce","l":["M"],"s":"S","d":"Search is server-side with a 350 ms debounce; a superseded search pager ignores late results.","ac":["Typing does not spam the API","Empty and error states shown"],"a":["mobile/lib/features/home"],"dep":["1.7"],"st":"done"},
@@ -166,7 +166,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"1.14","t":"Mobile: choose a store; every catalogue screen follows it","l":["M"],"s":"L","d":"Choose a store screen from the Home card, saved choice with nearest fallback, per-store categories, Home, search and category lists, out-of-stock items greyed, cart shows its store, switching store with items asks and empties the cart (D26).","ac":["Choice survives restart","Cart switch asks first"],"a":["mobile/lib/features/stores","mobile/lib/data"],"dep":["1.13"],"st":"done"},
  {"id":"1.15","t":"Fixes: cut-off field labels, Home store card overflow, Track Order back button","l":["M"],"s":"S","d":"Labels now sit above fields (LabeledField); the Home delivery card scales its content; Back falls back to Orders and Track order keeps Orders underneath. Regression tests added.","ac":["No overflow at 320 px with large text","Back works on Track order"],"a":["mobile/lib/core","mobile/lib/features"],"dep":["1.14"],"st":"done"},
   {"id":"1.16","t":"Mobile: store visibility redesign (store bar, stores rail, switch sheet, store list, pinned store on browsing)","l":["M"],"s":"L","d":"Home shows a Shopping from bar and a Stores that deliver to you rail; Change opens a sheet with the cart warning and a button that says what happens; the full list has Nearest, Fastest and A to Z, the delivery-range bar and a Shop from button; browsing screens keep the store pinned with its item count; out-of-stock product pages offer Check other stores. Design reviewed and approved as an artboard canvas first.","ac":["Store visible on Home and while browsing","Switch needs one clear confirmation","No overflow at 320 px with large text"],"a":["mobile/lib/features/stores","mobile/lib/features/home"],"dep":["1.14"],"st":"done"},
-{"id":"1.12","t":"Admin editing of price, MRP, translations and images","l":["A","W"],"s":"L","d":"No product write endpoint exists and the admin Products page is a placeholder. Add authorized update endpoints (permission and store scope checked on the server) and portal screens. Pairs with image upload (1.5). Decision D16.","ac":["Staff can set MRP and Marathi text without SQL","Server-side permission checks and validators","Tests for authorization and validation"],"a":["Api/Controllers","admin-portal/src/app/features/products"],"dep":["1.3","1.4"],"st":"todo"}
+{"id":"1.12","t":"Admin editing of price, MRP, translations and images","l":["A","W"],"s":"L","d":"No product write endpoint exists and the admin Products page is a placeholder. Add authorized update endpoints (permission and store scope checked on the server) and portal screens. Pairs with image upload (1.5). Decision D16.","ac":["Staff can set MRP and Marathi text without SQL","Server-side permission checks and validators","Tests for authorization and validation"],"a":["Api/Controllers","admin-portal/src/app/features/products"],"dep":["1.3","1.4"],"st":"doing"}
  ]},
 
 {"id":"P2","name":"Customer accounts (email / password)","goal":"Customers can register, log in, recover a password and stay signed in, on the existing JWT design.","deps":["P0"],"exit":["Register, login, logout and reset work on device","Tokens stored securely and refreshed automatically","Guest browsing still works; sign-in required at checkout"],
@@ -190,7 +190,7 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"3.2","t":"DB: ProductVariant migration with backfill","l":["D"],"s":"L","d":"Additive tables/columns; one default variant per product; inventory moves to variant level in safe steps; keep StoreInventory RowVersion concurrency.","ac":["Migration reviewed (Up and Down)","Backfill verified on a copy of data","No data dropped"],"a":["Domain","Infrastructure/Persistence/Migrations"],"dep":["3.1"],"st":"done"},
  {"id":"3.3","t":"API: catalog returns variants; cart accepts variantId","l":["A"],"s":"L","d":"Existing productId routes keep working via the default variant.","ac":["Old clients unaffected","New cart routes accept variantId"],"a":["CatalogController","CartController","Application/Services"],"dep":["3.2"],"st":"done"},
  {"id":"3.4","t":"API: order lines snapshot variant label and price","l":["A"],"s":"M","d":"Historical orders must not change when prices change (price snapshot rule).","ac":["Snapshot fields persisted","Tests prove later price edits do not alter old orders"],"a":["Application/Services/OrderService.cs"],"dep":["3.3"],"st":"done"},
- {"id":"3.5","t":"Admin portal: manage variants on products","l":["W"],"s":"M","d":"Use existing shared components and theme.","ac":["Add/edit/deactivate variants","Layout unchanged elsewhere"],"a":["admin-portal/src/app/features/products"],"dep":["3.3"],"st":"todo"},
+ {"id":"3.5","t":"Admin portal: manage variants on products","l":["W"],"s":"M","d":"Use existing shared components and theme.","ac":["Add/edit/deactivate variants","Layout unchanged elsewhere"],"a":["admin-portal/src/app/features/products"],"dep":["3.3"],"st":"doing"},
  {"id":"3.6","t":"Mobile: pack-size selector bound to API variants; cart keyed by variantId","l":["M"],"s":"M","d":"Done: the selector is built from the API variants (default pack chosen, out-of-stock packs dimmed and not selectable); cart lines are keyed by pack (variant) id so two sizes of one product are two lines; seed data has packs too. Not yet checked on a phone.","ac":["Selector options come from the API","Cart lines distinguish variants"],"a":["mobile/lib/features/product","mobile/lib/features/cart"],"dep":["3.3"],"st":"done"},
  {"id":"3.7","t":"Tests: concurrency, snapshot, backward compatibility","l":["Q"],"s":"L","d":"Parallel orders on the last unit of a variant; default-variant compatibility.","ac":["No overselling under concurrent checkout","Compatibility test for old routes"],"a":["src/QuickCommerce.Tests"],"dep":["3.4"],"st":"done"}
  ]},
@@ -231,50 +231,244 @@ ul.clean{margin:6px 0 0;padding-left:20px}
  {"id":"6.4","t":"Mobile: notifications list, mark read, bell badge","l":["M"],"s":"M","d":"Uses /api/customer/notifications and the read endpoint.","ac":["Unread count on the bell","Mark read persists"],"a":["mobile/lib/features/home"],"dep":["2.8"],"st":"done"},
  {"id":"6.5","t":"Push notifications (FCM): optional, needs approval","l":["A","M","I"],"s":"L","d":"Device token registration, send on status change. New external service, so confirm first (decision D10).","ac":["Decision recorded","If approved: delivered on a real device"],"a":["Api","mobile"],"dep":["6.4"],"st":"todo"},
  {"id":"6.6","t":"Mobile: Reorder and Buy again from real orders (variants)","l":["M"],"s":"S","d":"Skip unavailable items and tell the user.","ac":["Unavailable items reported"],"a":["mobile/lib/features/orders"],"dep":["6.1","3.6"],"st":"done"},
- {"id":"6.7","t":"End-to-end check with the admin portal status changes","l":["Q"],"s":"M","d":"Staff changes status in the portal; the app reflects it.","ac":["Verified for every status transition"],"a":["admin-portal","mobile"],"dep":["6.3"],"st":"todo"},
+ {"id":"6.7","t":"End-to-end check with the admin portal status changes","l":["Q"],"s":"M","d":"Staff changes status in the portal; the app reflects it.","ac":["Verified for every status transition"],"a":["admin-portal","mobile"],"dep":["6.3"],"st":"doing"},
+ {"id":"6.9","t":"Portal orders page: fix the list and add status buttons","l":["W","Q"],"s":"S","d":"The Orders page showed blank rows (it did not read the list signal or the numeric status) and had no way to change status. It now lists orders and shows only the valid next step per order (Accept or Reject, Start packing, Mark ready, Complete), calling POST api/operations/orders/{id}/status.","ac":["List shows every order in scope with its status","Buttons follow the transition rules","Not yet verified end to end with the phone"],"a":["admin-portal/src/app/features/orders/orders.component.ts"],"dep":["6.3"],"st":"doing"},
+ {"id":"6.10","t":"Staff scope: the order list uses every assigned store but changing status uses only the primary store","l":["A","X"],"s":"M","d":"GetScopedOrderSummaries uses all of a staff user's store assignments; ChangeStatus uses the single Users.StoreId, so a multi-store staff member sees orders they cannot act on (404 'not found in the authorized store scope'). Decided 2026-10-09 (option B): staff see the orders of the store they operate (their primary store), the same store they can act in; admins see all. Built with tests (StaffOrderScopeTests).","ac":["Decision recorded","List and actions use the same stores"],"a":["src/QuickCommerce.Application/Services/OrderOperationsService.cs","src/QuickCommerce.Infrastructure/Persistence/EfCommerceStore.cs"],"dep":[],"st":"done"},
+ {"id":"6.11","t":"Reject does not put the stock back","l":["A"],"s":"S","d":"Cancelling an order returns its stock; the shop rejecting one does not. Found while testing P7. Fixed 2026-10-09: a rejection returns the stock once; tests cover it (in memory and on SQL Server).","ac":["Rejected orders return stock exactly once"],"a":["src/QuickCommerce.Infrastructure/Persistence/EfCommerceStore.cs"],"dep":[],"st":"done"},
  {"id":"6.8","t":"Decide cancellation and refund rules","l":["X"],"s":"S","d":"Who can cancel, until which status, and what happens to stock and payment.","ac":["Rules documented"],"a":["docs"],"dep":[],"st":"done"}
  ]},
 
 {"id":"P7","name":"Online payments (UPI / card)","goal":"Customers can pay online safely; the server owns amounts and payment truth.","deps":["P5"],"exit":["Successful, failed and abandoned payments all end in a consistent order state","Webhooks are signed, idempotent and reconciled","No card data touches the app or API"],
  "tasks":[
- {"id":"7.1","t":"Choose provider and open test accounts","l":["X"],"s":"S","d":"Compare fees, UPI support, KYC time, Flutter SDK, webhooks. Decision D9. Blocks the rest of this phase.","ac":["Provider chosen","Test keys available"],"a":["docs"],"dep":[],"st":"doing"},
- {"id":"7.2","t":"DB + API: Payment entity and order payment status","l":["D","A"],"s":"L","d":"Order id, provider, provider reference, amount, status, attempts. Additive.","ac":["Additive migration","Order shows payment status"],"a":["Domain","Infrastructure","Application"],"dep":["7.1"],"st":"doing"},
- {"id":"7.3","t":"API: create payment session; amount computed server-side","l":["A"],"s":"L","d":"Never trust a client amount; verify the provider signature on completion.","ac":["Tampered amount rejected","Signature verification tested"],"a":["Api","Application"],"dep":["7.2"],"st":"doing"},
- {"id":"7.4","t":"API: webhook endpoint (signed, idempotent) and reconciliation","l":["A"],"s":"L","d":"Replay-safe; works across multiple IIS instances (no in-memory state).","ac":["Duplicate webhook is harmless","Reconciliation job lists mismatches"],"a":["Api","Infrastructure"],"dep":["7.3"],"st":"doing"},
- {"id":"7.5","t":"Order states and inventory reservation for pending payment","l":["A","D"],"s":"L","d":"Reserve stock while payment is pending; release on failure or timeout; keep concurrency safety.","ac":["Stock released on failure","No overselling while pending"],"a":["Application/Services","Infrastructure"],"dep":["7.2","3.7"],"st":"doing"},
+ {"id":"7.1","t":"Choose provider and open test accounts","l":["X"],"s":"S","d":"Compare fees, UPI support, KYC time, Flutter SDK, webhooks. Decision D9. Blocks the rest of this phase.","ac":["Provider chosen","Test keys available"],"a":["docs"],"dep":[],"st":"done"},
+ {"id":"7.2","t":"DB + API: Payment entity and order payment status","l":["D","A"],"s":"L","d":"Order id, provider, provider reference, amount, status, attempts. Additive.","ac":["Additive migration","Order shows payment status"],"a":["Domain","Infrastructure","Application"],"dep":["7.1"],"st":"done"},
+ {"id":"7.3","t":"API: create payment session; amount computed server-side","l":["A"],"s":"L","d":"Never trust a client amount; verify the provider signature on completion.","ac":["Tampered amount rejected","Signature verification tested"],"a":["Api","Application"],"dep":["7.2"],"st":"done"},
+ {"id":"7.4","t":"API: webhook endpoint (signed, idempotent) and reconciliation","l":["A"],"s":"L","d":"Replay-safe; works across multiple IIS instances (no in-memory state).","ac":["Duplicate webhook is harmless","Reconciliation job lists mismatches"],"a":["Api","Infrastructure"],"dep":["7.3"],"st":"done"},
+ {"id":"7.5","t":"Order states and inventory reservation for pending payment","l":["A","D"],"s":"L","d":"Reserve stock while payment is pending; release on failure or timeout; keep concurrency safety.","ac":["Stock released on failure","No overselling while pending"],"a":["Application/Services","Infrastructure"],"dep":["7.2","3.7"],"st":"done"},
  {"id":"7.6","t":"Mobile: provider SDK / hosted checkout, UPI intent, retry UX","l":["M"],"s":"L","d":"Replace the payment placeholder; clear success, failure and pending screens in EN/Marathi.","ac":["Test payments succeed and fail correctly","Back-navigation during payment is safe"],"a":["mobile/lib/features/checkout"],"dep":["7.3"],"st":"doing"},
  {"id":"7.7","t":"Refund and cancellation handling; admin visibility","l":["A","W"],"s":"M","d":"Basic refund flow and a payments view for staff.","ac":["Refund recorded and visible in portal"],"a":["Api","admin-portal"],"dep":["7.4","6.8"],"st":"doing"},
- {"id":"7.8","t":"Security review: PCI scope, secrets, log redaction","l":["X","Q"],"s":"M","d":"Use provider-hosted UI so card data never reaches us; secrets in server configuration.","ac":["Written scope statement","No payment secrets in git or logs"],"a":["docs"],"dep":["7.6"],"st":"todo"},
- {"id":"7.9","t":"Tests: webhook idempotency, amount tampering, double submit","l":["Q"],"s":"M","d":"Automated coverage for the money paths.","ac":["All three covered"],"a":["src/QuickCommerce.Tests"],"dep":["7.4"],"st":"doing"}
+ {"id":"7.8","t":"Security review: PCI scope, secrets, log redaction","l":["X","Q"],"s":"M","d":"Use provider-hosted UI so card data never reaches us; secrets in server configuration.","ac":["Written scope statement","No payment secrets in git or logs"],"a":["docs"],"dep":["7.6"],"st":"doing"},
+ {"id":"7.9","t":"Tests: webhook idempotency, amount tampering, double submit","l":["Q"],"s":"M","d":"Automated coverage for the money paths.","ac":["All three covered"],"a":["src/QuickCommerce.Tests"],"dep":["7.4"],"st":"done"},
+ {"id":"7.10","t":"Live payment test with Razorpay test keys on the phone","l":["Q","X"],"s":"S","d":"Server and app are built and tested against a simulated Razorpay; the real checkout opens but shows 'payment methods coming soon' because the test account has no payment methods enabled. A webhook is optional (payments settle through the app confirmation and the background lookup).","ac":["A test card or UPI payment ends with the order paid","A cancelled paid order shows refunded"],"a":["mobile","src"],"dep":["7.6"],"st":"blocked","bk":"Owner: enable payment methods or finish account activation in the Razorpay dashboard (test mode)."}
  ]},
 
 {"id":"P8","name":"Phone OTP and social sign-in","goal":"Deliver the phone-first Welcome from the design plus Google and Apple sign-in.","deps":["P2"],"exit":["Get OTP sends and verifies a real code","Google and Apple sign-in create or link accounts securely","OTP state works across multiple servers"],
  "tasks":[
- {"id":"8.1","t":"Approve the auth-architecture extension and pick providers","l":["X"],"s":"S","d":"copilot-instructions.md requires confirmation before changing authentication. Choose an SMS provider; create Google and Apple developer setup. Decision D7. Blocks this phase.","ac":["Written approval","Provider accounts ready"],"a":["docs"],"dep":[],"st":"todo"},
- {"id":"8.2","t":"DB + API: OTP challenge store in SQL","l":["D","A"],"s":"M","d":"Hashed code, expiry, attempts. Must be in the database, not server memory, so any IIS instance can verify.","ac":["Works behind a load balancer","Codes hashed at rest"],"a":["Domain","Infrastructure"],"dep":["8.1"],"st":"todo"},
- {"id":"8.3","t":"API: OTP request and verify returning JWT","l":["A"],"s":"L","d":"Rate limit per phone and IP; SMS sender abstraction; no code in logs.","ac":["Limits enforced","Lockout after repeated failures"],"a":["Api","Application"],"dep":["8.2"],"st":"todo"},
- {"id":"8.4","t":"API: Google and Apple token validation, account linking","l":["A"],"s":"L","d":"Validate provider tokens server-side; link by verified email; never trust client-supplied identity.","ac":["Invalid tokens rejected","Linking rules documented"],"a":["Api","Application"],"dep":["8.1"],"st":"todo"},
- {"id":"8.5","t":"Mobile: real Get OTP and OTP screen (resend, lockout, SMS autofill)","l":["M"],"s":"M","d":"Replace the any-6-digits stub.","ac":["Wrong code shows an error state","Resend timer and limits respected"],"a":["mobile/lib/features/auth"],"dep":["8.3"],"st":"todo"},
- {"id":"8.6","t":"Mobile: Google and Apple sign-in","l":["M"],"s":"M","d":"google_sign_in and sign_in_with_apple; Apple on Android uses the web flow.","ac":["Sign-in works on a real device"],"a":["mobile/lib/features/auth"],"dep":["8.4"],"st":"todo"},
- {"id":"8.7","t":"Tests and security review for OTP and social flows","l":["Q"],"s":"M","d":"Brute force, replay, token tampering.","ac":["Review notes stored"],"a":["src/QuickCommerce.Tests"],"dep":["8.5"],"st":"todo"}
+ {"id":"8.1","t":"Approve the auth-architecture extension and pick providers","l":["X"],"s":"S","d":"copilot-instructions.md requires confirmation before changing authentication. Choose an SMS provider; create Google and Apple developer setup. Decision D7. Blocks this phase.","ac":["Written approval","Provider accounts ready"],"a":["docs"],"dep":[],"st":"done"},
+ {"id":"8.2","t":"DB + API: OTP challenge store in SQL","l":["D","A"],"s":"M","d":"Hashed code, expiry, attempts. Must be in the database, not server memory, so any IIS instance can verify.","ac":["Works behind a load balancer","Codes hashed at rest"],"a":["Domain","Infrastructure"],"dep":["8.1"],"st":"done"},
+ {"id":"8.3","t":"API: OTP request and verify returning JWT","l":["A"],"s":"L","d":"Rate limit per phone and IP; SMS sender abstraction; no code in logs.","ac":["Limits enforced","Lockout after repeated failures"],"a":["Api","Application"],"dep":["8.2"],"st":"done"},
+ {"id":"8.4","t":"API: Google and Apple token validation, account linking","l":["A"],"s":"L","d":"Validate provider tokens server-side; link by verified email; never trust client-supplied identity.","ac":["Invalid tokens rejected","Linking rules documented"],"a":["Api","Application"],"dep":["8.1"],"st":"done"},
+ {"id":"8.5","t":"Mobile: real Get OTP and OTP screen (resend, lockout, SMS autofill)","l":["M"],"s":"M","d":"Replace the any-6-digits stub.","ac":["Wrong code shows an error state","Resend timer and limits respected"],"a":["mobile/lib/features/auth"],"dep":["8.3"],"st":"done"},
+ {"id":"8.6","t":"Mobile: Google and Apple sign-in","l":["M"],"s":"M","d":"google_sign_in and sign_in_with_apple; Apple on Android uses the web flow.","ac":["Sign-in works on a real device"],"a":["mobile/lib/features/auth"],"dep":["8.4"],"st":"doing","bk":"Google sign-in needs your Google Cloud web client id; Apple sign-in is not built"},
+ {"id":"8.7","t":"Tests and security review for OTP and social flows","l":["Q"],"s":"M","d":"Brute force, replay, token tampering.","ac":["Review notes stored"],"a":["src/QuickCommerce.Tests"],"dep":["8.5"],"st":"done"}
  ]},
 
 {"id":"P9","name":"Quality, hardening and Android release","goal":"Ship a stable build to real users through Play internal testing.","deps":["P6","P7"],"exit":["Signed release bundle passes the go/no-go checklist","Staging end-to-end suite green","Production backend settings verified"],
  "tasks":[
- {"id":"9.1","t":"End-to-end suite (integration_test) against staging","l":["Q"],"s":"L","d":"Browse, register, add to cart, address, checkout, pay, track.","ac":["Runs in one command","Covers failure paths"],"a":["mobile/integration_test"],"dep":["7.6","6.7"],"st":"todo"},
- {"id":"9.2","t":"Accessibility audit (TalkBack, contrast, targets, font scale)","l":["Q","M"],"s":"M","d":"Both themes and both languages; confirm 48dp targets on steppers.","ac":["Issues fixed or logged"],"a":["mobile"],"dep":["7.6"],"st":"todo"},
+ {"id":"9.1","t":"End-to-end suite (integration_test) against staging","l":["Q"],"s":"L","d":"Browse, register, add to cart, address, checkout, pay, track. Done so far: an app-code-to-real-API end-to-end test (coupon plus scheduled delivery, cancel gives both back) with a CI job. Still to do: on-device integration_test.","ac":["Runs in one command","Covers failure paths"],"a":["mobile/integration_test"],"dep":["7.6","6.7"],"st":"doing"},
+ {"id":"9.2","t":"Accessibility audit (TalkBack, contrast, targets, font scale)","l":["Q","M"],"s":"M","d":"Done: automatic checks (48 dp targets, labelled buttons) on home, profile and cart in both themes, and exact text-contrast checks on the palette; fixed See all, Voice search and the language toggle sizes and two low-contrast colours. Still to do: TalkBack walk-through on a phone, large-font check, Marathi.","ac":["Issues fixed or logged"],"a":["mobile"],"dep":["7.6"],"st":"doing"},
  {"id":"9.3","t":"Marathi review by a native speaker; Devanagari font decision","l":["M","X"],"s":"S","d":"Translations were written without review. Decide whether to bundle a Devanagari font.","ac":["Reviewed strings merged"],"a":["mobile/lib/core/strings_mr.dart"],"dep":[],"st":"todo"},
- {"id":"9.4","t":"Performance pass: image caching, list performance, startup","l":["M"],"s":"M","d":"Profile in release mode on a mid-range device; evaluate an image-cache package only if needed.","ac":["Targets recorded and met"],"a":["mobile"],"dep":["1.7"],"st":"todo"},
+ {"id":"9.4","t":"Performance pass: image caching, list performance, startup","l":["M"],"s":"M","d":"Profile in release mode on a mid-range device; Done: product and offer pictures now use a disk cache and are decoded at display size. Still to do: profile in release mode on a mid-range device.","ac":["Targets recorded and met"],"a":["mobile"],"dep":["1.7"],"st":"doing"},
  {"id":"9.5","t":"Crash and error reporting with PII redaction","l":["M","I"],"s":"M","d":"Pick one tool (decision D11); no tokens, phone numbers or addresses in logs.","ac":["Test crash appears in the dashboard","Redaction verified"],"a":["mobile"],"dep":[],"st":"todo"},
- {"id":"9.6","t":"Android release build: signing, flavors, versioning, R8, icon and splash","l":["M","I"],"s":"M","d":"Keystore kept outside source control; permissions reviewed.","ac":["Signed AAB builds reproducibly"],"a":["mobile/android"],"dep":["0.6"],"st":"todo"},
- {"id":"9.7","t":"Backend production readiness","l":["A","I"],"s":"L","d":"Restrict CORS (currently any origin), JWT settings from secrets, migrations applied by reviewed script, health checks, confirm stateless behavior on multiple IIS instances.","ac":["CORS limited to known origins","Two-instance smoke test passes","Migration run documented"],"a":["Api","deploy/iis"],"dep":["7.4"],"st":"todo"},
- {"id":"9.8","t":"Git-based CI for the mobile app (analyze, test, build)","l":["I"],"s":"M","d":"Only the mobile job now; full pipeline is a separate request.","ac":["Pull requests run analyze and test"],"a":["repo"],"dep":["0.7"],"st":"todo"},
+ {"id":"9.6","t":"Android release build: signing, flavors, versioning, R8, icon and splash","l":["M","I"],"s":"M","d":"Keystore kept outside source control; permissions reviewed.","ac":["Signed AAB builds reproducibly"],"a":["mobile/android"],"dep":["0.6"],"st":"doing"},
+ {"id":"9.7","t":"Backend production readiness","l":["A","I"],"s":"L","d":"Restrict CORS (currently any origin), JWT settings from secrets, migrations applied by reviewed script, health checks, confirm stateless behavior on multiple IIS instances.","ac":["CORS limited to known origins","Two-instance smoke test passes","Migration run documented"],"a":["Api","deploy/iis"],"dep":["7.4"],"st":"done"},
+ {"id":"9.8","t":"Git-based CI for the mobile app (analyze, test, build)","l":["I"],"s":"M","d":"Only the mobile job now; full pipeline is a separate request.","ac":["Pull requests run analyze and test"],"a":["repo"],"dep":["0.7"],"st":"doing"},
  {"id":"9.9","t":"Play Console: internal testing, store listing, privacy policy, data safety","l":["X"],"s":"M","d":"Needs a developer account and a hosted privacy policy.","ac":["Internal track live"],"a":["docs"],"dep":["9.6"],"st":"todo"},
  {"id":"9.10","t":"Pilot with real store users and go/no-go review","l":["X","Q"],"s":"M","d":"Collect issues, fix blockers, decide launch.","ac":["Go/no-go checklist signed"],"a":["docs"],"dep":["9.1","9.7","9.9"],"st":"todo"},
-{"id":"9.11","t":"Account deletion (Google Play requirement)","l":["A","M","X"],"s":"M","d":"Apps that let people create accounts must offer account deletion in the app and via a web link. Decide anonymize versus delete (orders keep price snapshots), then implement the API, an in-app screen and a hosted deletion page.","ac":["Deletion available in the app","Web link for the Play listing","Order history retention rule documented"],"a":["Api","mobile/lib/features/profile"],"dep":["2.8"],"st":"todo"}
+{"id":"9.11","t":"Account deletion (Google Play requirement)","l":["A","M","X"],"s":"M","d":"Apps that let people create accounts must offer account deletion in the app and via a web link. Decide anonymize versus delete (orders keep price snapshots), then implement the API, an in-app screen and a hosted deletion page.","ac":["Deletion available in the app","Web link for the Play listing","Order history retention rule documented"],"a":["Api","mobile/lib/features/profile"],"dep":["2.8"],"st":"doing"}
+ ]},
+{"id":"P10","name":"Order numbers by store","goal":"Orders get short store-prefixed numbers such as KHG-261009-0042.","deps":["P5"],"exit":["New orders use STORE-yyMMdd-nnnn, unique and gap-safe under parallel orders","Old orders unchanged"],
+ "tasks":[
+ {"id":"10.1","t":"Store code (additive) and per-store per-day counter table","l":["D","A"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"10.2","t":"Generate the number inside the checkout transaction; tests incl. parallel orders","l":["A","Q"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["10.1"],"st":"done"},
+ {"id":"10.3","t":"Show the number in app, portal and notifications; set codes for dev stores","l":["M","W"],"s":"S","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["10.2"],"st":"done"}
+ ]},
+{"id":"P11","name":"Notification system","goal":"One catalogue of notification types with English and Marathi templates, order and payment events, and admin-created offers in the app.","deps":["P6"],"exit":["Order, payment and offer notifications come from templates","Customers can switch offers off","Push later reuses the templates"],
+ "tasks":[
+ {"id":"11.1","t":"Type catalogue, templates (EN/MR), Notification gains type code, category and data (additive)","l":["D","A"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"11.2","t":"Order and payment events create notifications from templates (placed, accepted, packing, out for delivery, delivered, rejected, cancelled, paid, refunded)","l":["A","Q"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["11.1"],"st":"done"},
+ {"id":"11.3","t":"Campaigns (offers/announcements): table, portal create/schedule, audience, shown in the app","l":["A","W","M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["11.1"],"st":"done"},
+ {"id":"11.4","t":"Customer preferences (offers on/off) and app notification screen with categories","l":["A","M"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["11.3"],"st":"done"}
+ ]},
+{"id":"P12","name":"Delivery partner app","goal":"Delivery partners have their own app to see assigned orders, collect cash and mark delivered.","deps":["P6","P10"],"exit":["Store staff assign a Ready order to a partner in the portal","A partner sees only their own orders","Delivered by the partner updates the customer"],
+ "tasks":[
+ {"id":"12.1","t":"Assignment: order gets a delivery partner; partner policy and endpoints (authorization change, needs approval)","l":["D","A"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"12.2","t":"Portal: assign a partner to a Ready order; partner list per store","l":["W"],"s":"M","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"done"},
+ {"id":"12.3","t":"Separate Flutter delivery app: login, my deliveries, order detail, call, navigate","l":["M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.1"],"st":"done"},
+ {"id":"12.4","t":"Mark picked up and delivered (cash collected, optional OTP); customer sees partner name and phone","l":["A","M"],"s":"L","d":"See docs/plans/P10-P12-order-numbers-notifications-delivery.md.","ac":[],"a":[],"dep":["12.3"],"st":"done"}
+ ]},
+{"id":"P13","name":"Store-owned offers","goal":"Store staff announce offers for their own store; an admin can create an offer for chosen stores. Customers see the store on the offer.","deps":["P11"],"exit":["Offers belong to stores","Store staff cannot post for other stores","Audience is customers who use that store"],
+ "tasks":[
+ {"id":"13.1","t":"CampaignStores (additive), offer owner and audience per store","l":["D","A"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"13.2","t":"Store staff create, schedule and cancel offers for their own store; admin picks stores (authorization change, needs approval)","l":["A","Q"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["13.1"],"st":"done"},
+ {"id":"13.3","t":"Portal: store offers page for staff; admin store picker; app shows the store on an offer","l":["W","M"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["13.2"],"st":"done"}
+ ]},
+{"id":"P14","name":"Offer publishing fee","goal":"A configurable fee (global, per-store override, 0 = free) is paid online before an offer goes live.","deps":["P13","P7"],"exit":["Fee shown before publishing","Offer is sent only after payment","Cancel before sending refunds the fee"],
+ "tasks":[
+ {"id":"14.1","t":"Fee settings (global and per store) and a store payment record for offers (additive)","l":["D","A"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"14.2","t":"Razorpay payment for an offer fee; offer goes live on payment; refund on cancel before sending","l":["A","Q"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["14.1"],"st":"done"},
+ {"id":"14.3","t":"Portal: fee shown, pay and publish flow, receipts, admin settings page","l":["W"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["14.2"],"st":"done"}
+ ]},
+{"id":"P15","name":"Paid store placement (bidding)","goal":"Stores bid for first place in a pincode for a week; the highest confirmed and paid bid is shown first, marked Sponsored. An outbid store is refunded.","deps":["P14"],"exit":["Highest paid bid shows first in that pincode for the week","Sponsored label shown to customers","Outbid stores are refunded","Bidding rules are configurable"],
+ "tasks":[
+ {"id":"15.1","t":"Slots table (pincode, week, store, amount, status), bidding rules service, minimum bid and increment settings","l":["D","A"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"15.2","t":"Store pays to confirm a winning bid; outbid refunds; ties and closing time rules; tests incl. parallel bids","l":["A","Q"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.1"],"st":"done"},
+ {"id":"15.3","t":"Apply placement in catalog/stores for the customer pincode; Sponsored label in the app","l":["A","M"],"s":"M","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"done"},
+ {"id":"15.4","t":"Portal: store bidding page, admin controls and reports","l":["W"],"s":"L","d":"See docs/plans/P13-P14-store-offers-and-paid-placement.md.","ac":[],"a":[],"dep":["15.2"],"st":"done"}
+ ]},
+{"id":"P16","name":"Catalogue editing, pictures and stock","goal":"Admins and store staff edit products, sizes and pictures; each store keeps its own stock.","deps":["P15"],"exit":["Products and pictures editable in the portal","Stock is per store and customers see only what the store carries"],
+ "tasks":[
+ {"id":"16.1","t":"Catalogue editing and picture upload","l":["A","W"],"s":"L","d":"Product, size and picture editing; local image store.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"16.2","t":"Per-store stock with sells-here flag and reorder level","l":["D","A","W"],"s":"M","d":"Stock screen for store staff and admins.","ac":[],"a":[],"dep":["16.1"],"st":"done"}
+ ]},
+{"id":"P17","name":"Reports","goal":"Sales, products and earnings reports for admins and stores.","deps":["P16"],"exit":["Reports show sales and top products for a chosen period"],
+ "tasks":[
+ {"id":"17.1","t":"Report queries and API","l":["A"],"s":"M","d":"Sales, products and stores.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"17.2","t":"Portal reports page","l":["W"],"s":"M","d":"Filters and tables.","ac":[],"a":[],"dep":["17.1"],"st":"done"}
+ ]},
+{"id":"P18","name":"Order again and saved items","goal":"A customer repeats an earlier order or keeps items to buy later.","deps":["P17"],"exit":["Order again refills the cart","Saved items survive sign-out"],
+ "tasks":[
+ {"id":"18.1","t":"Order again and saved items (API and app)","l":["A","M"],"s":"M","d":"Server-side saved items; Order again on past orders.","ac":[],"a":[],"dep":[],"st":"done"}
+ ]},
+{"id":"P19","name":"Ratings","goal":"Customers rate delivered orders; ratings are stored per store.","deps":["P18"],"exit":["Rating saved once per delivered order"],
+ "tasks":[
+ {"id":"19.1","t":"Ratings (API and app)","l":["A","M","D"],"s":"M","d":"Rating screen and storage.","ac":[],"a":[],"dep":[],"st":"done"}
+ ]},
+{"id":"P20","name":"Offers with discounts, pictures and pop-up","goal":"Offers carry a discount and picture, show as Home banners and an app-open pop-up; Your stores and Bought before.","deps":["P19"],"exit":["Discount applied by the server","Banner and pop-up shown for 7 days","Your stores and Bought before lists"],
+ "tasks":[
+ {"id":"20.1","t":"Offer discounts and pictures (server pricing)","l":["D","A","W"],"s":"L","d":"Highest offer percent wins; server is the price authority.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"20.2","t":"App banners, pop-up, Your stores, Bought before","l":["M"],"s":"M","d":"Home and offer screens.","ac":[],"a":[],"dep":["20.1"],"st":"done"}
+ ]},
+{"id":"P21","name":"Order note and out-of-stock choice","goal":"The customer adds a note and says what to do if an item is out of stock.","deps":["P20"],"exit":["Note and choice saved on the order and shown in the portal"],
+ "tasks":[
+ {"id":"21.1","t":"Order note and out-of-stock choice (Remove, Call me, Replace)","l":["D","A","M","W"],"s":"M","d":"Migration AddOrderNotes.","ac":[],"a":[],"dep":[],"st":"done"}
+ ]},
+{"id":"P22","name":"Store prices and commission","goal":"Managers set their own price; admins set a commission percent per store, fixed on each order.","deps":["P21"],"exit":["Store price shown with the original struck through","Commission fixed per order and reported as Earnings by shop"],
+ "tasks":[
+ {"id":"22.1","t":"Store-own prices and discount ribbon","l":["D","A","M","W"],"s":"L","d":"StorePricing chain; migration AddStorePriceOverride.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"22.2","t":"Commission default and per-store overrides; Earnings report","l":["D","A","W"],"s":"L","d":"Migration AddCommission.","ac":[],"a":[],"dep":["22.1"],"st":"done"},
+ {"id":"22.3","t":"Notification rule: bell only for key order events","l":["A","Q"],"s":"S","d":"Timeline-only for accepted, packing, ready, out for delivery.","ac":[],"a":[],"dep":[],"st":"done"}
+ ]},
+{"id":"P23","name":"Delivery tracking","goal":"The customer sees how far the delivery partner is and the ETA while the order is out for delivery.","deps":["P22"],"exit":["Partner app shares its position every 20 s","Customer sees distance and ETA only","Position erased on delivery"],
+ "tasks":[
+ {"id":"23.1","t":"Location sharing in the partner app and tracking API","l":["D","A","M"],"s":"L","d":"Latest position only; ETA at 20 km/h.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"23.2","t":"Distance and ETA line in the customer app","l":["M"],"s":"S","d":"Hidden when the position is stale.","ac":[],"a":[],"dep":["23.1"],"st":"done"}
+ ]},
+{"id":"P24","name":"Store changes an order with automatic partial refund","goal":"A store removes or reduces items of an order it is packing; online payments are refunded for the difference.","deps":["P23"],"exit":["Fees stay, commission recomputed","Refund via the payment job","Customer sees what changed"],
+ "tasks":[
+ {"id":"24.1","t":"Order change rules, API and migration","l":["D","A","Q"],"s":"L","d":"Migration AddOrderChanges.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"24.2","t":"Portal Change items and customer change card","l":["W","M"],"s":"M","d":"Refund status shown.","ac":[],"a":[],"dep":["24.1"],"st":"done"}
+ ]},
+{"id":"P25","name":"Replacement products","goal":"The store offers a replacement for an out-of-stock line; the customer accepts or declines within 5 minutes.","deps":["P24"],"exit":["Accept swaps the line and recalculates","No answer removes the item and refunds","Dearer replacement allowed for cash orders only"],
+ "tasks":[
+ {"id":"25.1","t":"Replacement proposals, rules, API and expiry job","l":["D","A","Q"],"s":"L","d":"Migrations AddReplacementProposals and RelaxAdjustmentCheck.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"25.2","t":"Portal Replace and customer Accept / Decline card","l":["W","M"],"s":"M","d":"Bell notice on offer.","ac":[],"a":[],"dep":["25.1"],"st":"done"}
+ ]},
+{"id":"P26","name":"Google Maps address picker","goal":"Choose the delivery spot on a map with a fixed centre pin (customer app, Android).","deps":["P25"],"exit":["Choose on map button when the build has a key","Map shows and the confirmed point fills the address"],
+ "tasks":[
+ {"id":"26.1","t":"Picker screen, key injected at build time, release workflow secret, tests","l":["M","I","Q"],"s":"L","d":"Committed. The button shows; it is hidden without a key.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"26.2","t":"Map tiles show on a device","l":["I"],"s":"S","d":"Google rejects the key (INVALID_ARGUMENT). Check: Maps SDK for Android enabled and billing linked in the key project; key restrictions; a new key typed into mobile/android/local.properties, then rebuild. Paused by the user on 2026-11-01.","ac":[],"a":[],"dep":["26.1"],"st":"blocked","bk":"Google Cloud key or project setup"}
+ ]},
+{"id":"P27","name":"Portal tests","goal":"The admin portal gets automated tests that run in CI.","deps":["P22"],"exit":["npm test passes","CI portal job runs the tests"],
+ "tasks":[
+ {"id":"27.1","t":"Vitest runner with jsdom and in-memory storage","l":["W","Q","I"],"s":"S","d":"Angular unit-test builder; vitest and jsdom dev packages.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"27.2","t":"Tests: storage, config, auth, guards, interceptor, API; Commission, Stock, Orders screens","l":["W","Q"],"s":"L","d":"68 tests.","ac":[],"a":[],"dep":["27.1"],"st":"done"},
+ {"id":"27.3","t":"Tests for the remaining portal screens","l":["W","Q"],"s":"L","d":"170 tests in all; found and fixed five screen bugs.","ac":[],"a":[],"dep":["27.2"],"st":"done"}
+ ]},
+{"id":"P28","name":"Coupon codes","goal":"Administrators make coupon codes; customers type one in the cart and the server takes it off the order.","deps":["P27"],"exit":["Server decides every discount","Uses given back when an order does not go ahead","Store earnings unchanged by coupons"],
+ "tasks":[
+ {"id":"28.1","t":"Rules, tables and migration (AddCoupons)","l":["D","A","Q"],"s":"M","d":"Percent with cap, Flat, Free delivery; limits; shared pure rules.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"28.2","t":"Checkout, release on cancel/reject/expiry, order-change recompute and refund","l":["A","Q"],"s":"L","d":"Atomic use counter; throwaway-DB tests.","ac":[],"a":[],"dep":["28.1"],"st":"done"},
+ {"id":"28.3","t":"Admin API, cart preview, reports coupon cost","l":["A","Q"],"s":"M","d":"api/admin/coupons; api/carts/{store}/coupon.","ac":[],"a":[],"dep":["28.2"],"st":"done"},
+ {"id":"28.4","t":"Portal Coupons screen","l":["W","Q"],"s":"M","d":"Create, edit, switch on and off, see use and cost.","ac":[],"a":[],"dep":["28.3"],"st":"done"},
+ {"id":"28.5","t":"Customer app: code box, totals, order bill","l":["M","Q"],"s":"M","d":"Marathi labels; server messages English.","ac":[],"a":[],"dep":["28.3"],"st":"done"},
+ {"id":"28.6","t":"Apply migration to the dev database and walk section U","l":["I"],"s":"S","d":"Done: backup, migration applied, APIs restarted. Still to do: you walk section U (phone rebuild needed).","ac":[],"a":[],"dep":["28.5"],"st":"doing","bk":"Phone rebuild and manual walk of section U"}
+ ]},
+{"id":"P29","name":"Scheduled delivery","goal":"Customers choose a delivery window; stores set the rules; capacity is enforced on the server.","deps":["P28"],"exit":["A window can never be overbooked","Places are given back when an order does not go ahead","Store and partner see the window"],
+ "tasks":[
+ {"id":"29.1","t":"Rules, tables and migration (AddDeliverySlots)","l":["D","A","Q"],"s":"M","d":"Windows, cut-off, capacity; shared pure rules.","ac":[],"a":[],"dep":["28.6"],"st":"done"},
+ {"id":"29.2","t":"Checkout booking, release, order and admin list fields","l":["A","Q"],"s":"L","d":"Atomic place; throwaway-DB tests.","ac":[],"a":[],"dep":["29.1"],"st":"done"},
+ {"id":"29.3","t":"Admin settings API and customer window list","l":["A","Q"],"s":"M","d":"Default plus per-store override.","ac":[],"a":[],"dep":["29.2"],"st":"done"},
+ {"id":"29.4","t":"Portal Delivery times screen and window on orders","l":["W","Q"],"s":"M","d":"188 portal tests.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.5","t":"Customer app: choose a time at checkout, window on orders","l":["M","Q"],"s":"L","d":"Marathi labels.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.6","t":"Partner app: show the window","l":["D","Q"],"s":"S","d":"Card and detail.","ac":[],"a":[],"dep":["29.3"],"st":"done"},
+ {"id":"29.7","t":"Apply migration to the dev database and walk section V","l":["I"],"s":"S","d":"Done: backup, migration applied, APIs restarted. Still to do: phone rebuild and your walk of section V.","ac":[],"a":[],"dep":["29.5"],"st":"doing","bk":"Phone rebuild and manual walk of section V"}
+ ]},
+{"id":"P30","name":"API tests over HTTP","goal":"The real API is tested through HTTP, including who may call what.","deps":["P29"],"exit":["Permissions checked per role","No endpoint is open by accident"],
+ "tasks":[
+ {"id":"30.1","t":"HTTP test harness with the demo users and the coupon, delivery-time and admin permission tests","l":["A","Q"],"s":"M","d":"7 tests on the test SQL database.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"30.2","t":"Route coverage test: every endpoint needs a sign-in unless deliberately open","l":["A","Q"],"s":"S","d":"Removed the unused WeatherForecast endpoint it found.","ac":[],"a":[],"dep":["30.1"],"st":"done"}
+ ]},
+{"id":"P31","name":"Store Today screen and alerts","goal":"Store staff see their day and what needs attention without hunting for it.","deps":["P29"],"exit":["New and ready orders left waiting are flagged","Low stock and filling delivery windows are flagged"],
+ "tasks":[
+ {"id":"31.1","t":"Today rules, service, SQL reads and API (no migration)","l":["A","Q"],"s":"M","d":"Counts, five alert kinds, upcoming scheduled orders.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"31.2","t":"Portal Today screen with 30-second refresh","l":["W","Q"],"s":"M","d":"Store staff and administrators; 196 portal tests.","ac":[],"a":[],"dep":["31.1"],"st":"done"},
+ {"id":"31.3","t":"Restart the APIs and walk section W","l":["I"],"s":"S","d":"No database change; restart both APIs.","ac":[],"a":[],"dep":["31.2"],"st":"todo"}
+ ]},
+{"id":"P32","name":"Customer behaviour analytics","goal":"See how customers move through the app without knowing who they are.","deps":["P31"],"exit":["Nothing personal is stored","Funnels per store and for all stores","Old events purged, daily counts kept"],
+ "tasks":[
+ {"id":"32.1","t":"Event rules, tables, anonymous intake, daily rollup and purge, behaviour report API (migration AddAnalytics)","l":["D","A","Q"],"s":"L","d":"Rules, service, SQL and HTTP tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"32.2","t":"Customer app tracker (batched, best effort) wired into search, product, cart, checkout, coupon, delivery time, store","l":["M","Q"],"s":"M","d":"599 app tests.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.3","t":"Portal Behaviour screen (funnel, searches, coupon refusals, sessions per day)","l":["W","Q"],"s":"M","d":"206 portal tests.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.4","t":"Privacy notes for the policy and the Play data safety form","l":["I"],"s":"S","d":"In RELEASE_AND_SECURITY.md.","ac":[],"a":[],"dep":["32.1"],"st":"done"},
+ {"id":"32.5","t":"Apply AddAnalytics to the dev database, restart APIs, rebuild the phone, walk section X","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update, restart APIs, phone rebuild.","ac":[],"a":[],"dep":["32.3"],"st":"todo","bk":"Owner go-ahead"}
+ ]},
+{"id":"P33","name":"Offer card designs and festival cards","goal":"Administrators give an offer a festival card design (or their own uploaded card) that customers see on Home.","deps":["P32"],"exit":["Eight festival designs drawn the same in the app and the portal","Only administrators choose a design","Uploaded card replaces the built-in artwork"],
+ "tasks":[
+ {"id":"33.1","t":"Card design on offers: entity, validation (admin only, eight keys), API fields, check constraint (migration AddOfferCardDesign)","l":["D","A","Q"],"s":"M","d":"Backend tests incl. HTTP and database constraint.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"33.2","t":"Portal: shared offer card component, design picker with live preview, upload guidance","l":["W","Q"],"s":"M","d":"222 portal tests.","ac":[],"a":[],"dep":["33.1"],"st":"done"},
+ {"id":"33.3","t":"Customer app: festival card widget with eight painted motifs in the Home rail and the offer screen, Marathi","l":["M","Q"],"s":"L","d":"621 app tests; layout never overflows.","ac":[],"a":[],"dep":["33.1"],"st":"done"},
+ {"id":"33.4","t":"Apply AddOfferCardDesign to the dev database, restart APIs, rebuild the phone, walk section Y","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update, restart APIs, phone rebuild.","ac":[],"a":[],"dep":["33.3"],"st":"todo","bk":"Owner go-ahead"}
+ ]},
+{"id":"P34","name":"Festival follow-ups","goal":"Change an existing offer's card; festive tags and a Marathi greeting in the app.","deps":["P33"],"exit":["Admin changes a live offer's card","Festive tag and greeting show only while a festival offer runs"],
+ "tasks":[
+ {"id":"34.1","t":"Change the card of an existing offer: admin-only API (PUT card) with checks, store methods, tests","l":["A","Q"],"s":"S","d":"Backend 1229 tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"34.2","t":"Portal: Change card on each offer (design picker, preview, keep or drop picture)","l":["W","Q"],"s":"S","d":"224 portal tests.","ac":[],"a":[],"dep":["34.1"],"st":"done"},
+ {"id":"34.3","t":"App: festive product tag and Marathi greeting chip from running festival offers","l":["M","Q"],"s":"S","d":"624 app tests.","ac":[],"a":[],"dep":["33.3"],"st":"done"},
+ {"id":"34.4","t":"Festive finish: Home colour wash and festival-coloured category tiles","l":["M","Q"],"s":"S","d":"App tests.","ac":[],"a":[],"dep":["34.3"],"st":"done"}
+ ]},
+{"id":"P35","name":"Multi-organization switching","goal":"A platform administrator can look at another organization, read-only.","deps":["P34"],"exit":["Only the platform role can switch","Changes in another organization are refused and logged"],
+ "tasks":[
+ {"id":"35.1","t":"Server: acting-organization header, platform-admin check, read-only middleware with logging, organizations list","l":["A","Q"],"s":"M","d":"Backend 1230 plus HTTP test on a throwaway database.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"35.2","t":"Portal: organization switcher, read-only banner, header on every request","l":["W","Q"],"s":"S","d":"230 portal tests.","ac":[],"a":[],"dep":["35.1"],"st":"done"},
+ {"id":"35.3","t":"Add a second organization to the dev database and walk section Z","l":["I"],"s":"S","d":"Needs a second organization.","ac":[],"a":[],"dep":["35.2"],"st":"todo"}
+ ]},
+{"id":"P36","name":"Crash reporting and order polish","goal":"Crashes are visible without sending personal data; cancel and refund wording and partner checks are clearer.","deps":["P35"],"exit":["Crash reporting is off until a key is set and sends nothing personal","Cancelled orders say what happened to the money","Partner app checks the code and cash before asking the server"],
+ "tasks":[
+ {"id":"36.1","t":"Crash reporting (Sentry) in the API, portal, customer app and partner app with scrubbing and an off switch","l":["A","W","M","Q"],"s":"M","d":"Scrub tests in all four.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.2","t":"Customer app: money line on cancelled and declined orders (Marathi too)","l":["M","Q"],"s":"S","d":"Widget tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.3","t":"Partner app: code and cash checks on the phone, cash difference note","l":["M","Q"],"s":"S","d":"27 partner app tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"36.4","t":"Create a Sentry account, add the keys, verify a test crash from each place, build both apps once with sentry_flutter","l":["I"],"s":"S","d":"Needs your account.","ac":[],"a":[],"dep":["36.1"],"st":"todo"}
+ ]},
+{"id":"P37","name":"Clean v4 restyle","goal":"The customer app looks like the Clean v4 design.","deps":["P36"],"exit":["White v4 theme, fonts and colours app-wide","Home, Categories, Orders, Order, Profile and the product tiles follow the design"],
+ "tasks":[
+ {"id":"37.1","t":"v4 theme: white page, tiles, yellow buttons, success green and error red, bundled fonts","l":["M","Q"],"s":"M","d":"App tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"37.2","t":"Home: festival hero, slim offers, rank badges, section order; product tiles and 3-up grids","l":["M","Q"],"s":"L","d":"App tests and screenshots.","ac":[],"a":[],"dep":["37.1"],"st":"done"},
+ {"id":"37.3","t":"Categories rail, order cards and status pills, live order heading and bar, Profile","l":["M","Q"],"s":"L","d":"App tests and screenshots.","ac":[],"a":[],"dep":["37.1"],"st":"done"},
+ {"id":"37.4","t":"Live tracking map half and the design icons","l":["M"],"s":"L","d":"Needs the Google Maps key fixed.","ac":[],"a":[],"dep":["37.3"],"st":"todo"},
+ {"id":"37.5","t":"Check sign-in, search and checkout on the phone against the v4 look","l":["I","Q"],"s":"S","d":"Screenshots with a signed-in test customer.","ac":[],"a":[],"dep":["37.3"],"st":"todo"}
+ ]},
+{"id":"P38","name":"Ads, order cards and offer designs","goal":"Admin-set ads in the customer app, colourful order cards with ratings, more offer card designs.","deps":["P37"],"exit":["Admin places ads at seven places and sees views and taps","Order cards show state colours and ratings","Six everyday offer designs"],
+ "tasks":[
+ {"id":"38.1","t":"Ads server: entity, rules, admin API, public API with counters, migration AddAds, tests","l":["D","A","Q"],"s":"L","d":"Rules, service, HTTP and SQL tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.2","t":"Portal Ads screen: place, picture upload, tap target, store, dates, stats","l":["W","Q"],"s":"M","d":"243 portal tests.","ac":[],"a":[],"dep":["38.1"],"st":"done"},
+ {"id":"38.3","t":"App ad banner at seven places, view and tap counting, safe links","l":["M","Q"],"s":"L","d":"Ad tests; full app suite.","ac":[],"a":[],"dep":["38.1"],"st":"done"},
+ {"id":"38.4","t":"Order cards: colour band, tinted header, shop first, ratings (list carries the numbers), Rate button","l":["A","M","Q"],"s":"M","d":"Server and app tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.5","t":"Six everyday offer designs in server, portal and app; migration WidenOfferCardDesign","l":["D","A","W","M","Q"],"s":"M","d":"All three test suites.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.6","t":"Product page cart bar and cart button","l":["M","Q"],"s":"S","d":"App tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"38.7","t":"Apply AddAds and WidenOfferCardDesign to the dev database, restart APIs, rebuild the phone, walk section AC","l":["I"],"s":"S","d":"Needs your go-ahead: backup, dotnet ef database update.","ac":[],"a":[],"dep":["38.1","38.5"],"st":"todo"}
+ ]},
+{"id":"P39","name":"Design pass 2 and sub-categories","goal":"Dark theme in the v4 style, smaller nav, overlapping sheet, rounded line icons, sub-category chips.","deps":["P38"],"exit":["Dark theme matches v4","Lucide icons bundled","Admin builds sub-categories; the app shows chips"],
+ "tasks":[
+ {"id":"39.1","t":"Dark v4 theme, smaller nav and cart pill, 24 px overlapping sheet under the festival hero","l":["M","Q"],"s":"M","d":"Accessibility tests kept at 48 px targets.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.2","t":"Lucide rounded line icons bundled (184 replaced)","l":["M","Q"],"s":"M","d":"App suite 662.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.3","t":"Category admin API (tree rules) and parent lists children's products","l":["D","A","Q"],"s":"M","d":"Rules, service, HTTP and SQL tests.","ac":[],"a":[],"dep":[],"st":"done"},
+ {"id":"39.4","t":"Portal Categories screen","l":["W","Q"],"s":"M","d":"251 portal tests.","ac":[],"a":[],"dep":["39.3"],"st":"done"},
+ {"id":"39.5","t":"App sub-category chips on Categories, main categories only on Home","l":["M","Q"],"s":"S","d":"Chip and mapping tests.","ac":[],"a":[],"dep":["39.3"],"st":"done"},
+ {"id":"39.6","t":"Rebuild the phone and walk section AD","l":["I"],"s":"S","d":"Needs sub-categories created in the portal first.","ac":[],"a":[],"dep":["39.4","39.5"],"st":"todo"}
  ]}
 ],
-"backlog":["iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview","Favourites and ratings","Deals/coupons rule engine behind Today's deals","Delivery slots and scheduled delivery (configurable rules)","Multi-organization store switching","Product analytics"],
+"backlog":["Push notifications (needs a Firebase project)","Live delivery map and store/portal maps","Store service-area circles on the address map","iOS build, signing and TestFlight (needs macOS/Xcode)","Hosted Flutter web preview"],
 "gaps":[
  {"f":"Browse and search products as a customer","api":"missing","n":"GET /api/products requires the admin-read policy.","p":"P1"},
  {"f":"Product detail","api":"partial","n":"/api/products/{id} is public but has no MRP, Marathi name or availability.","p":"P1"},

@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/l10n.dart';
 import '../../core/widgets.dart';
+import '../../data/api/api_exception.dart';
 import '../../data/providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_widgets.dart';
@@ -60,9 +62,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         Form(
           key: _form,
           child: Column(children: [
-            AuthField(context.tr('Full name'), Icons.person_outline, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, validator: (v) => requiredField(context, v)),
-            AuthField(context.tr('Mobile number (optional)'), Icons.phone_outlined, controller: _phone, enabled: !_busy, keyboard: TextInputType.phone, formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], validator: (v) => optionalPhoneField(context, v)),
-            AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: false),
+            AuthField(context.tr('Full name'), LucideIcons.user, controller: _name, enabled: !_busy, capitalization: TextCapitalization.words, validator: (v) => requiredField(context, v)),
+            AuthField(context.tr('Mobile number (optional)'), LucideIcons.phone, controller: _phone, enabled: !_busy, keyboard: TextInputType.phone, formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], validator: (v) => optionalPhoneField(context, v)),
+            AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: false),
           ]),
         ),
         if (_error != null) ErrorBanner(_error!),
@@ -120,10 +122,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           Form(
             key: _form,
             child: Column(children: [
-              AuthField(context.tr('Current password'), Icons.lock_outline, controller: _current, enabled: !_busy, obscure: _hide, autofillHints: const [AutofillHints.password], validator: (v) => requiredField(context, v)),
+              AuthField(context.tr('Current password'), LucideIcons.lock, controller: _current, enabled: !_busy, obscure: _hide, autofillHints: const [AutofillHints.password], validator: (v) => requiredField(context, v)),
               AuthField(
                 context.tr('New password'),
-                Icons.lock_reset_outlined,
+                LucideIcons.lockKeyhole,
                 controller: _next,
                 enabled: !_busy,
                 obscure: _hide,
@@ -137,4 +139,89 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           PillButton(context.tr(_busy ? 'Please wait…' : 'Save'), arrow: !_busy, onPressed: _busy ? null : _save),
         ],
       );
+}
+
+/// Deleting the account for good. Google Play requires that customers can do this from inside the app.
+class DeleteAccountScreen extends ConsumerStatefulWidget {
+  const DeleteAccountScreen({super.key});
+  @override
+  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+}
+
+class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
+  final _form = GlobalKey<FormState>();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _hide = true;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    _confirm.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete() async {
+    if (_busy || !_form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authProvider.notifier).deleteAccount(password: _password.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('Your account was deleted.'))));
+      context.go('/');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = switch (e) {
+              ConflictException() => context.tr('Finish or cancel your open orders first.'),
+              ValidationException() => context.tr('Your password is not correct.'),
+              _ => accountErrorText(context, e),
+            });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPassword = ref.watch(authProvider).user?.hasPassword ?? true;
+    return AuthScaffold(
+      title: context.tr('Delete account'),
+      subtitle: context.tr('This erases your name, phone, email, addresses and notifications for good. Past orders stay with the store without your details.'),
+      children: [
+        Form(
+          key: _form,
+          child: Column(children: [
+            if (hasPassword)
+              AuthField(
+                context.tr('Password'),
+                LucideIcons.lock,
+                controller: _password,
+                enabled: !_busy,
+                obscure: _hide,
+                autofillHints: const [AutofillHints.password],
+                validator: (v) => requiredField(context, v),
+                suffix: passwordToggle(context, _hide, () => setState(() => _hide = !_hide)),
+              ),
+            AuthField(
+              context.tr('Type DELETE to confirm'),
+              LucideIcons.trash2,
+              controller: _confirm,
+              enabled: !_busy,
+              capitalization: TextCapitalization.characters,
+              validator: (v) => (v ?? '').trim().toUpperCase() == 'DELETE' ? null : context.tr('Type DELETE to confirm'),
+            ),
+          ]),
+        ),
+        if (_error != null) ErrorBanner(_error!),
+        PillButton(context.tr(_busy ? 'Please wait…' : 'Delete my account'), arrow: false, onPressed: _busy ? null : _delete),
+      ],
+    );
+  }
 }

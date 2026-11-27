@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,15 +14,44 @@ import '../../data/seed.dart';
 import 'auth_controller.dart';
 import 'auth_widgets.dart';
 
-/// Welcome screen (see docs/design 03/06). Phone OTP and Google / Apple sign-in are shown again when decision D7 is made;
-/// until then customers use email and password.
-class WelcomeScreen extends StatelessWidget {
+/// Welcome screen (see docs/design 03/06). Customers continue with their phone number (a text-message code), with Google
+/// when this build has a Google client id, or with an email and password.
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key, this.next});
   final String? next;
 
   @override
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _google() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final token = await ref.read(googleSignInServiceProvider).idToken();
+      if (token == null) return; // the person closed the account picker
+      await ref.read(authProvider.notifier).loginWithGoogle(token);
+      if (mounted) context.go(safeNext(widget.next));
+    } catch (e) {
+      if (kDebugMode) debugPrint('[auth] google sign-in failed: $e');
+      if (mounted) setState(() => _error = context.tr('Google sign-in did not work. Please try again.'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = context.pal;
+    final next = widget.next;
+    final googleOn = ref.watch(googleSignInServiceProvider).isConfigured;
     return AppScaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -34,9 +64,9 @@ class WelcomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Flexible(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Container(width: 52, height: 52, decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.shopping_basket_outlined, color: Pal.ink)),
+                      Container(width: 52, height: 52, decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(18)), child: const Icon(LucideIcons.shoppingBasket, color: Pal.ink)),
                       const SizedBox(width: 10),
-                      const Flexible(child: Text('QuickCart', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))),
+                      Flexible(child: Text('QuickCart', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: context.pal.onGround, fontSize: 20, fontWeight: FontWeight.w900))),
                     ])),
                     const LanguageToggle(),
                   ]),
@@ -46,25 +76,33 @@ class WelcomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(color: Pal.yellow, borderRadius: BorderRadius.circular(QC.rCard)),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Icon(Icons.storefront_outlined, size: 32, color: Pal.ink),
+                      const Icon(LucideIcons.store, size: 32, color: Pal.ink),
                       const SizedBox(height: 20),
                       Text(context.tr('Your trusted neighbourhood shop, now digital'), style: const TextStyle(color: Pal.ink, fontSize: 22, fontWeight: FontWeight.w900, height: 1.2)),
                     ]),
                   ),
                   const SizedBox(height: 12),
                   Row(children: [
-                    Expanded(child: _FeatureTile(p.tiles[0], Icons.timer_outlined, context.tr('{n} min delivery', {'n': '$etaMinutes'}))),
+                    Expanded(child: _FeatureTile(p.tiles[0], LucideIcons.timer, context.tr('{n} min delivery', {'n': '$etaMinutes'}))),
                     const SizedBox(width: 12),
-                    Expanded(child: _FeatureTile(p.tiles[1], Icons.eco_outlined, context.tr('Fresh & reliable'))),
+                    Expanded(child: _FeatureTile(p.tiles[1], LucideIcons.leaf, context.tr('Fresh & reliable'))),
                   ]),
                   const SizedBox(height: 24),
-                  Text(context.tr('Your local shop,\nnow in your hand.'), style: const TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
+                  Text(context.tr('Your local shop,\nnow in your hand.'), style: TextStyle(color: context.pal.onGround, fontSize: 34, fontWeight: FontWeight.w900, height: 1.05)),
                   const Spacer(),
                   const SizedBox(height: 24),
-                  PillButton(context.tr('Log in'), arrow: true, onPressed: () => context.push(withNext('/login', next))),
-                  const SizedBox(height: 12),
-                  SoftPillButton(context.tr('Create account'), height: 60, onPressed: () => context.push(withNext('/register', next))),
-                  Center(child: TextButton(onPressed: () => context.go('/'), child: Text(context.tr('Browse as guest'), style: const TextStyle(color: Pal.mutedOnGround)))),
+                  if (_error != null) ErrorBanner(_error!),
+                  PillButton(context.tr('Continue with phone'), arrow: true, onPressed: _busy ? null : () => context.push(withNext('/phone', next))),
+                  if (googleOn) ...[
+                    const SizedBox(height: 12),
+                    SoftPillButton(context.tr(_busy ? 'Please wait…' : 'Continue with Google'), height: 60, onPressed: _google),
+                  ],
+                  const SizedBox(height: 4),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Flexible(child: TextButton(onPressed: () => context.push(withNext('/login', next)), child: Text(context.tr('Log in'), maxLines: 1, overflow: TextOverflow.ellipsis))),
+                    Flexible(child: TextButton(onPressed: () => context.push(withNext('/register', next)), child: Text(context.tr('Create account'), maxLines: 1, overflow: TextOverflow.ellipsis))),
+                  ]),
+                  Center(child: TextButton(onPressed: () => context.go('/'), child: Text(context.tr('Browse as guest'), style: TextStyle(color: context.pal.mutedOnGround)))),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -152,10 +190,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with _Submitting {
             key: _form,
             child: AutofillGroup(
               child: Column(children: [
-                AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.username, AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
+                AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.username, AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
                 AuthField(
                   context.tr('Password'),
-                  Icons.lock_outline,
+                  LucideIcons.lock,
                   controller: _password,
                   enabled: !busy,
                   obscure: _hide,
@@ -172,7 +210,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with _Submitting {
           PillButton(context.tr(busy ? 'Please wait…' : 'Log in'), arrow: !busy, onPressed: busy ? null : _login),
           const SizedBox(height: 12),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Flexible(child: Text(context.tr('New here?'), style: const TextStyle(color: Pal.mutedOnGround))),
+            Flexible(child: Text(context.tr('New here?'), style: TextStyle(color: context.pal.mutedOnGround))),
             TextButton(onPressed: () => context.pushReplacement(withNext('/register', widget.next)), child: Text(context.tr('Create account'))),
           ]),
         ],
@@ -218,12 +256,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with _Submittin
             key: _form,
             child: AutofillGroup(
               child: Column(children: [
-                AuthField(context.tr('Full name'), Icons.person_outline, controller: _name, enabled: !busy, autofillHints: const [AutofillHints.name], capitalization: TextCapitalization.words, textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
-                AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
-                AuthField(context.tr('Mobile number (optional)'), Icons.phone_outlined, controller: _phone, enabled: !busy, keyboard: TextInputType.phone, autofillHints: const [AutofillHints.telephoneNumber], formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], textInputAction: TextInputAction.next, validator: (v) => optionalPhoneField(context, v)),
+                AuthField(context.tr('Full name'), LucideIcons.user, controller: _name, enabled: !busy, autofillHints: const [AutofillHints.name], capitalization: TextCapitalization.words, textInputAction: TextInputAction.next, validator: (v) => requiredField(context, v)),
+                AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], textInputAction: TextInputAction.next, validator: (v) => emailField(context, v)),
+                AuthField(context.tr('Mobile number (optional)'), LucideIcons.phone, controller: _phone, enabled: !busy, keyboard: TextInputType.phone, autofillHints: const [AutofillHints.telephoneNumber], formatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+ ]'))], textInputAction: TextInputAction.next, validator: (v) => optionalPhoneField(context, v)),
                 AuthField(
                   context.tr('Password'),
-                  Icons.lock_outline,
+                  LucideIcons.lock,
                   controller: _password,
                   enabled: !busy,
                   obscure: _hide,
@@ -240,13 +278,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with _Submittin
             controlAffinity: ListTileControlAffinity.leading,
             value: _agree,
             onChanged: busy ? null : (v) => setState(() => _agree = v ?? false),
-            title: Text(context.tr('I agree to the Terms of Service and Privacy Policy'), style: const TextStyle(fontSize: 13, color: Colors.white)),
+            title: Text(context.tr('I agree to the Terms of Service and Privacy Policy'), style: TextStyle(fontSize: 13, color: context.pal.onGround)),
           ),
           const SizedBox(height: 8),
           if (error != null) ErrorBanner(error!),
           PillButton(context.tr(busy ? 'Please wait…' : 'Create account'), arrow: !busy, onPressed: (_agree && !busy) ? _register : null),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Flexible(child: Text(context.tr('Already registered?'), style: const TextStyle(color: Pal.mutedOnGround))),
+            Flexible(child: Text(context.tr('Already registered?'), style: TextStyle(color: context.pal.mutedOnGround))),
             TextButton(onPressed: () => context.pushReplacement(withNext('/login', widget.next)), child: Text(context.tr('Log in'))),
           ]),
         ],
@@ -281,7 +319,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> wit
         title: context.tr('Reset password'),
         subtitle: context.tr('Enter your email and we will send you a reset code.'),
         children: [
-          Form(key: _form, child: AuthField(context.tr('Email'), Icons.mail_outline, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], validator: (v) => emailField(context, v))),
+          Form(key: _form, child: AuthField(context.tr('Email'), LucideIcons.mail, controller: _email, enabled: !busy, keyboard: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], validator: (v) => emailField(context, v))),
           if (error != null) ErrorBanner(error!),
           PillButton(context.tr(busy ? 'Please wait…' : 'Send reset code'), arrow: !busy, onPressed: busy ? null : _send),
         ],
@@ -328,7 +366,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> with 
             child: Column(children: [
               AuthField(
                 context.tr('Reset code'),
-                Icons.pin_outlined,
+                LucideIcons.mapPin,
                 controller: _code,
                 enabled: !busy,
                 capitalization: TextCapitalization.characters,
@@ -337,7 +375,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> with 
               ),
               AuthField(
                 context.tr('New password'),
-                Icons.lock_outline,
+                LucideIcons.lock,
                 controller: _password,
                 enabled: !busy,
                 obscure: _hide,
