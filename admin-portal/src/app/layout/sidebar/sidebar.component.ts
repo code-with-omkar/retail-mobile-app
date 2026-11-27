@@ -14,6 +14,8 @@ export interface NavItem {
   requiredPermissions?: string[];
   children?: NavItem[];
   action?: () => void;
+  /** A count shown beside the entry, such as unread notifications. */
+  badge?: number;
 }
 
 @Component({
@@ -34,6 +36,7 @@ export interface NavItem {
           <a [routerLink]="item.route" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: false }" class="nav-link" [attr.title]="titleFor(item)">
             <app-icon [name]="item.icon"></app-icon>
             <span class="nav-label">{{ item.label }}</span>
+            <span class="count" *ngIf="item.badge" [attr.aria-label]="item.badge + ' new'">{{ item.badge }}</span>
           </a>
         </ng-container>
       </nav>
@@ -42,11 +45,17 @@ export interface NavItem {
   styles: [`
     .sidebar {
       width: 244px;
-      height: 100vh;
+      /* a floating card that lets the page gradient through, so the screen reads as one piece */
+      height: calc(100vh - 24px);
+      margin: 12px 0 12px 12px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, .18);
       position: sticky;
-      top: 0;
+      top: 12px;
       box-sizing: border-box;
-      background: transparent;
+      --ink: #FFFFFF;
+      --muted: #E9E4FF;
+      background: var(--gradient) fixed;
       color: var(--ink);
       padding: 24px 14px 22px;
       display: flex;
@@ -59,6 +68,8 @@ export interface NavItem {
     }
 
     .sidebar:hover { scrollbar-color: #B9B2D9 transparent; }
+
+    .count { margin-left: auto; min-width: 18px; padding: 1px 6px; box-sizing: border-box; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 800; text-align: center; }
 
     .brand {
       display: flex;
@@ -85,8 +96,7 @@ export interface NavItem {
     .brand-dot { color: #FFD400; }
 
     .workspace-label {
-      color: #6F6A80;
-      opacity: .75;
+      color: #FFE27A;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 1.5px;
@@ -106,7 +116,7 @@ export interface NavItem {
       font-weight: 800;
       letter-spacing: 1.2px;
       text-transform: uppercase;
-      color: #6F6A80;
+      color: #FFE27A;
       padding: 9px 14px 2px;
     }
 
@@ -124,7 +134,7 @@ export interface NavItem {
       transition: background .15s ease, color .15s ease, box-shadow .15s ease;
     }
 
-    .nav-link:hover { background: var(--soft); }
+    .nav-link:hover:not(.active) { background: rgba(255, 255, 255, .16); color: #fff; }
 
     .nav-link.active {
       background: #FFD400;

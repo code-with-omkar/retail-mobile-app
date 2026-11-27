@@ -27,6 +27,9 @@ public static class NotificationCatalog
         [NotificationTypes.OrderChanged] = new(NotificationCategories.Order, "Your order was changed", "The store could not supply some items in your order {orderNumber}. Open the order to see what changed. If you paid online, the difference is refunded.", "ऑर्डरमध्ये बदल", "दुकान तुमच्या ऑर्डर {orderNumber} मधील काही वस्तू देऊ शकले नाही. काय बदलले ते ऑर्डर उघडून पहा. ऑनलाइन पैसे दिले असल्यास फरक परत केला जाईल."),
         [NotificationTypes.ReplacementProposed] = new(NotificationCategories.Order, "A replacement for your order", "The store is out of an item in your order {orderNumber} and suggests a replacement. Open the order to accept or decline. It is open for 5 minutes.", "तुमच्या ऑर्डरसाठी पर्याय", "दुकानाकडे तुमच्या ऑर्डर {orderNumber} मधील एक वस्तू संपली आहे आणि ते पर्याय सुचवत आहे. स्वीकारण्यासाठी किंवा नाकारण्यासाठी ऑर्डर उघडा. हे ५ मिनिटे खुले आहे."),
         [NotificationTypes.OrderRejected] = new(NotificationCategories.Order, "Order declined", "The store could not accept your order {orderNumber}. If you paid, you will be refunded.", "ऑर्डर नाकारली", "दुकान तुमची ऑर्डर {orderNumber} स्वीकारू शकले नाही. पैसे दिले असल्यास ते परत केले जातील."),
+        [NotificationTypes.DeliveryFailed] = new(NotificationCategories.Order, "Delivery did not happen", "We could not deliver your order {orderNumber}. The store will try again or cancel it.", "डिलिव्हरी झाली नाही", "आम्ही तुमची ऑर्डर {orderNumber} पोहोचवू शकलो नाही. दुकान पुन्हा प्रयत्न करेल किंवा ती रद्द करेल."),
+        [NotificationTypes.IssueApproved] = new(NotificationCategories.Order, "Your report was accepted", "The store accepted the problem you reported for order {orderNumber}. Open the order to see the refund.", "तुमची तक्रार मान्य झाली", "ऑर्डर {orderNumber} बद्दलची तुमची तक्रार दुकानाने मान्य केली. परतावा पाहण्यासाठी ऑर्डर उघडा."),
+        [NotificationTypes.IssueRefused] = new(NotificationCategories.Order, "About your report", "The store could not accept the problem you reported for order {orderNumber}. Open the order to see why.", "तुमच्या तक्रारीबद्दल", "ऑर्डर {orderNumber} बद्दलची तुमची तक्रार दुकान मान्य करू शकले नाही. कारण पाहण्यासाठी ऑर्डर उघडा."),
         [NotificationTypes.OrderCancelled] = new(NotificationCategories.Order, "Order cancelled", "Your order {orderNumber} was cancelled.", "ऑर्डर रद्द झाली", "तुमची ऑर्डर {orderNumber} रद्द झाली."),
         [NotificationTypes.PaymentReceived] = new(NotificationCategories.Payment, "Payment received", "We received your payment. Your order {orderNumber} has been placed.", "पेमेंट मिळाले", "तुमचे पेमेंट मिळाले. तुमची ऑर्डर {orderNumber} नोंदवली गेली आहे."),
         [NotificationTypes.PaymentNotCompleted] = new(NotificationCategories.Payment, "Payment not completed", "Your order {orderNumber} was cancelled because the payment was not completed in time.", "पेमेंट पूर्ण झाले नाही", "वेळेत पेमेंट न झाल्यामुळे तुमची ऑर्डर {orderNumber} रद्द झाली."),
@@ -78,6 +81,15 @@ public static class NotificationCatalog
             };
         }
 
+        if (status == OrderStatus.Cancelled && OrderCancellations.ForCustomer(order.CancelReason) is { } cancelled)
+        {
+            note = note with
+            {
+                Message = note.Message + " " + cancelled.En,
+                DataJson = JsonSerializer.Serialize(new Dictionary<string, string> { ["orderNumber"] = order.OrderNumber, ["cancelReason"] = order.CancelReason! })
+            };
+        }
+
         return From(customerId, order.Id, note);
     }
 
@@ -117,7 +129,7 @@ public static class NotificationCatalog
             return (notification.Title, notification.Message);
         }
 
-        var why = OrderRejections.ForCustomer(ReadText(notification.DataJson, "reason"));
+        var why = OrderRejections.ForCustomer(ReadText(notification.DataJson, "reason")) ?? OrderCancellations.ForCustomer(ReadText(notification.DataJson, "cancelReason"));
         return marathi
             ? (template.TitleMr, Fill(template.BodyMr, orderNumber) + (why is { } mr ? " " + mr.Mr : string.Empty))
             : (Fill(template.TitleEn, orderNumber), Fill(template.BodyEn, orderNumber) + (why is { } en ? " " + en.En : string.Empty));

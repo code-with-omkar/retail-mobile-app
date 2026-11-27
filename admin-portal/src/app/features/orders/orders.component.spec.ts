@@ -35,6 +35,7 @@ async function open(api: ReturnType<typeof apiWith>) {
 const text = (f: ComponentFixture<unknown>) => (f.nativeElement as HTMLElement).textContent ?? '';
 
 describe('OrdersComponent', () => {
+  beforeEach(() => localStorage.clear());
   afterEach(() => vi.useRealTimers());
 
   it('lists the orders and turns the status number into its name', async () => {
@@ -102,6 +103,23 @@ describe('OrdersComponent', () => {
     expect(api.post).toHaveBeenCalledWith('/operations/orders/o1/status', { status: 5, reason: 'Other', note: 'Power cut' });
     expect(c.rejecting()).toBeNull();
     expect(c.notice()).toBe('ORD-1: rejected.');
+  });
+
+  it('an accepted order can be cancelled with a reason; a new one cannot', async () => {
+    const api = apiWith({ get: { '/orders/paged': [order({ status: 1 })] }, post: { '/operations/orders/o1/cancel': {} } });
+    const f = await open(api);
+    const c = f.componentInstance;
+    expect(c.canCancel(c.orders()[0])).toBe(true);
+    expect(c.canCancel(order({ status: 'Pending' }) as never)).toBe(false);
+
+    c.openCancel(c.orders()[0]);
+    c.cancelReason.set('Other');
+    c.cancelOrder(c.cancelling()!);
+    expect(api.post).not.toHaveBeenCalled();
+    c.cancelNote.set(' Shop closed early ');
+    c.cancelOrder(c.cancelling()!);
+    expect(api.post).toHaveBeenCalledWith('/operations/orders/o1/cancel', { reason: 'Other', note: 'Shop closed early' });
+    expect(c.notice()).toBe('ORD-1: cancelled.');
   });
 
   it('a failed step shows the server message', async () => {
@@ -217,8 +235,8 @@ describe('OrdersComponent', () => {
     expect(asked()).toEqual({ params: { page: 1, pageSize: 20 } });
     c.goTo(3);
     expect(asked()).toEqual({ params: { page: 3, pageSize: 20 } });
-    c.search.set('  asha '); c.status.set('0'); c.storeFilter.set('s2'); c.filter();
-    expect(asked()).toEqual({ params: { page: 1, pageSize: 20, search: 'asha', status: '0', storeId: 's2' } });
+    c.search.set('  asha '); c.onFilters({ status: ['0', '2'], store: ['s2'] });
+    expect(asked()).toEqual({ params: { page: 1, pageSize: 20, search: 'asha', status: ['0', '2'], storeId: ['s2'] } });
   });
 
   it('the order acted on stays in its row with its new status even when the filter would drop it, and goes on a new search', async () => {

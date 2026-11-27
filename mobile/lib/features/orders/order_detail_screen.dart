@@ -20,6 +20,7 @@ import '../checkout/delivery_time.dart';
 import 'orders_controller.dart';
 import 'rating_card.dart';
 import 'orders_screen.dart';
+import 'report_problem.dart';
 
 class OrderSuccessScreen extends ConsumerWidget {
   const OrderSuccessScreen(this.id, {super.key});
@@ -347,6 +348,7 @@ class _DetailState extends ConsumerState<_Detail> {
               ),
               const SizedBox(height: 12),
             ],
+            OrderIssueSection(order),
             if (order.stage == OrderStage.cancelled ||
                 order.stage == OrderStage.rejected) ...[
               Surface(
@@ -364,6 +366,8 @@ class _DetailState extends ConsumerState<_Detail> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (order.stage == OrderStage.cancelled && _cancelWhy(context, order.cancelReason) != null)
+                            Text(_cancelWhy(context, order.cancelReason)!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           if (order.stage == OrderStage.rejected && _rejectionWhy(context, order.rejectionReason) != null)
                             Text(_rejectionWhy(context, order.rejectionReason)!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                           Text(
@@ -1209,5 +1213,14 @@ String? _rejectionWhy(BuildContext context, String? reason) => switch (reason) {
   'StoreClosed' => context.tr('The store is closed right now.'),
   'TooBusy' => context.tr('The store is too busy right now.'),
   'AddressProblem' => context.tr('The store could not deliver to your address.'),
+  _ => null,
+};
+
+/// Why the store cancelled it, in the customer's words.
+String? _cancelWhy(BuildContext context, String? reason) => switch (reason) {
+  'CustomerRequest' => context.tr('It was cancelled as you asked.'),
+  'DeliveryFailed' => context.tr('We could not deliver it.'),
+  'OutOfStock' => context.tr('Some items are out of stock.'),
+  'StoreProblem' => context.tr('The store could not complete it.'),
   _ => null,
 };

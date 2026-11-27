@@ -1,3 +1,5 @@
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, facets, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +21,7 @@ const BLANK: Settings = { enabled: false, open: '09:00', close: '21:00', windowM
 @Component({
   selector: 'app-delivery-slots',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent, SidePanelComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent, SidePanelComponent, FilterLayoutComponent],
   template: `
     <section class="page">
       <header>
@@ -35,30 +37,26 @@ const BLANK: Settings = { enabled: false, open: '09:00', close: '21:00', windowM
         <button type="button" class="primary" [disabled]="busy()" (click)="edit('default')">Edit default</button>
       </article>
 
-      <div class="filters">
-        <label>Search<input type="search" name="search" placeholder="Store name" [ngModel]="search()" (ngModelChange)="search.set($event); page.set(1)" /></label>
-        <label>Settings<select name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event); page.set(1)"><option value="all">All stores</option><option value="own">With own settings</option><option value="default">Using the default</option></select></label>
-        <label>Delivery windows<select name="windows" [ngModel]="windows()" (ngModelChange)="windows.set($event); page.set(1)"><option value="all">On or off</option><option value="on">On</option><option value="off">Off</option></select></label>
-      </div>
+      <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <input filterSearch type="search" name="search" aria-label="Search" placeholder="Store name" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+        <p *ngIf="error() && !editing()" class="error" role="alert">{{ error() }}</p>
+        <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
 
-      <p *ngIf="error() && !editing()" class="error" role="alert">{{ error() }}</p>
-      <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
+        <app-data-table [fill]="true" [columns]="columns" [rows]="pageRows()" [loading]="!rules() && !error()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No store matches.">
+          <ng-template appCell="store" let-s><strong>{{ s.name }}</strong><small>{{ s.override ? 'own settings' : 'uses the default' }}</small></ng-template>
+          <ng-template appCell="hours" let-s><ng-container *ngIf="s.effective.enabled; else offText">{{ s.effective.open }} – {{ s.effective.close }}<small>{{ s.effective.windowMinutes }}-minute windows</small></ng-container><ng-template #offText><span class="chip">{{ s.effective.asapAllowed ? 'As soon as possible' : 'Off' }}</span></ng-template></ng-template>
+          <ng-template appCell="limit" let-s><ng-container *ngIf="s.effective.enabled; else dash">{{ s.effective.capacity }} orders each<small>{{ s.effective.daysAhead }} day(s) · cut-off {{ s.effective.cutoffMinutes }} min</small></ng-container><ng-template #dash>—</ng-template></ng-template>
+          <ng-template appCell="summary" let-s><span class="summary" [title]="describe(s.effective)">{{ describe(s.effective) }}</span></ng-template>
+          <ng-template appCell="action" let-s>
+            <span class="actions">
+              <button type="button" class="act" [disabled]="busy()" (click)="edit(s.storeId)">{{ s.override ? 'Edit' : 'Set own' }}</button>
+              <button type="button" class="act ghost" *ngIf="s.override" [disabled]="busy()" (click)="useDefault(s.storeId)">Use default</button>
+            </span>
+          </ng-template>
+        </app-data-table>
 
-      <app-data-table [fill]="true" [columns]="columns" [rows]="pageRows()" [loading]="!rules() && !error()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No store matches.">
-        <ng-template appCell="store" let-s><strong>{{ s.name }}</strong><small>{{ s.override ? 'own settings' : 'uses the default' }}</small></ng-template>
-        <ng-template appCell="hours" let-s><ng-container *ngIf="s.effective.enabled; else offText">{{ s.effective.open }} – {{ s.effective.close }}<small>{{ s.effective.windowMinutes }}-minute windows</small></ng-container><ng-template #offText><span class="chip">{{ s.effective.asapAllowed ? 'As soon as possible' : 'Off' }}</span></ng-template></ng-template>
-        <ng-template appCell="limit" let-s><ng-container *ngIf="s.effective.enabled; else dash">{{ s.effective.capacity }} orders each<small>{{ s.effective.daysAhead }} day(s) · cut-off {{ s.effective.cutoffMinutes }} min</small></ng-container><ng-template #dash>—</ng-template></ng-template>
-        <ng-template appCell="summary" let-s><span class="summary" [title]="describe(s.effective)">{{ describe(s.effective) }}</span></ng-template>
-        <ng-template appCell="action" let-s>
-          <span class="actions">
-            <button type="button" class="act" [disabled]="busy()" (click)="edit(s.storeId)">{{ s.override ? 'Edit' : 'Set own' }}</button>
-            <button type="button" class="act ghost" *ngIf="s.override" [disabled]="busy()" (click)="useDefault(s.storeId)">Use default</button>
-          </span>
-        </ng-template>
-      </app-data-table>
-
-      <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
-
+        <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+      </app-filter-layout>
       <app-side-panel [open]="!!editing()" [title]="editing() === 'default' ? 'Default for every store' : 'Settings for ' + nameOf(editing() ?? '')" (closed)="editing.set(null)">
         <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
         <label class="check"><input type="checkbox" name="enabled" [(ngModel)]="form.enabled" /> Customers can choose a delivery time</label>
@@ -118,21 +116,29 @@ export class DeliverySlotsComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly search = signal('');
-  readonly kind = signal('all');
-  readonly windows = signal('all');
   readonly page = signal(1);
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   readonly changedId = signal<string | null>(null);
   readonly windowChoices = [30, 45, 60, 90, 120, 180];
   form: Settings = { ...BLANK };
 
-  /** The stores matching the search and filters, by name. */
-  readonly shown = computed(() => {
-    const text = this.search().trim().toLowerCase(), kind = this.kind(), windows = this.windows();
-    return (this.rules()?.stores ?? [])
-      .filter(s => (!text || s.name.toLowerCase().includes(text)) && (kind === 'all' || !!s.override === (kind === 'own')) && (windows === 'all' || s.effective.enabled === (windows === 'on')))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  readonly filters = filterState('delivery-times');
+  private readonly found = computed(() => {
+    const text = this.search().trim().toLowerCase();
+    const searched = (this.rules()?.stores ?? []).filter(s => !text || s.name.toLowerCase().includes(text));
+    return facets(searched, this.filters.selected(), { kind: s => (s.override ? 'own' : 'default'), windows: s => (s.effective.enabled ? 'on' : 'off') });
   });
+  /** The stores matching the search and filters, by name. */
+  readonly shown = computed(() => [...this.found().shown].sort((a, b) => a.name.localeCompare(b.name)));
+  readonly groups = computed<FilterGroup[]>(() => {
+    const found = this.found();
+    return [
+      { key: 'kind', label: 'Settings', options: [['own','With own settings'],['default','Using the default']].map(([value, label]) => ({ value, label, count: found.count('kind', value) })) },
+      { key: 'windows', label: 'Delivery windows', options: [['on','On'],['off','Off']].map(([value, label]) => ({ value, label, count: found.count('windows', value) })) },
+    ];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.page.set(1); }
+  clearFilters() { this.filters.clear(); this.search.set(''); this.page.set(1); }
   readonly pageRows = computed(() => this.shown().slice((this.page() - 1) * this.pageSize(), this.page() * this.pageSize()).map(s => ({ ...s, id: s.storeId })));
 
   ngOnInit() {

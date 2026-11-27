@@ -6,6 +6,7 @@ export const ICONS: Record<string, string> = {
   today: 'M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM16 3v4M8 3v4M3 10h18M9 15l2 2 4-4',
   orders: 'M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6M9 16h3',
   check: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6',
+  complaint: 'M4 4h16v12H10l-5 4v-4H4zM12 7v4M12 13.5h.01',
   bell: 'M6 9a6 6 0 0112 0c0 6 2 7 2 8H4c0-1 2-2 2-8zM10 21h4',
   box: 'M12 3l9 5v8l-9 5-9-5V8l9-5zM3 8l9 5 9-5M12 13v8',
   grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',

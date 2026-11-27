@@ -36,3 +36,6 @@ small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .permission-item { display: flex; gap: 8px; border-radius: 12px; padding: 8px 10px; font-size: 12px; }
 .permission-item strong { display: block; }
 .tick { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; flex-shrink: 0; }
+
+.secret { background: #FFF6C2; border-radius: 14px; padding: 14px; text-align: center; }
+.secret code { font-size: 20px; font-weight: 800; letter-spacing: 1px; user-select: all; }

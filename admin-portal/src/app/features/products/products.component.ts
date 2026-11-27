@@ -1,4 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, filterState } from '../../shared/components/filter-layout/filter-state';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -16,7 +19,7 @@ interface AdminProduct {
   id: string; sku: string; name: string; description: string; categoryId: string; categoryName: string; unitOfMeasure: string;
   imageUrl: string | null; isActive: boolean; price: number; mrp: number | null; variants: Variant[]; translations: Translation[];
 }
-interface Page { items: AdminProduct[]; page: number; pageSize: number; totalCount: number; }
+interface Page { items: AdminProduct[]; page: number; pageSize: number; totalCount: number;  counts?: { byCategory: Record<string, number>; onSale: number; offSale: number } | null; }
 interface Category { id: string; name: string; isActive?: boolean; }
 
 /**
@@ -26,7 +29,7 @@ interface Category { id: string; name: string; isActive?: boolean; }
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, FileUploadComponent, SidePanelComponent, BulkUploadComponent],
+  imports: [CommonModule, FormsModule, RouterLink, FileUploadComponent, SidePanelComponent, BulkUploadComponent, FilterLayoutComponent, LoaderComponent],
   template: `
     <section class="page">
       <h2>Catalog</h2>
@@ -34,15 +37,9 @@ interface Category { id: string; name: string; isActive?: boolean; }
       <p class="muted" *ngIf="!isAdmin()">The catalogue is managed by an administrator. Set your own store's stock on the <a routerLink="/stock">Stock</a> page.</p>
 
       <div class="bar">
-        <input class="search" name="search" [(ngModel)]="search" placeholder="Search name or SKU" (keyup.enter)="reload()" />
-        <button class="act" type="button" (click)="reload()">Search</button>
         <button class="primary" type="button" *ngIf="isAdmin()" (click)="startNew()">＋ New product</button>
         <button class="act" type="button" *ngIf="isAdmin()" (click)="importing.set(true)">Bulk upload</button>
       </div>
-      <p class="error" *ngIf="error()">{{ error() }}</p>
-      <p class="notice" *ngIf="notice()">{{ notice() }}</p>
-      <p *ngIf="loading()">Loading products...</p>
-
       <app-side-panel [open]="creating()" title="New product" (closed)="creating.set(false)">
         <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
         <app-file-upload label="Product picture (optional)" hint="Shown in the app. Square pictures look best." [previewUrl]="draftPreview()" [busy]="busy()" (fileSelected)="chooseDraftPicture($event)" (removed)="chooseDraftPicture(null)"></app-file-upload>
@@ -62,70 +59,77 @@ interface Category { id: string; name: string; isActive?: boolean; }
         <app-bulk-upload *ngIf="importing()" [categories]="categories()" (imported)="afterImport($event)"></app-bulk-upload>
       </app-side-panel>
 
-      <section class="card" *ngIf="editing() as p">
-        <div class="head-row"><h3>{{ p.name }} <small>{{ p.sku }}</small></h3><button class="act" type="button" (click)="editing.set(null)">Close</button></div>
+      <app-filter-layout [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <input filterSearch type="search" name="search" aria-label="Search" placeholder="Name or SKU, then Enter" [value]="search" (input)="search = $any($event.target).value" (keyup.enter)="reload()" />
+        <p class="error" *ngIf="error()">{{ error() }}</p>
+        <p class="notice" *ngIf="notice()">{{ notice() }}</p>
+        <app-loader *ngIf="loading()" message="Loading products…"></app-loader>
 
-        <h4>Details</h4>
-        <div class="grid">
-          <label>Name<input name="ename" [(ngModel)]="form.name" maxlength="160" /></label>
-          <label>Category<select name="ecat" [(ngModel)]="form.categoryId"><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select></label>
-          <label>Unit<input name="eunit" [(ngModel)]="form.unitOfMeasure" maxlength="32" /></label>
-          <label class="check"><input type="checkbox" name="eactive" [(ngModel)]="form.isActive" /> On sale (customers can see it)</label>
-        </div>
-        <label>Description<textarea name="edesc" rows="2" [(ngModel)]="form.description" maxlength="2000"></textarea></label>
-        <div class="row-actions"><button class="primary" type="button" [disabled]="busy()" (click)="saveDetails()">Save details</button></div>
+        <section class="card" *ngIf="editing() as p">
+          <div class="head-row"><h3>{{ p.name }} <small>{{ p.sku }}</small></h3><button class="act" type="button" (click)="editing.set(null)">Close</button></div>
 
-        <h4>Marathi</h4>
-        <div class="grid">
-          <label>Name (मराठी)<input name="mrname" [(ngModel)]="mr.name" maxlength="160" /></label>
-          <label>Description (मराठी)<input name="mrdesc" [(ngModel)]="mr.description" maxlength="2000" /></label>
-        </div>
-        <div class="row-actions"><button class="primary" type="button" [disabled]="busy() || !mr.name.trim()" (click)="saveMarathi()">Save Marathi</button><button class="act" type="button" *ngIf="hasMarathi(p)" [disabled]="busy()" (click)="removeMarathi()">Remove Marathi</button></div>
+          <h4>Details</h4>
+          <div class="grid">
+            <label>Name<input name="ename" [(ngModel)]="form.name" maxlength="160" /></label>
+            <label>Category<select name="ecat" [(ngModel)]="form.categoryId"><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select></label>
+            <label>Unit<input name="eunit" [(ngModel)]="form.unitOfMeasure" maxlength="32" /></label>
+            <label class="check"><input type="checkbox" name="eactive" [(ngModel)]="form.isActive" /> On sale (customers can see it)</label>
+          </div>
+          <label>Description<textarea name="edesc" rows="2" [(ngModel)]="form.description" maxlength="2000"></textarea></label>
+          <div class="row-actions"><button class="primary" type="button" [disabled]="busy()" (click)="saveDetails()">Save details</button></div>
 
-        <h4>Sizes and prices</h4>
-        <div class="table">
-          <div class="vrow head"><span>Size</span><span>SKU</span><span>Price ₹</span><span>MRP ₹</span><span>Order</span><span>On</span><span></span></div>
-          <div class="vrow" *ngFor="let v of sizes">
-            <input [name]="'l' + v.id" [(ngModel)]="v.label" maxlength="40" />
-            <input [name]="'s' + v.id" [(ngModel)]="v.sku" maxlength="80" />
-            <input type="number" min="0" step="0.01" [name]="'p' + v.id" [(ngModel)]="v.price" />
-            <input type="number" min="0" step="0.01" [name]="'m' + v.id" [(ngModel)]="v.mrp" />
-            <input type="number" min="0" max="1000" [name]="'o' + v.id" [(ngModel)]="v.sortOrder" />
-            <input type="checkbox" [name]="'a' + v.id" [(ngModel)]="v.isActive" [disabled]="v.isDefault" [title]="v.isDefault ? 'Make another size the default first' : ''" />
-            <span class="actions">
-              <button class="act" type="button" [disabled]="busy()" (click)="saveSize(v)">Save</button>
-              <button class="act give" type="button" *ngIf="!v.isDefault" [disabled]="busy() || !v.isActive" (click)="makeDefault(v)">Make default</button>
-              <em class="mine" *ngIf="v.isDefault">default</em>
-            </span>
+          <h4>Marathi</h4>
+          <div class="grid">
+            <label>Name (मराठी)<input name="mrname" [(ngModel)]="mr.name" maxlength="160" /></label>
+            <label>Description (मराठी)<input name="mrdesc" [(ngModel)]="mr.description" maxlength="2000" /></label>
+          </div>
+          <div class="row-actions"><button class="primary" type="button" [disabled]="busy() || !mr.name.trim()" (click)="saveMarathi()">Save Marathi</button><button class="act" type="button" *ngIf="hasMarathi(p)" [disabled]="busy()" (click)="removeMarathi()">Remove Marathi</button></div>
+
+          <h4>Sizes and prices</h4>
+          <div class="table">
+            <div class="vrow head"><span>Size</span><span>SKU</span><span>Price ₹</span><span>MRP ₹</span><span>Order</span><span>On</span><span></span></div>
+            <div class="vrow" *ngFor="let v of sizes">
+              <input [name]="'l' + v.id" [(ngModel)]="v.label" maxlength="40" />
+              <input [name]="'s' + v.id" [(ngModel)]="v.sku" maxlength="80" />
+              <input type="number" min="0" step="0.01" [name]="'p' + v.id" [(ngModel)]="v.price" />
+              <input type="number" min="0" step="0.01" [name]="'m' + v.id" [(ngModel)]="v.mrp" />
+              <input type="number" min="0" max="1000" [name]="'o' + v.id" [(ngModel)]="v.sortOrder" />
+              <input type="checkbox" [name]="'a' + v.id" [(ngModel)]="v.isActive" [disabled]="v.isDefault" [title]="v.isDefault ? 'Make another size the default first' : ''" />
+              <span class="actions">
+                <button class="act" type="button" [disabled]="busy()" (click)="saveSize(v)">Save</button>
+                <button class="act give" type="button" *ngIf="!v.isDefault" [disabled]="busy() || !v.isActive" (click)="makeDefault(v)">Make default</button>
+                <em class="mine" *ngIf="v.isDefault">default</em>
+              </span>
+            </div>
+          </div>
+          <div class="vrow add">
+            <input name="nl" [(ngModel)]="newSize.label" placeholder="New size, e.g. 1 kg" maxlength="40" />
+            <input name="ns" [(ngModel)]="newSize.sku" placeholder="SKU" maxlength="80" />
+            <input type="number" min="0" step="0.01" name="np" [(ngModel)]="newSize.price" placeholder="Price" />
+            <input type="number" min="0" step="0.01" name="nm" [(ngModel)]="newSize.mrp" placeholder="MRP" />
+            <input type="number" min="0" max="1000" name="no" [(ngModel)]="newSize.sortOrder" />
+            <span></span>
+            <button class="primary" type="button" [disabled]="busy()" (click)="addSize()">Add size</button>
+          </div>
+
+          <h4>Picture</h4>
+          <app-file-upload label="" [previewUrl]="p.imageUrl ? img(p.imageUrl) : null" [busy]="busy()" (fileSelected)="file = $event; upload()" (removed)="removePicture()"></app-file-upload>
+        </section>
+
+        <div class="table" *ngIf="items().length">
+          <div class="trow head"><span></span><span>Product</span><span>Category</span><span>Price</span><span>Status</span><span></span></div>
+          <div class="trow" *ngFor="let p of items()">
+            <span><img class="thumb" *ngIf="p.imageUrl" [src]="img(p.imageUrl)" alt="" /><span class="thumb ph" *ngIf="!p.imageUrl">{{ p.name.charAt(0).toUpperCase() }}</span></span>
+            <span><strong>{{ p.name }}</strong><br /><small>{{ p.sku }} · {{ p.unitOfMeasure }}</small></span>
+            <span>{{ p.categoryName }}</span>
+            <span>{{ p.price | currency:'INR':'symbol':'1.2-2' }}<small *ngIf="p.variants.length > 1"> · {{ p.variants.length }} sizes</small></span>
+            <span><span class="badge" [class.off]="!p.isActive">{{ p.isActive ? 'On sale' : 'Off' }}</span></span>
+            <span><button class="act" type="button" *ngIf="isAdmin()" (click)="edit(p)">Edit</button></span>
           </div>
         </div>
-        <div class="vrow add">
-          <input name="nl" [(ngModel)]="newSize.label" placeholder="New size, e.g. 1 kg" maxlength="40" />
-          <input name="ns" [(ngModel)]="newSize.sku" placeholder="SKU" maxlength="80" />
-          <input type="number" min="0" step="0.01" name="np" [(ngModel)]="newSize.price" placeholder="Price" />
-          <input type="number" min="0" step="0.01" name="nm" [(ngModel)]="newSize.mrp" placeholder="MRP" />
-          <input type="number" min="0" max="1000" name="no" [(ngModel)]="newSize.sortOrder" />
-          <span></span>
-          <button class="primary" type="button" [disabled]="busy()" (click)="addSize()">Add size</button>
-        </div>
-
-        <h4>Picture</h4>
-        <app-file-upload label="" [previewUrl]="p.imageUrl ? img(p.imageUrl) : null" [busy]="busy()" (fileSelected)="file = $event; upload()" (removed)="removePicture()"></app-file-upload>
-      </section>
-
-      <div class="table" *ngIf="items().length">
-        <div class="trow head"><span></span><span>Product</span><span>Category</span><span>Price</span><span>Status</span><span></span></div>
-        <div class="trow" *ngFor="let p of items()">
-          <span><img class="thumb" *ngIf="p.imageUrl" [src]="img(p.imageUrl)" alt="" /><span class="thumb ph" *ngIf="!p.imageUrl">{{ p.name.charAt(0).toUpperCase() }}</span></span>
-          <span><strong>{{ p.name }}</strong><br /><small>{{ p.sku }} · {{ p.unitOfMeasure }}</small></span>
-          <span>{{ p.categoryName }}</span>
-          <span>{{ p.price | currency:'INR':'symbol':'1.2-2' }}<small *ngIf="p.variants.length > 1"> · {{ p.variants.length }} sizes</small></span>
-          <span><span class="badge" [class.off]="!p.isActive">{{ p.isActive ? 'On sale' : 'Off' }}</span></span>
-          <span><button class="act" type="button" *ngIf="isAdmin()" (click)="edit(p)">Edit</button></span>
-        </div>
-      </div>
-      <p *ngIf="!loading() && !error() && items().length === 0">No products found.</p>
-      <button class="act more" type="button" *ngIf="items().length < total()" [disabled]="loading()" (click)="more()">Show more ({{ items().length }} of {{ total() }})</button>
+        <p *ngIf="!loading() && !error() && items().length === 0">No products found.</p>
+        <button class="act more" type="button" *ngIf="items().length < total()" [disabled]="loading()" (click)="more()">Show more ({{ items().length }} of {{ total() }})</button>
+      </app-filter-layout>
     </section>
   `,
   styles: [`
@@ -193,6 +197,16 @@ export class ProductsComponent implements OnInit {
   readonly editing = signal<AdminProduct | null>(null);
 
   search = '';
+  readonly filters = filterState('catalog');
+  private readonly counts = signal<{ byCategory: Record<string, number>; onSale: number; offSale: number } | null>(null);
+  readonly groups = computed<FilterGroup[]>(() => {
+    const counts = this.counts();
+    const category: FilterGroup = { key: 'category', label: 'Category', options: this.categories().map(c => ({ value: c.id, label: c.name, count: counts ? counts.byCategory[c.id] ?? 0 : undefined })) };
+    // only administrators see products that are off sale
+    return this.isAdmin() ? [category, { key: 'sale', label: 'On sale', options: [{ value: 'on', label: 'On sale', count: counts?.onSale }, { value: 'off', label: 'Off sale', count: counts?.offSale }] }] : [category];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.reload(); }
+  clearFilters() { this.filters.clear(); this.search = ''; this.reload(); }
   private page = 1;
   draft = this.blankDraft();
   form = { name: '', description: '', categoryId: '', unitOfMeasure: '', isActive: true };
@@ -220,14 +234,14 @@ export class ProductsComponent implements OnInit {
     this.loading.set(true); this.error.set(null);
     if (!this.isAdmin()) {
       this.api.get<any[]>('/products').subscribe({
-        next: r => { const all = (r.data ?? []).filter(p => !this.search || (p.name + p.sku).toLowerCase().includes(this.search.toLowerCase())).map(p => ({ ...p, categoryName: '', variants: [], translations: [], mrp: null, imageUrl: p.imageUrl ?? null }) as AdminProduct); this.items.set(all); this.total.set(all.length); this.loading.set(false); },
+        next: r => { const all = (r.data ?? []).filter(p => (!this.search || (p.name + p.sku).toLowerCase().includes(this.search.toLowerCase())) && this.filters.allows('category', p.categoryId)).map(p => ({ ...p, categoryName: '', variants: [], translations: [], mrp: null, imageUrl: p.imageUrl ?? null }) as AdminProduct); this.items.set(all); this.total.set(all.length); this.loading.set(false); },
         error: e => { this.error.set(e?.message ?? 'Unable to load products'); this.loading.set(false); },
       });
       return;
     }
 
-    this.api.get<Page>('/admin/catalog/products', { params: { search: this.search.trim() || null, page: this.page, pageSize: 20 } }).subscribe({
-      next: r => { this.items.set([...this.items(), ...(r.data?.items ?? [])]); this.total.set(r.data?.totalCount ?? 0); this.loading.set(false); },
+    this.api.get<Page>('/admin/catalog/products', { params: { search: this.search.trim() || null, page: this.page, pageSize: 20, categoryId: this.filters.of('category').length ? this.filters.of('category') : null, active: this.filters.of('sale').length === 1 ? this.filters.of('sale')[0] === 'on' : null } }).subscribe({
+      next: r => { this.items.set([...this.items(), ...(r.data?.items ?? [])]); this.total.set(r.data?.totalCount ?? 0); this.counts.set(r.data?.counts ?? null); this.loading.set(false); },
       error: e => { this.error.set(e?.message ?? 'Unable to load products'); this.loading.set(false); },
     });
   }

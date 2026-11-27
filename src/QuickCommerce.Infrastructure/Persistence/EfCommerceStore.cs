@@ -181,12 +181,11 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             .ThenBy(row => row.order.DeliverySlotStart == null ? 0 : 1)
             .ThenBy(row => row.order.DeliverySlotStart)
             .ThenByDescending(row => row.order.CreatedAt)
-            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd, row.order.RejectionReason, row.order.RejectionNote, db.Users.Where(user => user.Id == row.order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault())).ToListAsync(cancellationToken);
+            .Select(row => new AdminOrderResponse(row.order.Id, row.order.OrderNumber, row.order.UserId, row.customer, row.order.StoreId, row.store.Name, row.order.TotalAmount, row.order.Status, row.order.CreatedAt, row.order.DeliveryPartnerId, db.Users.Where(partner => partner.Id == row.order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(), row.order.OrderNote, row.order.OutOfStockChoice, row.order.DeliverySlotStart, row.order.DeliverySlotEnd, row.order.RejectionReason, row.order.RejectionNote, db.Users.Where(user => user.Id == row.order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault(), row.order.CancelReason, row.order.CancelNote, db.Users.Where(user => user.Id == row.order.CancelledBy).Select(user => user.DisplayName).FirstOrDefault(), row.order.DeliveryFailureReason, row.order.DeliveryFailureNote, row.order.DeliveryFailedAt)).ToListAsync(cancellationToken);
     }
 
-    public async Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    private IQueryable<Order> SearchedOrders(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, string? search)
     {
-        query = query.Clamped();
         var orders = db.Orders.AsNoTracking()
             .Where(order => order.Status != OrderStatus.AwaitingPayment && db.Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId && store.IsActive));
         if (!isApplicationAdmin)
@@ -194,20 +193,28 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
             orders = orders.Where(order => storeIds.Contains(order.StoreId));
         }
 
-        if (query.Status is { } status)
-        {
-            orders = orders.Where(order => order.Status == status);
-        }
+        return search is null ? orders : orders.Where(order => order.OrderNumber.Contains(search) || db.Users.Any(user => user.Id == order.UserId && user.DisplayName.Contains(search)));
+    }
 
-        if (query.StoreId is { } storeId)
-        {
-            orders = orders.Where(order => order.StoreId == storeId);
-        }
+    private static IQueryable<Order> ByStatuses(IQueryable<Order> orders, IReadOnlyList<OrderStatus>? statuses) =>
+        statuses is { Count: > 0 } ? orders.Where(order => statuses.Contains(order.Status)) : orders;
 
-        if (query.Search is { } search)
-        {
-            orders = orders.Where(order => order.OrderNumber.Contains(search) || db.Users.Any(user => user.Id == order.UserId && user.DisplayName.Contains(search)));
-        }
+    private static IQueryable<Order> ByStores(IQueryable<Order> orders, IReadOnlyList<Guid>? stores) =>
+        stores is { Count: > 0 } ? orders.Where(order => stores.Contains(order.StoreId)) : orders;
+
+    public async Task<AdminOrderCounts> GetScopedOrderCountsAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var searched = SearchedOrders(organizationId, storeIds, isApplicationAdmin, query.Search);
+        var statuses = await ByStores(searched, query.StoreIds).GroupBy(order => order.Status).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken);
+        var stores = await ByStatuses(searched, query.Statuses).GroupBy(order => order.StoreId).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken);
+        return new AdminOrderCounts(statuses.ToDictionary(item => item.Key, item => item.Count), stores.ToDictionary(item => item.Key, item => item.Count));
+    }
+
+    public async Task<(IReadOnlyList<AdminOrderResponse> Items, int TotalCount)> GetScopedOrderPageAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var orders = ByStores(ByStatuses(SearchedOrders(organizationId, storeIds, isApplicationAdmin, query.Search), query.Statuses), query.StoreIds);
 
         var total = await orders.CountAsync(cancellationToken);
         var items = await orders.OrderByDescending(order => order.CreatedAt).ThenByDescending(order => order.Id)
@@ -218,7 +225,8 @@ public sealed class EfCommerceStore(QuickCommerceDbContext db) : ICommerceStore
                 order.TotalAmount, order.Status, order.CreatedAt, order.DeliveryPartnerId,
                 db.Users.Where(partner => partner.Id == order.DeliveryPartnerId).Select(partner => partner.DisplayName).FirstOrDefault(),
                 order.OrderNote, order.OutOfStockChoice, order.DeliverySlotStart, order.DeliverySlotEnd, order.RejectionReason, order.RejectionNote,
-                db.Users.Where(user => user.Id == order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault()))
+                db.Users.Where(user => user.Id == order.RejectedBy).Select(user => user.DisplayName).FirstOrDefault(), order.CancelReason, order.CancelNote,
+                db.Users.Where(user => user.Id == order.CancelledBy).Select(user => user.DisplayName).FirstOrDefault(), order.DeliveryFailureReason, order.DeliveryFailureNote, order.DeliveryFailedAt))
             .ToListAsync(cancellationToken);
         return (items, total);
     }
@@ -727,6 +735,63 @@ IF @result < 0 THROW 50301, 'Could not lock the customer checkout.', 1;", cancel
         }
         catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
         {
+            return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
+        }
+    }
+
+    public async Task<OrderLifecycleResult> TryStaffCancelAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderCancellation cancellation, CancellationToken cancellationToken = default)
+    {
+        var order = await db.Orders
+            .Include(currentOrder => currentOrder.Items)
+            .Include(currentOrder => currentOrder.StatusHistory)
+            .SingleOrDefaultAsync(currentOrder => currentOrder.Id == orderId &&
+                (!storeId.HasValue || currentOrder.StoreId == storeId.Value) &&
+                db.Stores.Any(store => store.Id == currentOrder.StoreId && store.OrganizationId == organizationId), cancellationToken);
+        if (order is null)
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.NotFound);
+        }
+
+        if (!OrderCancellations.CanCancel(order.Status))
+        {
+            return new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition);
+        }
+
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            order.CancelReason = cancellation.Reason;
+            order.CancelNote = cancellation.Note;
+            order.CancelledBy = cancellation.CancelledBy;
+            await EndPaymentAsync(order, wasAwaitingPayment: false, cancellationToken);
+            await CouponUsage.ReleaseAsync(db, order.Id, DateTime.UtcNow, cancellationToken);
+            await SlotUsage.ReleaseAsync(db, order, cancellationToken);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = await db.StoreVariantInventory.SingleOrDefaultAsync(item => item.StoreId == order.StoreId && item.VariantId == line.Key, cancellationToken);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            // Where the partner was is no longer anyone's business.
+            db.DeliveryLocations.RemoveRange(db.DeliveryLocations.Where(location => location.OrderId == order.Id));
+            var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);
+            if (customerId.HasValue)
+            {
+                db.Notifications.Add(NotificationCatalog.ForStatus(customerId.Value, order, OrderStatus.Cancelled));
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order));
+        }
+        catch (Exception ex) when (ex is DbUpdateConcurrencyException || SqlErrors.IsDeadlock(ex))
+        {
+            db.ChangeTracker.Clear();
             return new OrderLifecycleResult(OrderLifecycleStatus.ConcurrencyConflict);
         }
     }

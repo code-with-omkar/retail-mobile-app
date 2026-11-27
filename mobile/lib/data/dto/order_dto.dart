@@ -110,6 +110,7 @@ Order orderFromJson(Map<String, dynamic> j) {
     outOfStockChoice: j['outOfStockChoice'] as String?,
     couponCode: j['couponCode'] as String?,
     rejectionReason: j['rejectionReason'] as String?,
+    cancelReason: j['cancelReason'] as String?,
     couponDiscount: (j['couponDiscount'] as num?)?.toDouble() ?? 0,
     deliverySlotStart: j['deliverySlotStart'] == null
         ? null

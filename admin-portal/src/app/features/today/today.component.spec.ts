@@ -33,6 +33,8 @@ function open(role: Role, get: Call) {
 const answer = (data: unknown = summary()): Call => (url: string) => of({ success: true, data: url === '/stores' ? [{ id: 's1', name: 'Kharghar', isActive: true }, { id: 's2', name: 'Closed', isActive: false }] : data });
 const text = (f: { nativeElement: unknown }) => (f.nativeElement as HTMLElement).textContent ?? '';
 
+beforeEach(() => localStorage.clear());
+
 describe('TodayComponent', () => {
   afterEach(() => vi.useRealTimers());
 

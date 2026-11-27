@@ -80,6 +80,18 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, I
             .Select(user => new AccountUserInfo(user.Id, user.Email ?? user.ExternalSubject, user.DisplayName))
             .FirstOrDefaultAsync(cancellationToken);
 
+    public Task<AccountUserInfo?> FindActiveUserByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default) =>
+        db.Users.AsNoTracking()
+            .Where(user => user.IsActive && (user.ExternalSubject == normalizedEmail || (user.Email != null && user.Email.ToLower() == normalizedEmail)))
+            .Select(user => new AccountUserInfo(user.Id, user.Email ?? user.ExternalSubject, user.DisplayName))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<AccountUserInfo?> FindActiveUserByIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        db.Users.AsNoTracking()
+            .Where(user => user.Id == userId && user.IsActive)
+            .Select(user => new AccountUserInfo(user.Id, user.Email ?? user.ExternalSubject, user.DisplayName))
+            .FirstOrDefaultAsync(cancellationToken);
+
     public Task<int> CountResetCodesSinceAsync(Guid userId, DateTime sinceUtc, CancellationToken cancellationToken = default) =>
         db.PasswordResetCodes.CountAsync(code => code.UserId == userId && code.CreatedAt >= sinceUtc, cancellationToken);
 
@@ -118,6 +130,8 @@ public sealed class EfAccountStore(QuickCommerceDbContext db) : IAccountStore, I
         {
             credential.PasswordHash = passwordHash;
             credential.PasswordChangedAt = nowUtc;
+            // a password the person chose themselves
+            credential.MustChangePassword = false;
             credential.FailedLoginCount = 0;
             credential.LockedUntil = null;
             credential.IsActive = true;

@@ -54,18 +54,22 @@ public sealed record OrderResponse(
     int? StoreRatingCount = null,
     int? MyStoreStars = null,
     int? MyDeliveryStars = null,
-    string? RejectionReason = null);
+    string? RejectionReason = null,
+    string? CancelReason = null);
 
 /// <summary>What the portal's order list asks for. A store outside the caller's own is simply empty.</summary>
-public sealed record AdminOrderQuery(string? Search = null, QuickCommerce.Domain.OrderStatus? Status = null, Guid? StoreId = null, int Page = 1, int PageSize = 20)
+public sealed record AdminOrderQuery(string? Search = null, IReadOnlyList<QuickCommerce.Domain.OrderStatus>? Statuses = null, IReadOnlyList<Guid>? StoreIds = null, int Page = 1, int PageSize = 20)
 {
     public const int MaxPageSize = 100;
     public AdminOrderQuery Clamped() => this with { Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), Page = Math.Max(1, Page), PageSize = Math.Clamp(PageSize, 1, MaxPageSize) };
 }
 
-public sealed record AdminOrderStore(Guid Id, string Name);
+public sealed record AdminOrderStore(Guid Id, string Name, int Count = 0);
 
-public sealed record AdminOrderPage(IReadOnlyList<AdminOrderResponse> Items, int TotalCount, int Page, int PageSize, IReadOnlyList<AdminOrderStore> Stores);
+/// <summary>How many orders each filter value has: by status under the other filters, and by store under the other filters.</summary>
+public sealed record AdminOrderCounts(IReadOnlyDictionary<QuickCommerce.Domain.OrderStatus, int> ByStatus, IReadOnlyDictionary<Guid, int> ByStore);
+
+public sealed record AdminOrderPage(IReadOnlyList<AdminOrderResponse> Items, int TotalCount, int Page, int PageSize, IReadOnlyList<AdminOrderStore> Stores, IReadOnlyDictionary<int, int>? StatusCounts = null);
 
 public sealed record AdminOrderResponse(
     Guid Id,
@@ -85,7 +89,13 @@ public sealed record AdminOrderResponse(
     DateTime? DeliverySlotEnd = null,
     string? RejectionReason = null,
     string? RejectionNote = null,
-    string? RejectedBy = null);
+    string? RejectedBy = null,
+    string? CancelReason = null,
+    string? CancelNote = null,
+    string? CancelledBy = null,
+    string? DeliveryFailureReason = null,
+    string? DeliveryFailureNote = null,
+    DateTime? DeliveryFailedAt = null);
 
 public sealed record OrderItemResponse(
     Guid ProductId,

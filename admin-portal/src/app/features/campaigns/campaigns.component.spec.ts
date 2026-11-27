@@ -39,6 +39,8 @@ function open(role: Role, api: ReturnType<typeof apiWith>) {
     ],
   });
   const fixture = TestBed.createComponent(CampaignsComponent);
+  // the new-offer form lives in a side panel
+  fixture.componentInstance.creating.set(true);
   fixture.detectChanges();
   fixture.detectChanges();
   return { f: fixture, c: fixture.componentInstance };

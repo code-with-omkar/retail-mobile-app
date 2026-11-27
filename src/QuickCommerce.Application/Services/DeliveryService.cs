@@ -110,6 +110,25 @@ public static class DeliveryRules
         order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Delivered, ChangedAt = now });
         return DeliveryChangeStatus.Succeeded;
     }
+
+    /// <summary>The order goes back to the store, Ready and with nobody holding it, remembering why.</summary>
+    public static DeliveryChangeStatus Fail(Order order, Guid partnerId, string reason, string? note, DateTime now)
+    {
+        if (order.DeliveryPartnerId != partnerId || order.Status is not (OrderStatus.Ready or OrderStatus.OutForDelivery))
+        {
+            return DeliveryChangeStatus.WrongState;
+        }
+
+        order.Status = OrderStatus.Ready;
+        order.DeliveryPartnerId = null;
+        order.AssignedAt = null;
+        order.PickedUpAt = null;
+        order.DeliveryFailureReason = reason;
+        order.DeliveryFailureNote = note;
+        order.DeliveryFailedAt = now;
+        order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Ready, ChangedAt = now });
+        return DeliveryChangeStatus.Succeeded;
+    }
 }
 
 public sealed class DeliveryService(
@@ -186,6 +205,23 @@ public sealed class DeliveryService(
         }
 
         var change = await store.PickUpAsync(orderId, context.UserId, time.GetUtcNow().UtcDateTime, cancellationToken);
+        return await Finish(change, context.UserId, cancellationToken);
+    }
+
+    public async Task<DeliveryResult<PartnerDeliveryResponse>> FailAsync(Guid orderId, DeliveryFailedRequest request, CancellationToken cancellationToken = default)
+    {
+        var context = await contextResolver.ResolveAsync(cancellationToken);
+        if (context is null || context.Role != Role.DeliveryPartner)
+        {
+            return DeliveryResult<PartnerDeliveryResponse>.Fail(DeliveryResultStatus.Forbidden, "Only a delivery partner can report a delivery.");
+        }
+
+        if (DeliveryFailures.Problem(request.Reason, request.Note) is { } problem)
+        {
+            return DeliveryResult<PartnerDeliveryResponse>.Fail(DeliveryResultStatus.Invalid, problem);
+        }
+
+        var change = await store.FailAsync(orderId, context.UserId, request.Reason!, string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim(), time.GetUtcNow().UtcDateTime, cancellationToken);
         return await Finish(change, context.UserId, cancellationToken);
     }
 

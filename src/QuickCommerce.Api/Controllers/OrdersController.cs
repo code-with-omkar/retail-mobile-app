@@ -38,7 +38,7 @@ public sealed class OrdersController(
 
     /// <summary>The portal's order list, a page at a time, with the stores the caller may filter by. Not for customers.</summary>
     [HttpGet("paged")]
-    public async Task<IActionResult> Paged([FromQuery] string? search, [FromQuery] QuickCommerce.Domain.OrderStatus? status, [FromQuery] Guid? storeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Paged([FromQuery] string? search, [FromQuery] QuickCommerce.Domain.OrderStatus[]? status, [FromQuery] Guid[]? storeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
     {
         var context = await currentUserContextResolver.ResolveAsync(cancellationToken);
         var scope = context?.Role == QuickCommerce.Domain.Role.Customer ? null : await scopeService.ResolveAsync(cancellationToken);
@@ -50,9 +50,10 @@ public sealed class OrdersController(
         var stores = await OperatingStoresAsync(scope, cancellationToken);
         var query = new AdminOrderQuery(search, status, storeId, page, pageSize).Clamped();
         var (items, total) = await data.GetScopedOrderPageAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, query, cancellationToken);
+        var counts = await data.GetScopedOrderCountsAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, query, cancellationToken);
         var choices = (await data.GetScopedStoresAsync(scope.OrganizationId, stores, scope.IsApplicationAdmin, cancellationToken))
-            .OrderBy(store => store.Name).Select(store => new AdminOrderStore(store.Id, store.Name)).ToArray();
-        return Ok(new { success = true, data = new AdminOrderPage(items, total, query.Page, query.PageSize, choices) });
+            .OrderBy(store => store.Name).Select(store => new AdminOrderStore(store.Id, store.Name, counts.ByStore.GetValueOrDefault(store.Id))).ToArray();
+        return Ok(new { success = true, data = new AdminOrderPage(items, total, query.Page, query.PageSize, choices, counts.ByStatus.ToDictionary(item => (int)item.Key, item => item.Value)) });
     }
 
     [HttpPost]

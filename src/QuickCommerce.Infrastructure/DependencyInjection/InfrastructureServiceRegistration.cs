@@ -61,6 +61,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPurchaseHistoryStore, EfPurchaseHistoryStore>();
         services.AddScoped<ICommissionStore, EfCommissionStore>();
         services.AddScoped<ICouponStore, EfCouponStore>();
+        services.AddScoped<IOrderIssueStore, EfOrderIssueStore>();
+        services.AddScoped<IStoreAdminService, QuickCommerce.Infrastructure.Security.StoreAdminService>();
         services.AddScoped<IAdStore, EfAdStore>();
         services.AddScoped<IOrderRatingLookup, EfOrderRatingLookup>();
         services.AddScoped<ISlotStore, EfSlotStore>();

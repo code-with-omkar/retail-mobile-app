@@ -1,3 +1,6 @@
+import { AuthService } from '../../core/services/auth.service';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -15,8 +18,7 @@ import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../c
 @Component({
   selector: 'app-user-master',
   standalone: true,
-  imports: [
-    CommonModule,
+  imports: [CommonModule,
     ReactiveFormsModule,
     ButtonComponent,
     InputComponent,
@@ -24,14 +26,44 @@ import { UserMasterService, CreateUserRequest, UpdateUserRequest } from '../../c
     DataTableComponent,
     CellDirective,
     PaginationComponent,
-    SidePanelComponent,
-  ],
+    SidePanelComponent, FilterLayoutComponent],
   templateUrl: './user-master.component.html',
   styleUrls: ['./user-master.component.css'],
 })
 export class UserMasterComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly userMasterService = inject(UserMasterService);
+
+  private readonly auth = inject(AuthService, { optional: true });
+  /** A temporary password just made, shown until the panel is closed. */
+  readonly temporary = signal<{ name: string; email: string; password: string } | null>(null);
+  readonly copied = signal(false);
+
+  /** Staff and delivery partners who are active; never customers, and never yourself (use Change password). */
+  canGivePassword(user: User): boolean { return user.role !== Role.Customer && user.status === UserStatus.Active && !!user.email && user.id !== this.auth?.getUserId?.(); }
+
+  givePassword(user: User): void {
+    if (!window.confirm(`Give ${user.firstName} ${user.lastName} a new temporary password? Their current password stops working.`)) return;
+    this.makePassword(user);
+  }
+
+  private makePassword(user: User): void {
+    this.apiError.set(null);
+    this.userMasterService.setTemporaryPassword(user.id).subscribe({
+      next: response => {
+        if (!response.data) { this.apiError.set(response.message ?? 'Could not make a temporary password.'); return; }
+        this.copied.set(false);
+        this.changedId.set(user.id);
+        this.temporary.set({ name: `${user.firstName} ${user.lastName}`.trim(), email: user.email, password: response.data.temporaryPassword });
+      },
+      error: error => this.apiError.set(error?.error?.message ?? error?.message ?? 'Could not make a temporary password.'),
+    });
+  }
+
+  copyPassword(): void {
+    const made = this.temporary();
+    if (made) navigator.clipboard?.writeText(made.password).then(() => this.copied.set(true), () => {});
+  }
 
   readonly users = signal<User[]>([]);
   readonly organizations = signal<Organization[]>([]);
@@ -42,10 +74,10 @@ export class UserMasterComponent implements OnInit {
   readonly isFormVisible = signal(false);
   readonly mode = signal<'create' | 'edit' | 'view'>('create');
   readonly searchTerm = signal('');
-  readonly statusFilter = signal('all');
-  readonly roleFilter = signal('all');
+  readonly filters = filterState('users', { sort: ['name'] });
+  private readonly roleCounts = signal<Record<string, number> | null>(null);
+  private readonly statusCounts = signal<{ active: number; inactive: number } | null>(null);
   readonly organizationFilter = signal('all');
-  readonly sort = signal('name');
   readonly page = signal(1);
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   readonly total = signal(0);
@@ -73,7 +105,19 @@ export class UserMasterComponent implements OnInit {
     // An organization administrator has no role code of their own; keep their role selectable so saving does not change it.
     return this.selectedUser()?.role === Role.Admin ? [...options, { value: Role.Admin, label: 'Administrator' }] : options;
   });
-  readonly roleFilterOptions = computed<SelectOption[]>(() => [{ value: 'all', label: 'All roles' }, ...this.roleDefinitions().map(role => ({ value: role.code, label: role.name }))]);
+  readonly groups = computed<FilterGroup[]>(() => {
+    const roles = this.roleCounts(), statuses = this.statusCounts();
+    return [
+      { key: 'role', label: 'Role', options: this.roleDefinitions().map(role => ({ value: role.code, label: role.name, count: roles ? roles[role.code] ?? 0 : undefined })) },
+      { key: 'status', label: 'Status', options: [
+        { value: UserStatus.Active, label: 'Active', count: statuses?.active },
+        { value: UserStatus.Inactive, label: 'Inactive', count: statuses?.inactive },
+      ] },
+      { key: 'sort', label: 'Sort by', single: true, required: true, options: this.sortOptions },
+    ];
+  });
+  onFilters(next: Selection): void { this.filters.set(next); this.filter(); }
+  clearFilters(): void { this.filters.clear(); this.searchTerm.set(''); this.filter(); }
   readonly staffCategoryOptions: SelectOption[] = [
     { value: StaffCategory.StoreManager, label: 'Store Manager' },
     { value: StaffCategory.StoreEmployee, label: 'Store Employee' },
@@ -270,6 +314,7 @@ export class UserMasterComponent implements OnInit {
 
     this.isLoading.set(true);
     this.apiError.set(null);
+    const isNew = !(this.mode() === 'edit' && selectedUser);
 
     request.subscribe({
       next: response => {
@@ -277,6 +322,10 @@ export class UserMasterComponent implements OnInit {
           this.changedId.set(response.data?.id ?? selectedUser?.id ?? null);
           this.closeForm();
           this.loadUsers();
+          // A new member of staff cannot sign in without a password, so one is made at once.
+          if (isNew && values.role !== Role.Customer && values.status === UserStatus.Active && response.data?.id) {
+            this.makePassword({ ...response.data, firstName: payload.firstName, lastName: payload.lastName, email: payload.email });
+          }
           return;
         }
 
@@ -328,16 +377,6 @@ export class UserMasterComponent implements OnInit {
 
   isStoreSelected(storeId: string): boolean {
     return (this.form.controls.storeIds.value ?? []).includes(storeId);
-  }
-
-  onStatusFilterChange(value: string): void {
-    this.statusFilter.set(value);
-    this.filter();
-  }
-
-  onRoleFilterChange(value: string): void {
-    this.roleFilter.set(value);
-    this.filter();
   }
 
   togglePermission(permissionCode: string): void {
@@ -394,7 +433,7 @@ export class UserMasterComponent implements OnInit {
     this.apiError.set(null);
     const request = ++this.asked;
 
-    this.userMasterService.getUsersPage({ search: this.searchTerm().trim(), role: this.roleFilter(), status: this.statusFilter(), sort: this.sort(), page: this.page(), pageSize: this.pageSize() }).subscribe({
+    this.userMasterService.getUsersPage({ search: this.searchTerm().trim(), roles: this.filters.of('role'), statuses: this.filters.of('status'), sort: this.filters.of('sort')[0] ?? 'name', page: this.page(), pageSize: this.pageSize() }).subscribe({
       next: response => {
         if (request !== this.asked) return; // an older answer arriving late
         this.isLoading.set(false);
@@ -404,6 +443,8 @@ export class UserMasterComponent implements OnInit {
           this.allCount.set(response.data.allCount);
           this.activeCount.set(response.data.activeCount);
           this.roleCount.set(response.data.roleCount);
+          this.roleCounts.set(response.data.roleCounts ?? null);
+          this.statusCounts.set(response.data.roleCounts ? { active: response.data.matchingActive ?? 0, inactive: response.data.matchingInactive ?? 0 } : null);
           return;
         }
 

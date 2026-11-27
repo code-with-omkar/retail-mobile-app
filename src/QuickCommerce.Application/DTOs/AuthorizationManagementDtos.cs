@@ -28,6 +28,9 @@ public sealed record ManagedUserResponse(
     bool IsActive,
     IReadOnlyList<AuthorizationPermissionResponse> Permissions);
 
+/// <summary>A password an administrator hands to a member of staff. It is shown this once and must be changed at the first sign-in.</summary>
+public sealed record TemporaryPasswordResponse(string TemporaryPassword);
+
 public sealed record CreateManagedUserRequest(
     string FirstName,
     string LastName,
@@ -53,11 +56,12 @@ public sealed record UpdateRolePermissionsRequest(IReadOnlyList<Guid> Permission
 public sealed record OrganizationResponse(Guid Id, string Name, bool IsActive);
 
 /// <summary>What the portal's user list asks for. Role is a role code ("ApplicationAdmin" covers administrators); Sort is "name", "name-desc", "email" or "newest".</summary>
-public sealed record ManagedUserQuery(string? Search = null, string? Role = null, bool? Active = null, string? Sort = null, int Page = 1, int PageSize = 20)
+public sealed record ManagedUserQuery(string? Search = null, IReadOnlyList<string>? Roles = null, bool? Active = null, string? Sort = null, int Page = 1, int PageSize = 20)
 {
     public const int MaxPageSize = 100;
     public ManagedUserQuery Clamped() => this with { Search = string.IsNullOrWhiteSpace(Search) ? null : Search.Trim(), Page = Math.Max(1, Page), PageSize = Math.Clamp(PageSize, 1, MaxPageSize) };
 }
 
 /// <summary>One page of users, with the totals for the whole organization (not only what matched).</summary>
-public sealed record ManagedUserPage(IReadOnlyList<ManagedUserResponse> Items, int TotalCount, int Page, int PageSize, int AllCount, int ActiveCount, int RoleCount);
+public sealed record ManagedUserPage(IReadOnlyList<ManagedUserResponse> Items, int TotalCount, int Page, int PageSize, int AllCount, int ActiveCount, int RoleCount,
+    IReadOnlyDictionary<string, int>? RoleCounts = null, int MatchingActive = 0, int MatchingInactive = 0);

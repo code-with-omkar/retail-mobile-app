@@ -39,21 +39,23 @@ const admin = (extra: Api = {}): Api => ({
 });
 const ok = (data: unknown) => vi.fn(() => of({ success: true, data }));
 
+beforeEach(() => localStorage.clear());
+
 describe('ProductsComponent', () => {
   it('an administrator loads the catalogue page by page and the active categories', () => {
     const { c, api } = open(Role.Admin, admin());
 
-    expect(api.get).toHaveBeenCalledWith('/admin/catalog/products', { params: { search: null, page: 1, pageSize: 20 } });
+    expect(api.get).toHaveBeenCalledWith('/admin/catalog/products', { params: { search: null, page: 1, pageSize: 20, categoryId: null, active: null } });
     expect(c.items().map(p => p.name)).toEqual(['Milk']);
     expect(c.categories().map(x => x.name)).toEqual(['Dairy']);
 
     c.more();
-    expect(api.get).toHaveBeenLastCalledWith('/admin/catalog/products', { params: { search: null, page: 2, pageSize: 20 } });
+    expect(api.get).toHaveBeenLastCalledWith('/admin/catalog/products', { params: { search: null, page: 2, pageSize: 20, categoryId: null, active: null } });
     expect(c.items()).toHaveLength(2); // the next page is added to the list
 
     c.search = ' bread ';
     c.reload();
-    expect(api.get).toHaveBeenLastCalledWith('/admin/catalog/products', { params: { search: 'bread', page: 1, pageSize: 20 } });
+    expect(api.get).toHaveBeenLastCalledWith('/admin/catalog/products', { params: { search: 'bread', page: 1, pageSize: 20, categoryId: null, active: null } });
     expect(c.items()).toHaveLength(1);
   });
 

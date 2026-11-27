@@ -1,6 +1,8 @@
 /** Short help in English and Marathi, shown together. Keys are the screen's address, or "screen.control". */
 export const TIPS: Record<string, { en: string; mr: string }> = {
   dashboard: { en: 'Totals for the whole business and the orders being handled now.', mr: 'संपूर्ण व्यवसायाचे एकूण आकडे आणि सध्या हाताळल्या जाणाऱ्या ऑर्डर.' },
+  complaints: { en: 'Problems customers report after delivery, to approve or refuse.', mr: 'डिलिव्हरीनंतर ग्राहकांनी केलेल्या तक्रारी, मान्य किंवा अमान्य करण्यासाठी.' },
+  notifications: { en: 'Coupons, offers and ads that end soon or have just ended.', mr: 'लवकरच संपणारे किंवा नुकतेच संपलेले कूपन, ऑफर आणि जाहिराती.' },
   today: { en: 'What this store has to do today.', mr: 'या दुकानाला आज करायची कामे.' },
   orders: { en: 'Accept, pack and hand over orders. The order you act on stays in its row.', mr: 'ऑर्डर स्वीकारा, पॅक करा आणि पुढे द्या. तुम्ही काम करत असलेली ऑर्डर त्याच ओळीत राहते.' },
   approvals: { en: 'Requests waiting for a yes or no.', mr: 'मंजुरीची वाट पाहणाऱ्या विनंत्या.' },

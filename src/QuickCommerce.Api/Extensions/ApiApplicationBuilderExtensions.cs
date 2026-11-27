@@ -84,6 +84,7 @@ public static class ApiApplicationBuilderExtensions
             }
         });
         app.UseAuthentication();
+        app.UseMiddleware<PasswordChangeRequiredMiddleware>();
         app.UseAuthorization();
         app.UseMiddleware<ReadOnlyInOtherOrganizationMiddleware>();
         app.MapControllers();

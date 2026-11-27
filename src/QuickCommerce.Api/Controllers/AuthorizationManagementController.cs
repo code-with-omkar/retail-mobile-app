@@ -16,7 +16,7 @@ public sealed class AuthorizationManagementController(IAuthorizationManagementSe
 
     /// <summary>The portal's user list, a page at a time.</summary>
     [HttpGet("users/paged")]
-    public async Task<IActionResult> UsersPage([FromQuery] string? search, [FromQuery] string? role, [FromQuery] bool? active, [FromQuery] string? sort, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) =>
+    public async Task<IActionResult> UsersPage([FromQuery] string? search, [FromQuery] string[]? role, [FromQuery] bool? active, [FromQuery] string? sort, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) =>
         Ok(new { success = true, data = await service.GetUsersPageAsync(new ManagedUserQuery(search, role, active, sort, page, pageSize), cancellationToken) });
 
     [HttpGet("users/{id:guid}")]
@@ -38,6 +38,16 @@ public sealed class AuthorizationManagementController(IAuthorizationManagementSe
     public async Task<IActionResult> SetUserStatus(Guid id, [FromBody] SetUserStatusRequest request, CancellationToken cancellationToken) => await service.SetUserStatusAsync(id, request.IsActive, cancellationToken) is { } user
         ? Ok(new { success = true, data = user })
         : NotFound(Failure("User not found"));
+
+    /// <summary>A new temporary password for a member of staff, shown once. They must change it when they next sign in.</summary>
+    [HttpPost("users/{id:guid}/temporary-password")]
+    public async Task<IActionResult> TemporaryPassword(Guid id, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        return await service.SetTemporaryPasswordAsync(id, cancellationToken) is { } made
+            ? Ok(new { success = true, data = made })
+            : Conflict(Failure("A temporary password can be set only for another active member of staff with an email address."));
+    }
 
     [HttpGet("roles")]
     public async Task<IActionResult> Roles(CancellationToken cancellationToken) => Ok(new { success = true, data = await service.GetRolesAsync(cancellationToken) });

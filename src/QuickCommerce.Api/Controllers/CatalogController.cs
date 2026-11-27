@@ -127,7 +127,7 @@ public sealed class CatalogController(ICatalogService catalogService, IAuthoriza
             stores = stores.Where(store => staff.OrderStoreIds.Contains(store.Id)).ToArray();
         }
 
-        return Ok(new { success = true, data = stores.Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive)).ToArray() });
+        return Ok(new { success = true, data = stores.Select(store => new StoreResponse(store.Id, store.Name, store.Address, store.Latitude, store.Longitude, store.ServiceRadiusKm, store.IsActive, store.Code, store.PhoneNumber)).ToArray() });
     }
 
     [HttpGet("stores/nearest")]

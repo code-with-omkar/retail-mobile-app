@@ -1,15 +1,19 @@
-import { Component, OnInit, computed, signal, inject } from '@angular/core';
+import { Component, OnInit, computed, signal, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent, NavItem } from '../sidebar/sidebar.component';
 import { OrgSwitcherComponent } from '../org-switcher/org-switcher.component';
+import { AlertsService } from '../../core/services/alerts.service';
+import { DecorateDirective } from './decorate';
 import { menuFor } from './menu';
 import { HelpTipComponent } from '../../shared/components/help-tip/help-tip.component';
 import { tipForUrl } from '../../shared/components/help-tip/tips';
 import { ToastContainerComponent } from '../../shared/components/toast-container/toast-container.component';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfigService } from '../../core/services/config.service';
+import { Role } from '../../core/models/domain.model';
 
 @Component({
   selector: 'app-shell',
@@ -22,6 +26,7 @@ import { AuthService } from '../../core/services/auth.service';
     ToastContainerComponent,
     OrgSwitcherComponent,
     HelpTipComponent,
+    DecorateDirective,
   ],
   template: `
     <main class="shell">
@@ -30,10 +35,11 @@ import { AuthService } from '../../core/services/auth.service';
         (onUserMenu)="onUserMenu()"
       ></app-sidebar>
 
-      <section class="content">
+      <section class="content" appDecorate>
         <app-org-switcher></app-org-switcher>
         <app-header
           [dateLabel]="dateLabel()"
+          [showApi]="isAdmin()"
           [isOnline]="isOnline()"
           (onSearch)="onSearch()"
           (onNotifications)="onNotifications()"
@@ -45,8 +51,7 @@ import { AuthService } from '../../core/services/auth.service';
           <strong>{{ authService.userContext()?.displayName || 'User' }}</strong>
           <span>{{ authService.userContext()?.email || 'Username unavailable' }}</span>
           <span>{{ authService.userContext()?.role || 'User' }}</span>
-          <button type="button" (click)="viewProfile()">View Profile</button>
-          <button type="button" (click)="logout()">Logout</button>
+          <button type="button" class="act" (click)="viewProfile()">View profile</button>
         </div>
 
         <div class="page-help" *ngIf="tipKey() as key"><app-tip [key]="key"></app-tip><span>Help · मदत</span></div>
@@ -82,7 +87,7 @@ import { AuthService } from '../../core/services/auth.service';
 
     /* other screens keep their natural height and the page scrolls; a list screen takes the rest of the window */
     .content > * { flex-shrink: 0; }
-    .content ::ng-deep app-orders, .content ::ng-deep app-user-master, .content ::ng-deep app-stores, .content ::ng-deep app-categories, .content ::ng-deep app-delivery-slots, .content ::ng-deep app-commission { flex: 1 1 0; min-height: 430px; display: flex; flex-direction: column; }
+    .content ::ng-deep app-orders, .content ::ng-deep app-user-master, .content ::ng-deep app-stores, .content ::ng-deep app-categories, .content ::ng-deep app-delivery-slots, .content ::ng-deep app-commission, .content ::ng-deep app-ads, .content ::ng-deep app-coupons, .content ::ng-deep app-campaigns, .content ::ng-deep app-approvals, .content ::ng-deep app-complaints, .content ::ng-deep app-notifications, .content ::ng-deep app-placement { flex: 1 1 0; min-height: 430px; display: flex; flex-direction: column; }
 
     .page-help { display: flex; align-items: center; gap: 7px; margin: -8px 0 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
 
@@ -127,8 +132,6 @@ import { AuthService } from '../../core/services/auth.service';
       transition: color 0.15s;
     }
 
-    .profile-menu button:hover { color: var(--danger); }
-    .profile-menu button:last-child:hover { color: #C42F1D; }
 
     @media (max-width: 1000px) {
       .content { padding: 30px 25px 45px 16px; }
@@ -143,15 +146,30 @@ import { AuthService } from '../../core/services/auth.service';
     }
   `],
 })
-export class ShellComponent implements OnInit {
+export class ShellComponent implements OnInit, OnDestroy {
   readonly authService = inject(AuthService);
   private router = inject(Router);
 
-  isOnline = signal(true);
   profileOpen = signal(false);
+  isOnline = signal(true);
+  private config = inject(ConfigService);
+  private apiTimer?: ReturnType<typeof setInterval>;
+
+  isAdmin(): boolean { return this.authService.hasRole(Role.ApplicationAdmin) || this.authService.hasRole(Role.Admin); }
+
+  /** Any answer from the server, even a refusal, means it can be reached. */
+  async checkApi(): Promise<void> {
+    try {
+      await fetch(this.config.getBaseUrl(), { cache: 'no-store' });
+      this.isOnline.set(true);
+    } catch {
+      this.isOnline.set(false);
+    }
+  }
 
   // What this person may see (see menu.ts)
-  navItems = computed(() => menuFor(this.authService.userContext()));
+  private alerts = inject(AlertsService);
+  navItems = computed(() => menuFor(this.authService.userContext()).map(item => (item.route === '/notifications' ? { ...item, badge: this.alerts.unread() } : item)));
 
   /** The help for the page in front, if it has any. */
   tipKey(): string | null { return tipForUrl(this.router.url ?? ''); }
@@ -166,9 +184,19 @@ export class ShellComponent implements OnInit {
     });
   });
 
+  private alertTimer?: ReturnType<typeof setInterval>;
+
+  ngOnDestroy(): void { clearInterval(this.alertTimer); clearInterval(this.apiTimer); }
+
   ngOnInit(): void {
-    // Optionally check API connectivity
-    // this.checkApiStatus();
+    if (this.isAdmin()) {
+      void this.checkApi();
+      this.apiTimer = setInterval(() => void this.checkApi(), 60 * 1000);
+    }
+    if (menuFor(this.authService.userContext()).some(item => item.route === '/notifications')) {
+      this.alerts.refresh();
+      this.alertTimer = setInterval(() => this.alerts.refresh(), 5 * 60 * 1000);
+    }
   }
 
   onSearch(): void {

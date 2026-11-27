@@ -5,6 +5,9 @@ namespace QuickCommerce.Application.DTOs;
 /// <summary><see cref="Reason"/> is required when rejecting (see OrderRejections); <see cref="Note"/> is required for Other.</summary>
 public sealed record ChangeOrderStatusRequest(OrderStatus Status, string? Reason = null, string? Note = null);
 
+/// <summary>The store cancels an accepted order; see OrderCancellations for the reasons.</summary>
+public sealed record CancelOrderByStoreRequest(string? Reason, string? Note = null);
+
 public enum OrderLifecycleStatus
 {
     Succeeded,

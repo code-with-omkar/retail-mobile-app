@@ -10,8 +10,9 @@ export const MENU: NavItem[] = [
   { group: 'Daily', label: 'Overview', icon: 'home', route: '/dashboard', requiredRoles: ADMINS },
   { group: 'Daily', label: 'Today', icon: 'today', route: '/today', requiredRoles: EVERYONE },
   { group: 'Daily', label: 'Orders', icon: 'orders', route: '/orders', requiredRoles: EVERYONE },
+  { group: 'Daily', label: 'Complaints', icon: 'complaint', route: '/complaints', requiredRoles: EVERYONE },
   { group: 'Daily', label: 'Approval requests', icon: 'check', route: '/approvals', requiredRoles: [Role.StoreStaff] },
-  // Notifications is left out until the portal has a notifications screen (its route shows a placeholder).
+  { group: 'Daily', label: 'Notifications', icon: 'bell', route: '/notifications', requiredRoles: EVERYONE },
   { group: 'Catalogue', label: 'Catalog', icon: 'box', route: '/products', requiredRoles: EVERYONE },
   { group: 'Catalogue', label: 'Categories', icon: 'grid', route: '/categories', requiredRoles: ADMINS },
   { group: 'Catalogue', label: 'Stock', icon: 'layers', route: '/stock', requiredRoles: EVERYONE },
@@ -41,6 +42,8 @@ export function menuFor(context: UserContext | null | undefined): NavItem[] {
       if (context!.staffCategory === StaffCategory.StoreManager) return [item];
       return context!.staffCategory === StaffCategory.StoreEmployee ? [{ ...item, label: 'My approval requests' }] : [];
     }
+    // Alerts about things ending are for administrators and store managers.
+    if (item.route === '/notifications' && role === Role.StoreStaff && context!.staffCategory !== StaffCategory.StoreManager) return [];
     if (item.route === '/orders' && role === Role.StoreStaff && !context!.permissions?.includes('orders:read')) return [];
     return [item];
   });

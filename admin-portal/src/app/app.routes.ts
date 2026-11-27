@@ -11,6 +11,18 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then(m => m.LoginComponent),
   },
   {
+    path: 'forgot-password',
+    canActivate: [NoAuthGuard],
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password.component').then(m => m.ForgotPasswordComponent),
+  },
+  {
+    path: 'change-password',
+    canActivate: [AuthGuard],
+    loadComponent: () =>
+      import('./features/auth/change-password/change-password.component').then(m => m.ChangePasswordComponent),
+  },
+  {
     path: '',
     component: ShellComponent,
     canActivate: [AuthGuard],
@@ -49,6 +61,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/orders/orders.component').then(
             m => m.OrdersComponent
+          ),
+      },
+      {
+        path: 'complaints',
+        canActivate: [RoleGuard],
+        data: { roles: [Role.ApplicationAdmin, Role.Admin, Role.StoreStaff] },
+        loadComponent: () =>
+          import('./features/complaints/complaints.component').then(
+            m => m.ComplaintsComponent
           ),
       },
       {

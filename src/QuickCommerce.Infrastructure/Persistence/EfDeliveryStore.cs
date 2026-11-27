@@ -130,6 +130,30 @@ public sealed class EfDeliveryStore(QuickCommerceDbContext db) : IDeliveryStore
         return new DeliveryChange(status, order);
     });
 
+    public Task<DeliveryChange> FailAsync(Guid orderId, Guid partnerId, string reason, string? note, DateTime now, CancellationToken cancellationToken = default) => RetryAsync(async () =>
+    {
+        var order = await db.Orders.Include(item => item.Items).Include(item => item.StatusHistory)
+            .SingleOrDefaultAsync(item => item.Id == orderId && item.DeliveryPartnerId == partnerId, cancellationToken);
+        if (order is null)
+        {
+            return new DeliveryChange(DeliveryChangeStatus.NotFound);
+        }
+
+        var status = DeliveryRules.Fail(order, partnerId, reason, note, now);
+        if (status == DeliveryChangeStatus.Succeeded)
+        {
+            db.DeliveryLocations.RemoveRange(db.DeliveryLocations.Where(location => location.OrderId == order.Id));
+            if (await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken) is { } customerId)
+            {
+                db.Notifications.Add(NotificationCatalog.Create(customerId, order.Id, NotificationTypes.DeliveryFailed, order.OrderNumber));
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return new DeliveryChange(status, order);
+    });
+
     private async Task NotifyAsync(Order order, OrderStatus status, CancellationToken cancellationToken)
     {
         var customerId = await db.Customers.Where(customer => customer.UserId == order.UserId).Select(customer => (Guid?)customer.Id).SingleOrDefaultAsync(cancellationToken);

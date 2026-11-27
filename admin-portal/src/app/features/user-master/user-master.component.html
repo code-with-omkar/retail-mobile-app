@@ -7,36 +7,32 @@
     <app-button label="＋ Add user" variant="primary" (onClick)="openCreateForm()"></app-button>
   </header>
 
-  <div class="toolbar">
-    <label class="search">Search<input type="search" placeholder="Name or email" [value]="searchTerm()" (input)="searchTerm.set($any($event.target).value)" (keyup.enter)="filter()" /></label>
-    <app-select label="Role" [options]="roleFilterOptions()" [value]="roleFilter()" (onChange)="onRoleFilterChange($event)"></app-select>
-    <app-select label="Status" [options]="statusOptions" [value]="statusFilter()" (onChange)="onStatusFilterChange($event)"></app-select>
-    <app-select label="Sort" [options]="sortOptions" [value]="sort()" (onChange)="sort.set($event); filter()"></app-select>
-    <app-button label="Search" variant="secondary" (onClick)="filter()"></app-button>
-  </div>
+  <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+    <input filterSearch type="search" name="search" aria-label="Search" placeholder="Name or email, then Enter" [value]="searchTerm()" (input)="searchTerm.set($any($event.target).value)" (keyup.enter)="filter()" />
+    <p class="error" role="alert" *ngIf="apiError() && !isFormVisible()">{{ apiError() }}</p>
 
-  <p class="error" role="alert" *ngIf="apiError() && !isFormVisible()">{{ apiError() }}</p>
+    <app-data-table [fill]="true" [columns]="columns" [rows]="users()" [loading]="isLoading()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No users found. Try changing the search or filters.">
+      <ng-template appCell="user" let-user>
+        <div class="who">
+          <span class="avatar" [style.background]="avatarAccent(user).tint">{{ initials(user) }}</span>
+          <div><strong>{{ user.firstName }} {{ user.lastName }}</strong><small>{{ user.email }}</small></div>
+        </div>
+      </ng-template>
+      <ng-template appCell="org" let-user>{{ getOrganizationName(user.organizationId) }}<small>{{ getStoreName(user.storeId) }}</small></ng-template>
+      <ng-template appCell="role" let-user><span class="chip">{{ roleLabel(user.role) }}</span></ng-template>
+      <ng-template appCell="status" let-user><span class="chip" [class.on]="isActive(user)" [class.off]="!isActive(user)">{{ user.status }}</span></ng-template>
+      <ng-template appCell="actions" let-user>
+        <span class="actions">
+          <button type="button" class="act" (click)="openViewForm(user)">View</button>
+          <button type="button" class="act" (click)="openEditForm(user)">Edit</button>
+        <button type="button" class="act" *ngIf="canGivePassword(user)" (click)="givePassword(user)">Password</button>
+          <button type="button" class="act" [class.danger]="isActive(user)" (click)="toggleUserStatus(user)">{{ isActive(user) ? 'Deactivate' : 'Activate' }}</button>
+        </span>
+      </ng-template>
+    </app-data-table>
 
-  <app-data-table [fill]="true" [columns]="columns" [rows]="users()" [loading]="isLoading()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No users found. Try changing the search or filters.">
-    <ng-template appCell="user" let-user>
-      <div class="who">
-        <span class="avatar" [style.background]="avatarAccent(user).tint">{{ initials(user) }}</span>
-        <div><strong>{{ user.firstName }} {{ user.lastName }}</strong><small>{{ user.email }}</small></div>
-      </div>
-    </ng-template>
-    <ng-template appCell="org" let-user>{{ getOrganizationName(user.organizationId) }}<small>{{ getStoreName(user.storeId) }}</small></ng-template>
-    <ng-template appCell="role" let-user><span class="chip">{{ roleLabel(user.role) }}</span></ng-template>
-    <ng-template appCell="status" let-user><span class="chip" [class.on]="isActive(user)" [class.off]="!isActive(user)">{{ user.status }}</span></ng-template>
-    <ng-template appCell="actions" let-user>
-      <span class="actions">
-        <button type="button" class="act" (click)="openViewForm(user)">View</button>
-        <button type="button" class="act" (click)="openEditForm(user)">Edit</button>
-        <button type="button" class="act" [class.danger]="isActive(user)" (click)="toggleUserStatus(user)">{{ isActive(user) ? 'Deactivate' : 'Activate' }}</button>
-      </span>
-    </ng-template>
-  </app-data-table>
-
-  <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="total()" (pageChange)="goTo($event)" (pageSizeChange)="resize($event)"></app-pagination>
+    <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="total()" (pageChange)="goTo($event)" (pageSizeChange)="resize($event)"></app-pagination>
+  </app-filter-layout>
 
   <app-side-panel [open]="isFormVisible()" [title]="mode() === 'create' ? 'Add user' : mode() === 'edit' ? 'Edit ' + (selectedUser()?.fullName ?? 'user') : (selectedUser()?.fullName ?? 'User')" (closed)="closeForm()">
     <p class="error" role="alert" *ngIf="apiError()">{{ apiError() }}</p>
@@ -150,3 +146,15 @@
     </div>
   </app-side-panel>
 </section>
+
+<app-side-panel [open]="!!temporary()" title="Temporary password" (closed)="temporary.set(null)">
+  <ng-container *ngIf="temporary() as t">
+    <p>Give this to <strong>{{ t.name }}</strong> ({{ t.email }}). It is shown only now, and they must choose their own password when they sign in.</p>
+    <p class="secret"><code>{{ t.password }}</code></p>
+    <p *ngIf="copied()">Copied.</p>
+  </ng-container>
+  <div panelActions class="actions">
+    <button type="button" class="act" (click)="copyPassword()">Copy</button>
+    <button type="button" class="primary" (click)="temporary.set(null)">Done</button>
+  </div>
+</app-side-panel>

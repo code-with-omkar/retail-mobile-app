@@ -96,8 +96,8 @@ interface PermissionGroup {
   styles: [`
     /* narrow screens: the roles run across the top and the permissions take the full width */
     @media (max-width: 900px) { .workspace { grid-template-columns: 1fr !important; } .roles { display: flex !important; overflow-x: auto; position: static !important; padding-bottom: 6px; } .roles .role-card { min-width: 220px; } .role-card.selected { transform: none !important; } .band { flex-direction: column; } .permission { flex-wrap: wrap; } }
-    :host { display: block; color: #141118; font-family: 'Plus Jakarta Sans', sans-serif; }
-    .page { max-width: 1180px; margin: auto; }
+    :host { display: block; color: var(--ink); font-family: 'Plus Jakarta Sans', sans-serif; }
+    .page { width: 100%; }
     .eyebrow { display: inline-block; background: var(--soft); color: #141118; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 999px; }
     h1 { margin: 10px 0 6px; font: 800 32px 'Bricolage Grotesque', sans-serif; letter-spacing: -1px; color:var(--ink); }
     .heading p { margin: 0; color:var(--muted); font-size: 12px; }
@@ -174,7 +174,6 @@ interface PermissionGroup {
     .group-count,.count,.group header button{background:#fff;border:1px solid #E2E0E8}
     .permission{background:#fff;border:1px solid #E6E4EC}
     .permission:has(input:checked){border-color:#4A4655;background:#F8F7FA}
-    input[type=checkbox]:checked{background:#2F2B38!important}
     .dirty{background:#F1F0F4}
   `],
 })

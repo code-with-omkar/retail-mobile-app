@@ -61,7 +61,7 @@ public sealed partial class CatalogAdminService(
         return context is { Role: Role.Admin or Role.ApplicationAdmin };
     }
 
-    public async Task<CatalogAdminResult<AdminProductPage>> ListAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<CatalogAdminResult<AdminProductPage>> ListAsync(string? search, int page, int pageSize, ProductFilter? filter = null, CancellationToken cancellationToken = default)
     {
         if (!await IsAdminAsync(cancellationToken))
         {
@@ -71,8 +71,8 @@ public sealed partial class CatalogAdminService(
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
         var term = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
-        var (items, total) = await store.ListProductsAsync(term, (page - 1) * pageSize, pageSize, cancellationToken);
-        return CatalogAdminResult<AdminProductPage>.Ok(new AdminProductPage(items.Select(Map).ToArray(), page, pageSize, total));
+        var (items, total) = await store.ListProductsAsync(term, (page - 1) * pageSize, pageSize, filter, cancellationToken);
+        return CatalogAdminResult<AdminProductPage>.Ok(new AdminProductPage(items.Select(Map).ToArray(), page, pageSize, total, await store.CountProductsAsync(term, filter, cancellationToken)));
     }
 
     public async Task<CatalogAdminResult<AdminProductResponse>> GetAsync(Guid productId, CancellationToken cancellationToken = default)

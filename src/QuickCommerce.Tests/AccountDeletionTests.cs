@@ -39,6 +39,8 @@ public sealed class AccountDeletionTests
         public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> TryCreateCustomerAsync(NewCustomerAccount account, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<AccountUserInfo?> FindActiveCustomerByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<AccountUserInfo?> FindActiveUserByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<AccountUserInfo?> FindActiveUserByIdAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<int> CountResetCodesSinceAsync(Guid userId, DateTime sinceUtc, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task CreateResetCodeAsync(Guid userId, string codeHash, DateTime createdUtc, DateTime expiresUtc, string? ipAddress, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ResetCodeInfo?> GetOpenResetCodeAsync(Guid userId, DateTime nowUtc, int maxAttempts, CancellationToken cancellationToken = default) => throw new NotSupportedException();

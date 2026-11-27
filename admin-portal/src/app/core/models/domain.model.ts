@@ -86,6 +86,8 @@ export interface UserContext {
   staffCategory?: StaffCategory;
   roles?: string[];
   permissions?: string[];
+  /** Signed in with a temporary password: only changing it is possible. */
+  mustChangePassword?: boolean;
 }
 
 export interface User {
@@ -133,6 +135,8 @@ export interface Store {
   longitude: number;
   serviceRadiusKm: number;
   isActive: boolean;
+  code?: string | null;
+  phoneNumber?: string | null;
 }
 
 export interface OrderLineItem {
@@ -184,6 +188,13 @@ export interface AdminOrder {
   rejectionReason?: string | null;
   rejectionNote?: string | null;
   rejectedBy?: string | null;
+  /** Why the store cancelled it after accepting, and the last failed delivery. */
+  cancelReason?: string | null;
+  cancelNote?: string | null;
+  cancelledBy?: string | null;
+  deliveryFailureReason?: string | null;
+  deliveryFailureNote?: string | null;
+  deliveryFailedAt?: string | null;
 }
 
 export interface Notification {

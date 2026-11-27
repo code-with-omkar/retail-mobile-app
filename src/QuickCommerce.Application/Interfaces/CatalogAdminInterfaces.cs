@@ -21,7 +21,13 @@ public sealed record AdminProductResponse(
     IReadOnlyList<AdminVariantResponse> Variants,
     IReadOnlyList<AdminTranslationResponse> Translations);
 
-public sealed record AdminProductPage(IReadOnlyList<AdminProductResponse> Items, int Page, int PageSize, int TotalCount);
+public sealed record AdminProductPage(IReadOnlyList<AdminProductResponse> Items, int Page, int PageSize, int TotalCount, ProductCounts? Counts = null);
+
+/// <summary>Narrows the product list. No categories means all of them; <see cref="Active"/> null means on sale or not.</summary>
+public sealed record ProductFilter(IReadOnlyList<Guid>? CategoryIds = null, bool? Active = null);
+
+/// <summary>How many products each filter value has, under the other filter.</summary>
+public sealed record ProductCounts(IReadOnlyDictionary<Guid, int> ByCategory, int OnSale, int OffSale);
 
 /// <summary>A new product also gets its first (default) variant, labelled with the unit, at this price.</summary>
 public sealed record CreateProductRequest(string Sku, string Name, string Description, Guid CategoryId, string UnitOfMeasure, decimal Price, decimal? Mrp = null);
@@ -47,7 +53,7 @@ public sealed record CatalogAdminResult<T>(CatalogAdminStatus Status, T? Value =
 
 public interface ICatalogAdminService
 {
-    Task<CatalogAdminResult<AdminProductPage>> ListAsync(string? search, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<CatalogAdminResult<AdminProductPage>> ListAsync(string? search, int page, int pageSize, ProductFilter? filter = null, CancellationToken cancellationToken = default);
     Task<CatalogAdminResult<AdminProductResponse>> GetAsync(Guid productId, CancellationToken cancellationToken = default);
     Task<CatalogAdminResult<AdminProductResponse>> CreateAsync(CreateProductRequest request, CancellationToken cancellationToken = default);
     Task<CatalogAdminResult<AdminProductResponse>> UpdateAsync(Guid productId, UpdateProductRequest request, CancellationToken cancellationToken = default);
@@ -95,7 +101,8 @@ public interface IImageStore
 
 public interface ICatalogAdminStore
 {
-    Task<(IReadOnlyList<ProductBundle> Items, int Total)> ListProductsAsync(string? search, int skip, int take, CancellationToken cancellationToken = default);
+    Task<(IReadOnlyList<ProductBundle> Items, int Total)> ListProductsAsync(string? search, int skip, int take, ProductFilter? filter = null, CancellationToken cancellationToken = default);
+    Task<ProductCounts> CountProductsAsync(string? search, ProductFilter? filter = null, CancellationToken cancellationToken = default);
     Task<ProductBundle?> GetProductAsync(Guid productId, CancellationToken cancellationToken = default);
     Task<CatalogChange> CreateProductAsync(Product product, ProductVariant firstVariant, CancellationToken cancellationToken = default);
     Task<CatalogChange> UpdateProductAsync(Guid productId, string name, string description, Guid categoryId, string unitOfMeasure, bool isActive, CancellationToken cancellationToken = default);

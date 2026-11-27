@@ -1,4 +1,6 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, filterState } from '../../shared/components/filter-layout/filter-state';
+import { Component, OnDestroy, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription, timer } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
@@ -11,10 +13,10 @@ import { CellDirective, DataColumn, DataTableComponent } from '../../shared/comp
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, LoadingComponent, ErrorStateComponent, IconComponent, DataTableComponent, CellDirective],
+  imports: [CommonModule, LoadingComponent, ErrorStateComponent, IconComponent, DataTableComponent, CellDirective, FilterLayoutComponent],
   template: `
-    <div class="dashboard">
-      <div class="head">
+    <div class="dashboard page">
+      <div class="top">
         <div><h2>Overview</h2><p class="muted">Today's pulse across your network.</p></div>
         <span class="live"><i></i>Updates every 30 seconds</span>
       </div>
@@ -41,14 +43,16 @@ import { CellDirective, DataColumn, DataTableComponent } from '../../shared/comp
 
         <section class="live-orders">
           <div class="panel-heading"><h3>Currently active</h3><span class="count">{{ data.activeOrders }} active</span></div>
+          <app-filter-layout [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
           <p *ngIf="data.activeOrdersList.length === 0" class="empty">No active orders</p>
-          <app-data-table *ngIf="data.activeOrdersList.length > 0" [columns]="columns" [rows]="data.activeOrdersList" maxHeight="44vh">
+          <app-data-table *ngIf="data.activeOrdersList.length > 0" [columns]="columns" [rows]="shownOrders()" maxHeight="44vh">
             <ng-template appCell="orderNumber" let-order><strong>{{ order.orderNumber }}</strong></ng-template>
             <ng-template appCell="status" let-order><span class="status">{{ order.status }}</span></ng-template>
             <ng-template appCell="orderTime" let-order>{{ order.orderTime | date:'short' }}</ng-template>
             <ng-template appCell="amount" let-order>{{ order.amount | currency:'INR':'symbol':'1.0-0' }}</ng-template>
             <ng-template appCell="deliveryPartner" let-order>{{ order.deliveryPartner || 'Unassigned' }}</ng-template>
           </app-data-table>
+          </app-filter-layout>
         </section>
       </ng-container>
     </div>
@@ -62,8 +66,9 @@ import { CellDirective, DataColumn, DataTableComponent } from '../../shared/comp
     .muted{color:var(--muted);font-size:12px;margin:0}
     .live{display:inline-flex;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:11px;font-weight:700;color:var(--muted)}
     .live i{width:8px;height:8px;border-radius:50%;background:#14A44D}
-    .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
-    .tiles.today{grid-template-columns:1.6fr 1fr 1fr 1fr}
+    .tiles{display:flex;flex-wrap:wrap;gap:12px}
+    .tiles>.tile{flex:1 1 160px}
+    .tiles.today>.tile.hero{flex:1.6 1 280px}
     .tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;gap:12px;align-items:center}
     .tile p{margin:0 0 4px;color:var(--muted);font-size:11px;font-weight:700}
     .tile strong{display:block;font-family:var(--display);font-size:24px;letter-spacing:-.8px}
@@ -76,11 +81,25 @@ import { CellDirective, DataColumn, DataTableComponent } from '../../shared/comp
     .count{background:var(--soft);border-radius:999px;padding:4px 11px;font-size:11px;font-weight:800}
     .status{background:#E3F7EA;color:var(--success);font-weight:800;font-size:11px;padding:3px 10px;border-radius:999px}
     .empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;text-align:center;color:var(--muted);font-size:12px;margin:0}
-    @media(max-width:1100px){.tiles.today{grid-template-columns:1fr 1fr}}
-    @media(max-width:600px){.tiles.today{grid-template-columns:1fr}}
-  `],
+  
+    :host{display:flex;flex-direction:column;color:var(--ink)}
+    .page{flex:1;min-height:0;width:100%;display:flex!important;flex-direction:column;gap:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+    .top h2{margin:0 0 4px}
+    .top .muted{margin:0;font-size:12px;color:var(--muted)}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap}
+    app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+`],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  readonly filters = filterState('overview');
+  readonly shownOrders = computed(() => (this.dashboard()?.activeOrdersList ?? []).filter(o => this.filters.allows('status', String(o.status))));
+  readonly groups = computed<FilterGroup[]>(() => {
+    const orders = this.dashboard()?.activeOrdersList ?? [];
+    return [{ key: 'status', label: 'Status', options: [...new Set(orders.map(o => String(o.status)))].sort().map(v => ({ value: v, label: v, count: orders.filter(o => String(o.status) === v).length })) }];
+  });
+  onFilters(next: Selection) { this.filters.set(next); }
+  clearFilters() { this.filters.clear(); }
   private readonly api = inject(ApiService);
   readonly columns: DataColumn[] = [
     { key: 'orderNumber', label: 'Order' }, { key: 'customer', label: 'Customer' }, { key: 'store', label: 'Store' }, { key: 'status', label: 'Status' },

@@ -1,3 +1,6 @@
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection } from '../../shared/components/filter-layout/filter-state';
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -38,78 +41,74 @@ const MAX_PAGES = 20;
 @Component({
   selector: 'app-categories',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidePanelComponent],
+  imports: [CommonModule, FormsModule, SidePanelComponent, LoaderComponent, FilterLayoutComponent],
   template: `
     <section class="page">
-      <header>
-        <div>
-          <h2>Categories</h2>
-          <p class="muted">Choose a category, then move products between the two boxes. A product's category is the same in every shop.</p>
+      <div class="top"><div><h2>Categories</h2>
+      <p class="muted">Choose a category, then move products between the two boxes. A product's category is the same in every shop.</p></div>
+        <div class="top-actions">
+          <ng-container *ngIf="selected() as c">
+            <span class="state" [class.off]="!c.isActive">{{ c.isActive ? 'Shown in the app' : 'Hidden' }}</span>
+            <button type="button" class="ghost" (click)="edit(c)">Edit category</button>
+            <button type="button" class="ghost" *ngIf="!c.parentCategoryId" (click)="startNew(c.id)">＋ Sub-category</button>
+          </ng-container>
+          <button type="button" class="primary" (click)="startNew('')">＋ Main category</button>
         </div>
-        <button type="button" class="primary" (click)="startNew('')">＋ Main category</button>
-      </header>
-
-      <div class="chooser">
-        <label class="grow">Category<select name="category" class="big" [ngModel]="selectedId()" (ngModelChange)="choose($event)"><option *ngFor="let c of choices()" [value]="c.id">{{ c.label }}</option></select></label>
-        <label>Store<select name="store" [ngModel]="storeId()" (ngModelChange)="pickStore($event)"><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select></label>
-        <ng-container *ngIf="selected() as c">
-          <button type="button" class="pill" (click)="edit(c)">Edit category</button>
-          <button type="button" class="pill" *ngIf="!c.parentCategoryId" (click)="startNew(c.id)">＋ Sub-category</button>
-          <span class="state" [class.off]="!c.isActive">{{ c.isActive ? 'Shown in the app' : 'Hidden' }}</span>
-        </ng-container>
       </div>
 
-      <p *ngIf="error() && !panelOpen()" class="error" role="alert">{{ error() }}</p>
-      <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
-      <p *ngIf="!loading() && !items().length" class="empty">No categories yet. Add a main category to begin.</p>
+      <app-filter-layout [fill]="true" [groups]="filterGroups()" [selected]="selection()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <p *ngIf="error() && !panelOpen()" class="error" role="alert">{{ error() }}</p>
+        <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
+        <p *ngIf="!loading() && !items().length" class="empty">No categories yet. Add a main category to begin.</p>
 
-      <div class="boxes" *ngIf="selected() as c">
-        <section class="box" aria-label="Products not in this category" [class.over]="overSide() === 'out'" (dragover)="over($event, 'out')" (dragleave)="leave('out')" (drop)="drop($event, 'out')">
-          <div class="box-head">
-            <h3>Not in {{ c.name }} <small>{{ outside().length }}</small></h3>
-            <input type="search" name="outSearch" placeholder="Search these products" [ngModel]="outSearch()" (ngModelChange)="outSearch.set($event)" />
-            <div class="bar">
-              <label class="check"><input type="checkbox" name="allOut" [checked]="allTicked('out')" (change)="tickAll('out')" /> Select all</label>
-              <button type="button" class="primary" [disabled]="busy() || !ticked(outside()).length" (click)="addTicked()">Add {{ ticked(outside()).length || '' }} to {{ c.name }} →</button>
+        <div class="boxes" *ngIf="selected() as c">
+          <section class="box" aria-label="Products not in this category" [class.over]="overSide() === 'out'" (dragover)="over($event, 'out')" (dragleave)="leave('out')" (drop)="drop($event, 'out')">
+            <div class="box-head">
+              <h3>Not in {{ c.name }} <small>{{ outside().length }}</small></h3>
+              <input type="search" name="outSearch" placeholder="Search these products" [ngModel]="outSearch()" (ngModelChange)="outSearch.set($event)" />
+              <div class="bar">
+                <label class="check"><input type="checkbox" name="allOut" [checked]="allTicked('out')" (change)="tickAll('out')" /> Select all</label>
+                <button type="button" class="primary" [disabled]="busy() || !ticked(outside()).length" (click)="addTicked()">Add {{ ticked(outside()).length || '' }} to {{ c.name }} →</button>
+              </div>
             </div>
-          </div>
-          <div class="scroll">
-            <p class="empty" *ngIf="loadingProducts()">Loading products…</p>
-            <p class="empty" *ngIf="!loadingProducts() && !outside().length">No other products in this store.</p>
-            <article *ngFor="let p of outside(); let i = index; trackBy: trackProduct" class="product" draggable="true" [class.changed]="changed().has(p.id)" (dragstart)="grab($event, p)" (dragend)="release()">
-              <span class="no">{{ i + 1 }}</span>
-              <input type="checkbox" [attr.aria-label]="'Select ' + p.name" [checked]="picked().has(p.id)" (change)="tick(p.id)" />
-              <img *ngIf="p.imageUrl; else letterOut" [src]="img(p.imageUrl)" alt="" draggable="false" />
-              <ng-template #letterOut><span class="letter">{{ p.name.charAt(0).toUpperCase() }}</span></ng-template>
-              <span class="name">{{ p.name }}<small>{{ p.unitOfMeasure }} · {{ labelOf(p.categoryId) }}</small></span>
-              <button type="button" class="pill" [disabled]="busy()" (click)="move([p], c.id)">Add →</button>
-            </article>
-          </div>
-        </section>
+            <div class="scroll">
+              <app-loader *ngIf="loadingProducts()" message="Loading products…"></app-loader>
+              <p class="empty" *ngIf="!loadingProducts() && !outside().length">No other products in this store.</p>
+              <article *ngFor="let p of outside(); let i = index; trackBy: trackProduct" class="product" draggable="true" [class.changed]="changed().has(p.id)" (dragstart)="grab($event, p)" (dragend)="release()">
+                <span class="no">{{ i + 1 }}</span>
+                <input type="checkbox" [attr.aria-label]="'Select ' + p.name" [checked]="picked().has(p.id)" (change)="tick(p.id)" />
+                <img *ngIf="p.imageUrl; else letterOut" [src]="img(p.imageUrl)" alt="" draggable="false" />
+                <ng-template #letterOut><span class="letter">{{ p.name.charAt(0).toUpperCase() }}</span></ng-template>
+                <span class="name">{{ p.name }}<small>{{ p.unitOfMeasure }} · {{ labelOf(p.categoryId) }}</small></span>
+                <button type="button" class="pill" [disabled]="busy()" (click)="move([p], c.id)">Add →</button>
+              </article>
+            </div>
+          </section>
 
-        <section class="box mine" aria-label="Products in this category" [class.over]="overSide() === 'in'" (dragover)="over($event, 'in')" (dragleave)="leave('in')" (drop)="drop($event, 'in')">
-          <div class="box-head">
-            <h3>In {{ c.name }} <small>{{ inside().length }}</small></h3>
-            <input type="search" name="inSearch" placeholder="Search these products" [ngModel]="inSearch()" (ngModelChange)="inSearch.set($event)" />
-            <div class="bar">
-              <label class="check"><input type="checkbox" name="allIn" [checked]="allTicked('in')" (change)="tickAll('in')" /> Select all</label>
-              <label class="moveto">Move removed to<select name="removeTo" [ngModel]="removeTo()" (ngModelChange)="removeTo.set($event)"><option *ngFor="let o of otherChoices()" [value]="o.id">{{ o.label }}</option></select></label>
-              <button type="button" class="pill" [disabled]="busy() || !removeTo() || !ticked(inside()).length" (click)="removeTicked()">← Remove {{ ticked(inside()).length || '' }}</button>
+          <section class="box mine" aria-label="Products in this category" [class.over]="overSide() === 'in'" (dragover)="over($event, 'in')" (dragleave)="leave('in')" (drop)="drop($event, 'in')">
+            <div class="box-head">
+              <h3>In {{ c.name }} <small>{{ inside().length }}</small></h3>
+              <input type="search" name="inSearch" placeholder="Search these products" [ngModel]="inSearch()" (ngModelChange)="inSearch.set($event)" />
+              <div class="bar">
+                <label class="check"><input type="checkbox" name="allIn" [checked]="allTicked('in')" (change)="tickAll('in')" /> Select all</label>
+                <label class="moveto">Move removed to<select name="removeTo" [ngModel]="removeTo()" (ngModelChange)="removeTo.set($event)"><option *ngFor="let o of otherChoices()" [value]="o.id">{{ o.label }}</option></select></label>
+                <button type="button" class="pill" [disabled]="busy() || !removeTo() || !ticked(inside()).length" (click)="removeTicked()">← Remove {{ ticked(inside()).length || '' }}</button>
+              </div>
             </div>
-          </div>
-          <div class="scroll">
-            <p class="empty" *ngIf="!loadingProducts() && !inside().length">No products of this store are in this category yet. Drag them here.</p>
-            <article *ngFor="let p of inside(); let i = index; trackBy: trackProduct" class="product" draggable="true" [class.changed]="changed().has(p.id)" (dragstart)="grab($event, p)" (dragend)="release()">
-              <span class="no">{{ i + 1 }}</span>
-              <input type="checkbox" [attr.aria-label]="'Select ' + p.name" [checked]="picked().has(p.id)" (change)="tick(p.id)" />
-              <img *ngIf="p.imageUrl; else letterIn" [src]="img(p.imageUrl)" alt="" draggable="false" />
-              <ng-template #letterIn><span class="letter">{{ p.name.charAt(0).toUpperCase() }}</span></ng-template>
-              <span class="name">{{ p.name }}<small>{{ p.unitOfMeasure }}</small></span>
-              <button type="button" class="pill" [disabled]="busy() || !removeTo()" (click)="move([p], removeTo())">← Remove</button>
-            </article>
-          </div>
-        </section>
-      </div>
+            <div class="scroll">
+              <p class="empty" *ngIf="!loadingProducts() && !inside().length">No products of this store are in this category yet. Drag them here.</p>
+              <article *ngFor="let p of inside(); let i = index; trackBy: trackProduct" class="product" draggable="true" [class.changed]="changed().has(p.id)" (dragstart)="grab($event, p)" (dragend)="release()">
+                <span class="no">{{ i + 1 }}</span>
+                <input type="checkbox" [attr.aria-label]="'Select ' + p.name" [checked]="picked().has(p.id)" (change)="tick(p.id)" />
+                <img *ngIf="p.imageUrl; else letterIn" [src]="img(p.imageUrl)" alt="" draggable="false" />
+                <ng-template #letterIn><span class="letter">{{ p.name.charAt(0).toUpperCase() }}</span></ng-template>
+                <span class="name">{{ p.name }}<small>{{ p.unitOfMeasure }}</small></span>
+                <button type="button" class="pill" [disabled]="busy() || !removeTo()" (click)="move([p], removeTo())">← Remove</button>
+              </article>
+            </div>
+          </section>
+        </div>
+      </app-filter-layout>
 
       <app-side-panel [open]="panelOpen()" [title]="editing() ? 'Edit ' + editing()!.name : 'New category'" (closed)="reset()">
         <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
@@ -154,7 +153,7 @@ const MAX_PAGES = 20;
     input,select{border:1.5px solid #D9D7DF;border-radius:12px;padding:8px 10px;font:inherit;font-size:12px;background:#fff;color:var(--ink);min-width:0;max-width:100%}
     input[type=checkbox]{width:16px;height:16px;padding:0;accent-color:#8B7CF6}
     small{display:block;color:var(--muted);font-size:11px;font-weight:600}
-    .product{display:grid;grid-template-columns:24px 18px 38px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:7px 10px;cursor:grab;font-size:12px;font-weight:700;background:#fff}
+    .product{display:grid;grid-template-columns:24px 36px 38px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:7px 10px;cursor:grab;font-size:12px;font-weight:700;background:#fff}
     .product:active{cursor:grabbing}
     .product:hover{border-color:#C9C0F0}
     .product.changed{border-color:#14A44D;background:#E3F7EA}
@@ -172,9 +171,28 @@ const MAX_PAGES = 20;
     @media(max-width:960px){.boxes{grid-template-columns:1fr;grid-template-rows:auto;overflow-y:auto}.box{height:440px}}
     @media(max-width:560px){.product{grid-template-columns:18px 38px minmax(0,1fr)}.product .no{display:none}.product .pill{grid-column:1/-1}}
     @media(prefers-reduced-motion:reduce){.box{transition:none}}
-  `],
+  
+    :host{display:flex;flex-direction:column;color:var(--ink)}
+    .page{flex:1;min-height:0;width:100%;display:flex!important;flex-direction:column;gap:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+    .top h2{margin:0 0 4px}
+    .top .muted{margin:0;font-size:12px;color:var(--muted)}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap}
+    app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+`],
 })
 export class CategoriesComponent implements OnInit {
+  readonly selection = computed<Selection>(() => ({ category: this.selectedId() ? [this.selectedId()] : [], store: this.storeId() ? [this.storeId()] : [] }));
+  readonly filterGroups = computed<FilterGroup[]>(() => [
+    { key: 'category', label: 'Category', single: true, required: true, options: this.choices().map(c => ({ value: c.id, label: c.label })) },
+    { key: 'store', label: 'Store', single: true, required: true, options: this.stores().map(s => ({ value: s.id, label: s.name })) },
+  ]);
+  onFilters(next: Selection) {
+    const category = next['category']?.[0], store = next['store']?.[0];
+    if (category && category !== this.selectedId()) this.choose(category);
+    if (store && store !== this.storeId()) this.pickStore(store);
+  }
+  clearFilters() { this.outSearch.set(''); this.inSearch.set(''); }
   private api = inject(ApiService);
   private config = inject(ConfigService, { optional: true });
 

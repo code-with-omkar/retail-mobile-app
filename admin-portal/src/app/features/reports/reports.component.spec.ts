@@ -34,6 +34,8 @@ function open(role: Role, get: Call, http: Partial<Record<'get', Call>> = {}) {
 
 const answer = (url: string) => of({ success: true, data: url === '/reports' ? report() : url === '/reports/ratings' ? ratings : [{ id: 's1', name: 'Kharghar', isActive: true }, { id: 's2', name: 'Closed', isActive: false }] });
 
+beforeEach(() => localStorage.clear());
+
 describe('ReportsComponent', () => {
   afterEach(() => vi.restoreAllMocks());
 

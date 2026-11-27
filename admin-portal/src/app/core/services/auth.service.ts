@@ -184,6 +184,6 @@ export class AuthService {
 
   private toUserContext(user: AuthenticationUser): UserContext {
     const role = user.roles.includes(Role.ApplicationAdmin) ? Role.ApplicationAdmin : user.roles[0] as Role;
-    return { userId: user.id, displayName: user.displayName, email: user.email, organizationId: user.organizationId, role, roles: user.roles, permissions: user.permissions, staffCategory: user.staffCategory as StaffCategory | undefined };
+    return { userId: user.id, displayName: user.displayName, email: user.email, organizationId: user.organizationId, role, roles: user.roles, permissions: user.permissions, staffCategory: user.staffCategory as StaffCategory | undefined, mustChangePassword: !!user.mustChangePassword };
   }
 }

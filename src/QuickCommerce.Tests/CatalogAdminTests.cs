@@ -671,6 +671,9 @@ public sealed class CatalogAdminEfIntegrationTests
                 Assert.Equal(("Renamed", world.Category.Name, 1), (bundle.Product.Name, bundle.CategoryName, bundle.Variants.Count));
                 Assert.Equal(("mr", "दुसरे नाव", "वर्णन"), (bundle.Translations.Single().Locale, bundle.Translations.Single().Name, bundle.Translations.Single().Description));
                 var (found, total) = await store.ListProductsAsync(sku.ToLowerInvariant(), 0, 10);
+                var counts = await store.CountProductsAsync(sku.ToLowerInvariant());
+                Assert.Equal(total, counts.OnSale + counts.OffSale);
+                Assert.Equal(total, (await store.ListProductsAsync(sku.ToLowerInvariant(), 0, 10, new ProductFilter([.. counts.ByCategory.Keys]))).Total);
                 Assert.Equal((1, id), (total, found.Single().Product.Id));
                 Assert.Equal(CatalogChange.Succeeded, await store.DeleteTranslationAsync(id, "mr"));
                 Assert.Empty((await store.GetProductAsync(id))!.Translations);

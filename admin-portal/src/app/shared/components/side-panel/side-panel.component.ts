@@ -13,7 +13,7 @@ import { IconComponent } from '../icon/icon.component';
   template: `
     <ng-container *ngIf="open">
       <div class="shade" (click)="closed.emit()"></div>
-      <aside class="panel" role="dialog" aria-modal="true" [attr.aria-label]="title">
+      <aside class="panel" [class.wide]="wide" role="dialog" aria-modal="true" [attr.aria-label]="title">
         <header><h3>{{ title }}</h3><button type="button" class="close" aria-label="Close" (click)="closed.emit()"><app-icon name="close"></app-icon></button></header>
         <div class="body"><ng-content></ng-content></div>
         <footer><ng-content select="[panelActions]"></ng-content></footer>
@@ -23,6 +23,7 @@ import { IconComponent } from '../icon/icon.component';
   styles: [`
     .shade{position:fixed;inset:0;background:rgba(20,17,24,.35);z-index:200}
     .panel{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);z-index:201;background:#fff;color:var(--ink);display:flex;flex-direction:column;box-shadow:-18px 0 40px rgba(20,17,24,.18)}
+    .panel.wide{width:min(940px,100%)}
     header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
     h3{margin:0;font:800 18px var(--display)}
     .close{border:0;background:var(--card);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
@@ -34,6 +35,8 @@ import { IconComponent } from '../icon/icon.component';
 export class SidePanelComponent {
   @Input() open = false;
   @Input() title = '';
+  /** For a long form with a preview beside it. */
+  @Input() wide = false;
   @Output() closed = new EventEmitter<void>();
 
   @HostListener('document:keydown.escape')

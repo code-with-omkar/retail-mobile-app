@@ -24,7 +24,10 @@ export class ApiService {
     if (options?.params) {
       Object.keys(options.params).forEach(key => {
         if (options.params[key] !== null && options.params[key] !== undefined) {
-          httpParams = httpParams.set(key, options.params[key]);
+          const value = options.params[key];
+          // a list is sent as the parameter repeated: ?status=0&status=1
+          if (Array.isArray(value)) for (const one of value) httpParams = httpParams.append(key, one);
+          else httpParams = httpParams.set(key, value);
         }
       });
     }

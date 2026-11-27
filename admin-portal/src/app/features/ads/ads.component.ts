@@ -1,3 +1,4 @@
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -5,6 +6,9 @@ import { FileUploadComponent } from '../../shared/components/file-upload/file-up
 import { PhonePreviewComponent } from '../../shared/components/phone-preview/phone-preview.component';
 import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
 import { DEFAULT_PAGE_SIZE, PaginationComponent, pageCount } from '../../shared/components/pagination/pagination.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, facets, filterState } from '../../shared/components/filter-layout/filter-state';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 import { ApiService } from '../../core/services/api.service';
 import { ConfigService } from '../../core/services/config.service';
 
@@ -45,96 +49,109 @@ const toLocal = (iso: string | null): string => {
 @Component({
   selector: 'app-ads',
   standalone: true,
-  imports: [CommonModule, FormsModule, FileUploadComponent, PhonePreviewComponent, DataTableComponent, CellDirective, PaginationComponent],
+  imports: [CommonModule, FormsModule, FileUploadComponent, PhonePreviewComponent, DataTableComponent, CellDirective, PaginationComponent, LoaderComponent, FilterLayoutComponent, SidePanelComponent],
   template: `
     <section class="page">
-      <h2>Ads</h2>
-      <p class="muted">Pictures shown in the customer app at the places you choose. Customers see an ad only between its dates and while it is on. Views and taps are counted.</p>
+      <div class="top"><div><h2>Ads</h2>
+      <p class="muted">Pictures shown in the customer app at the places you choose. Customers see an ad only between its dates and while it is on. Views and taps are counted.</p></div><div class="top-actions"><button type="button" class="primary" (click)="reset(); creating.set(true)">＋ New ad</button></div></div>
       <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
       <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
 
-      <div class="with-preview">
-      <form class="card" (ngSubmit)="save()" #f="ngForm">
-        <h3>{{ editing() ? 'Edit ad' : 'New ad' }}</h3>
-        <div class="grid">
-          <label>Where it shows
-            <select name="placement" [(ngModel)]="placement">
-              <option *ngFor="let p of placements" [value]="p.key">{{ p.label }}</option>
-            </select>
-          </label>
-          <label>Title (optional)<input name="title" [(ngModel)]="title" maxlength="80" placeholder="Shown over the picture" /></label>
-          <label>Store
-            <select name="storeId" [(ngModel)]="storeId">
-              <option value="">All stores</option>
-              <option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option>
-            </select>
-          </label>
-          <label>Order (lower first)<input type="number" name="sortOrder" [(ngModel)]="sortOrder" min="0" max="1000" step="1" /></label>
-          <label>Starts<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
-          <label>Ends (optional)<input type="datetime-local" name="endsAt" [(ngModel)]="endsAt" /></label>
-        </div>
-        <small class="hint">{{ hint() }}</small>
 
-        <div class="picture">
-          <app-file-upload label="Ad picture" hint="Wide picture, about 1080 x 360 (3:1)." [previewUrl]="imageUrl() ? img(imageUrl()) : null" [busy]="busy()" [removable]="false" (fileSelected)="takeImage($event)"></app-file-upload>
-        </div>
+      <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <app-loader *ngIf="loading()" message="Loading ads…"></app-loader>
+        <p *ngIf="!loading() && ads().length === 0">No ads yet.</p>
+        <ng-container *ngIf="ads().length">
+          <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="1040px">
+            <ng-template appCell="picture" let-a><img class="thumb" [src]="img(a.imageUrl)" alt="" /><small *ngIf="a.title">{{ a.title }}</small></ng-template>
+            <ng-template appCell="where" let-a>{{ label(a.placement) }}<small>Order {{ a.sortOrder }}</small></ng-template>
+            <ng-template appCell="opens" let-a>{{ opens(a) }}</ng-template>
+            <ng-template appCell="shop" let-a>{{ storeName(a.storeId) }}</ng-template>
+            <ng-template appCell="dates" let-a>{{ a.startsAt | date:'mediumDate' }}<small *ngIf="a.endsAt">to {{ a.endsAt | date:'mediumDate' }}</small></ng-template>
+            <ng-template appCell="views" let-a>{{ a.views }}</ng-template>
+            <ng-template appCell="taps" let-a>{{ a.taps }}<small *ngIf="a.views > 0">{{ rate(a) }} of views</small></ng-template>
+            <ng-template appCell="status" let-a><span class="badge" [ngClass]="'badge-' + a.status.toLowerCase()">{{ a.status }}</span></ng-template>
+            <ng-template appCell="action" let-a><span class="actions"><button class="act" [disabled]="busy()" (click)="edit(a)">Edit</button>
+              <button class="act" [disabled]="busy()" (click)="toggle(a)">{{ a.isActive ? 'Switch off' : 'Switch on' }}</button>
+              <button class="act danger" [disabled]="busy()" (click)="remove(a)">Delete</button></span></ng-template>
+          </app-data-table>
+          <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+        </ng-container>
+      </app-filter-layout>
 
-        <div class="grid">
-          <label>When tapped, open
-            <select name="targetType" [(ngModel)]="targetType" (ngModelChange)="target = ''">
-              <option value="None">Nothing</option>
-              <option value="Product">A product</option>
-              <option value="Category">A category</option>
-              <option value="Offer">An offer</option>
-              <option value="Url">A web page</option>
-            </select>
-          </label>
-          <label *ngIf="targetType === 'Url'">Web link<input name="target" [(ngModel)]="target" maxlength="300" placeholder="https://" /></label>
-          <label *ngIf="targetType === 'Category'">Category
-            <select name="category" [(ngModel)]="target"><option value="">Choose…</option><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select>
-          </label>
-          <label *ngIf="targetType === 'Offer'">Offer
-            <select name="offer" [(ngModel)]="target"><option value="">Choose…</option><option *ngFor="let o of offers()" [value]="o.id">{{ o.name }}</option></select>
-          </label>
-          <label *ngIf="targetType === 'Product'">Search a product
-            <span class="fee-row"><input name="productSearch" [(ngModel)]="productSearch" placeholder="Product name" (keyup.enter)="searchProducts()" /><button type="button" class="act" [disabled]="busy()" (click)="searchProducts()">Search</button></span>
-          </label>
-        </div>
-        <div class="chips" *ngIf="targetType === 'Product'">
-          <button type="button" class="chip" *ngFor="let p of productResults()" (click)="pickProduct(p)" [class.on]="target === p.id">{{ p.name }}</button>
-          <span *ngIf="target && pickedProductName()" class="picked">Opens: {{ pickedProductName() }}</span>
-        </div>
+      <app-side-panel [wide]="true" [open]="creating()" [title]="editing() ? 'Edit ad' : 'New ad'" (closed)="reset()">
+        <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
+        <div class="with-preview">
+        <form class="card" (ngSubmit)="save()" #f="ngForm">
+          <h3>{{ editing() ? 'Edit ad' : 'New ad' }}</h3>
+          <div class="grid">
+            <label>Where it shows
+              <select name="placement" [(ngModel)]="placement">
+                <option *ngFor="let p of placements" [value]="p.key">{{ p.label }}</option>
+              </select>
+            </label>
+            <label>Title (optional)<input name="title" [(ngModel)]="title" maxlength="80" placeholder="Shown over the picture" /></label>
+            <label>Store
+              <select name="storeId" [(ngModel)]="storeId">
+                <option value="">All stores</option>
+                <option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option>
+              </select>
+            </label>
+            <label>Order (lower first)<input type="number" name="sortOrder" [(ngModel)]="sortOrder" min="0" max="1000" step="1" /></label>
+            <label>Starts<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
+            <label>Ends (optional)<input type="datetime-local" name="endsAt" [(ngModel)]="endsAt" /></label>
+          </div>
+          <small class="hint">{{ hint() }}</small>
 
-        <label class="check"><input type="checkbox" name="active" [(ngModel)]="isActive" /> On (customers see it while it is between its dates)</label>
-        <div class="buttons">
-          <button class="primary" type="submit" [disabled]="busy() || !imageUrl() || f.invalid">{{ busy() ? 'Saving…' : (editing() ? 'Save changes' : 'Create ad') }}</button>
-          <button type="button" class="ghost" *ngIf="editing()" (click)="reset()">Cancel</button>
-        </div>
-      </form>
-        <app-phone-preview [ad]="{ placement: placement, title: title, imageUrl: imageUrl() ? img(imageUrl()) : null }"></app-phone-preview>
-      </div>
+          <div class="picture">
+            <app-file-upload label="Ad picture" hint="Wide picture, about 1080 x 360 (3:1)." [previewUrl]="imageUrl() ? img(imageUrl()) : null" [busy]="busy()" [removable]="false" (fileSelected)="takeImage($event)"></app-file-upload>
+          </div>
 
-      <p *ngIf="loading()">Loading ads…</p>
-      <p *ngIf="!loading() && ads().length === 0">No ads yet.</p>
-      <ng-container *ngIf="ads().length">
-        <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="1040px">
-          <ng-template appCell="picture" let-a><img class="thumb" [src]="img(a.imageUrl)" alt="" /><small *ngIf="a.title">{{ a.title }}</small></ng-template>
-          <ng-template appCell="where" let-a>{{ label(a.placement) }}<small>Order {{ a.sortOrder }}</small></ng-template>
-          <ng-template appCell="opens" let-a>{{ opens(a) }}</ng-template>
-          <ng-template appCell="shop" let-a>{{ storeName(a.storeId) }}</ng-template>
-          <ng-template appCell="dates" let-a>{{ a.startsAt | date:'mediumDate' }}<small *ngIf="a.endsAt">to {{ a.endsAt | date:'mediumDate' }}</small></ng-template>
-          <ng-template appCell="views" let-a>{{ a.views }}</ng-template>
-          <ng-template appCell="taps" let-a>{{ a.taps }}<small *ngIf="a.views > 0">{{ rate(a) }} of views</small></ng-template>
-          <ng-template appCell="status" let-a><span class="badge" [ngClass]="'badge-' + a.status.toLowerCase()">{{ a.status }}</span></ng-template>
-          <ng-template appCell="action" let-a><span class="actions"><button class="act" [disabled]="busy()" (click)="edit(a)">Edit</button>
-            <button class="act" [disabled]="busy()" (click)="toggle(a)">{{ a.isActive ? 'Switch off' : 'Switch on' }}</button>
-            <button class="act danger" [disabled]="busy()" (click)="remove(a)">Delete</button></span></ng-template>
-        </app-data-table>
-        <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="ads().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
-      </ng-container>
+          <div class="grid">
+            <label>When tapped, open
+              <select name="targetType" [(ngModel)]="targetType" (ngModelChange)="target = ''">
+                <option value="None">Nothing</option>
+                <option value="Product">A product</option>
+                <option value="Category">A category</option>
+                <option value="Offer">An offer</option>
+                <option value="Url">A web page</option>
+              </select>
+            </label>
+            <label *ngIf="targetType === 'Url'">Web link<input name="target" [(ngModel)]="target" maxlength="300" placeholder="https://" /></label>
+            <label *ngIf="targetType === 'Category'">Category
+              <select name="category" [(ngModel)]="target"><option value="">Choose…</option><option *ngFor="let c of categories()" [value]="c.id">{{ c.name }}</option></select>
+            </label>
+            <label *ngIf="targetType === 'Offer'">Offer
+              <select name="offer" [(ngModel)]="target"><option value="">Choose…</option><option *ngFor="let o of offers()" [value]="o.id">{{ o.name }}</option></select>
+            </label>
+            <label *ngIf="targetType === 'Product'">Search a product
+              <span class="fee-row"><input name="productSearch" [(ngModel)]="productSearch" placeholder="Product name" (keyup.enter)="searchProducts()" /><button type="button" class="act" [disabled]="busy()" (click)="searchProducts()">Search</button></span>
+            </label>
+          </div>
+          <div class="chips" *ngIf="targetType === 'Product'">
+            <button type="button" class="chip" *ngFor="let p of productResults()" (click)="pickProduct(p)" [class.on]="target === p.id">{{ p.name }}</button>
+            <span *ngIf="target && pickedProductName()" class="picked">Opens: {{ pickedProductName() }}</span>
+          </div>
+
+          <label class="check"><input type="checkbox" name="active" [(ngModel)]="isActive" /> On (customers see it while it is between its dates)</label>
+          <div class="buttons">
+            <button class="primary" type="submit" [disabled]="busy() || !imageUrl() || f.invalid">{{ busy() ? 'Saving…' : (editing() ? 'Save changes' : 'Create ad') }}</button>
+            <button type="button" class="ghost" *ngIf="editing()" (click)="reset()">Cancel</button>
+          </div>
+        </form>
+          <app-phone-preview [ad]="{ placement: placement, title: title, imageUrl: imageUrl() ? img(imageUrl()) : null }"></app-phone-preview>
+        </div>
+      </app-side-panel>
     </section>
   `,
   styles: [`
+    :host{display:flex;flex-direction:column}
+    .page{flex:1;min-height:0;display:flex!important;flex-direction:column;gap:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+    .top-actions{display:flex;gap:10px}
+    app-side-panel .with-preview{grid-template-columns:minmax(0,1fr) 320px}
+    @media(max-width:900px){app-side-panel .with-preview{grid-template-columns:1fr}}
+
     app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
     .edit-card{display:grid!important;gap:12px}
 
@@ -188,10 +205,23 @@ export class AdsComponent implements OnInit {
   readonly ads = signal<Ad[]>([]);
   readonly columns: DataColumn[] = [{ key: 'picture', label: 'Picture' }, { key: 'where', label: 'Where' }, { key: 'opens', label: 'Opens' }, { key: 'shop', label: 'Store' }, { key: 'dates', label: 'Dates' }, { key: 'views', label: 'Views' }, { key: 'taps', label: 'Taps' }, { key: 'status', label: 'Status' }, { key: 'action', label: 'Action' }];
   readonly page = signal(1);
+  /** The new or edit form is open. */
+  readonly creating = signal(false);
+  readonly filters = filterState('ads');
+  private readonly found = computed(() => facets(this.ads(), this.filters.selected(), { status: a => a.status, placement: a => a.placement }));
+  readonly shown = computed(() => this.found().shown);
+  readonly groups = computed<FilterGroup[]>(() => {
+    const found = this.found(), all = this.ads();
+    const group = (key: string, label: string, of: (row: any) => string, name: (value: string) => string = v => v): FilterGroup =>
+      ({ key, label, options: [...new Set(all.map(of))].sort().map(value => ({ value, label: name(value), count: found.count(key, value) })) });
+    return [group('status', 'Status', a => a.status), group('placement', 'Where it shows', a => a.placement, v => this.label(v))];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.page.set(1); }
+  clearFilters() { this.filters.clear(); this.page.set(1); }
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   /** The page asked for, or the last one there is after the list shrinks. */
-  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.ads().length, this.pageSize())));
-  readonly pageRows = computed(() => this.ads().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
+  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.shown().length, this.pageSize())));
+  readonly pageRows = computed(() => this.shown().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
   readonly stores = signal<Choice[]>([]);
   readonly categories = signal<Choice[]>([]);
   readonly offers = signal<Choice[]>([]);
@@ -293,6 +323,7 @@ export class AdsComponent implements OnInit {
   }
 
   reset() {
+    this.creating.set(false);
     this.editing.set(null);
     this.placement = 'home'; this.title = ''; this.storeId = ''; this.sortOrder = 0; this.startsAt = ''; this.endsAt = '';
     this.targetType = 'None'; this.target = ''; this.isActive = true; this.productSearch = ''; this.uploadFile = null;
@@ -301,6 +332,7 @@ export class AdsComponent implements OnInit {
 
   edit(a: Ad) {
     this.editing.set(a);
+    this.creating.set(true);
     this.placement = a.placement; this.title = a.title ?? ''; this.storeId = a.storeId ?? ''; this.sortOrder = a.sortOrder;
     this.startsAt = toLocal(a.startsAt); this.endsAt = toLocal(a.endsAt); this.targetType = a.targetType; this.target = a.target ?? '';
     this.isActive = a.isActive; this.imageUrl.set(a.imageUrl); this.pickedName.set(null);

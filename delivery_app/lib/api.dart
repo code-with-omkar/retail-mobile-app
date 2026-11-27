@@ -105,6 +105,17 @@ abstract class DeliveryApi {
   /// Tells the server where the partner is while an order is out for delivery (the customer sees distance and ETA only).
   Future<void> shareLocation(String orderId, double latitude, double longitude);
   Future<Delivery> deliver(String orderId, {required String otp, required double cash});
+
+  /// The order could not be handed over: it goes back to the store with the reason.
+  Future<void> reportFailed(String orderId, {required String reason, String? note});
+
+  /// True while the signed-in partner still has the temporary password they were given.
+  bool get mustChangePassword;
+  Future<void> changePassword(String current, String next);
+
+  /// Emails a code when there is such an account; the answer is the same either way.
+  Future<void> forgotPassword(String email);
+  Future<void> resetPassword(String email, String code, String next);
 }
 
 /// Keeps the refresh token between launches.
@@ -128,6 +139,10 @@ class HttpDeliveryApi implements DeliveryApi {
   final Dio _dio;
   final TokenStore tokens;
   String? _access;
+  bool _mustChange = false;
+
+  @override
+  bool get mustChangePassword => _mustChange;
 
   Never _fail(DioException e) {
     final body = e.response?.data;
@@ -143,6 +158,7 @@ class HttpDeliveryApi implements DeliveryApi {
     }
 
     _access = data['accessToken'] as String;
+    _mustChange = (data['user'] as Map)['mustChangePassword'] == true;
     await tokens.write(data['refreshToken'] as String);
     return (data['user'] as Map)['displayName'] as String;
   }
@@ -216,4 +232,31 @@ class HttpDeliveryApi implements DeliveryApi {
   @override
   Future<Delivery> deliver(String orderId, {required String otp, required double cash}) async =>
       Delivery.fromJson(((await _send('POST', '/api/delivery/$orderId/deliver', body: {'otp': otp, 'cashCollected': cash})).data as Map)['data'] as Map<String, dynamic>);
+
+  @override
+  Future<void> reportFailed(String orderId, {required String reason, String? note}) async {
+    await _send('POST', '/api/delivery/$orderId/failed', body: {'reason': reason, 'note': note});
+  }
+
+  @override
+  Future<void> changePassword(String current, String next) async {
+    await _send('POST', '/api/auth/change-password', body: {'currentPassword': current, 'newPassword': next, 'refreshToken': await tokens.read()});
+    // A new token, without the mark that asked for the change.
+    if (!await _refresh()) throw ApiError('Password saved. Sign in again.');
+  }
+
+  Future<void> _open(String path, Map<String, Object?> body) async {
+    try {
+      await _dio.post(path, data: body);
+    } on DioException catch (e) {
+      _fail(e);
+    }
+  }
+
+  @override
+  Future<void> forgotPassword(String email) => _open('/api/auth/forgot-password', {'email': email.trim()});
+
+  @override
+  Future<void> resetPassword(String email, String code, String next) => _open('/api/auth/reset-password', {'email': email.trim(), 'code': code.trim(), 'newPassword': next});
 }
+

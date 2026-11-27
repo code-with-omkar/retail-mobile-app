@@ -56,7 +56,7 @@ public sealed class CustomerOrderService(
         // What the store changed while packing it, newest first, so the customer can see what they will receive and what was refunded.
         if (changes is not null)
         {
-            detail = detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
+            detail = detail with { Changes = (await changes.ListAsync(order.Id, cancellationToken)).Where(item => item.ChangesJson != "[]").OrderByDescending(item => item.CreatedAt).Select(OrderChangeRules.ToInfo).ToArray() };
         }
 
         if (replacements is not null)
@@ -167,5 +167,6 @@ public sealed class CustomerOrderService(
         CouponDiscount: order.CouponDiscount,
         DeliverySlotStart: order.DeliverySlotStart is { } slotStart ? DateTime.SpecifyKind(slotStart, DateTimeKind.Utc) : null,
         DeliverySlotEnd: order.DeliverySlotEnd is { } slotEnd ? DateTime.SpecifyKind(slotEnd, DateTimeKind.Utc) : null,
-        RejectionReason: order.RejectionReason);
+        RejectionReason: order.RejectionReason,
+        CancelReason: order.CancelReason);
 }

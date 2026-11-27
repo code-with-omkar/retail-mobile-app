@@ -1,3 +1,4 @@
+import { LoaderComponent } from '../loader/loader.component';
 import { Component, ContentChildren, Directive, HostBinding, Input, QueryList, TemplateRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
@@ -17,7 +18,7 @@ export class CellDirective {
 @Component({
   selector: 'app-data-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LoaderComponent],
   template: `
     <div class="frame">
       <div class="scroll" [style.maxHeight]="maxHeight">
@@ -35,7 +36,7 @@ export class CellDirective {
             </tr>
           </tbody>
         </table>
-        <p class="state" *ngIf="loading && !rows.length">Loading…</p>
+        <app-loader *ngIf="loading && !rows.length"></app-loader>
         <p class="state" *ngIf="!loading && !rows.length">{{ emptyText }}</p>
       </div>
     </div>
@@ -46,8 +47,8 @@ export class CellDirective {
     :host.fill .frame{flex:1;min-height:0;display:flex;flex-direction:column}
     :host.fill .scroll{flex:1;min-height:0;max-height:none !important}
     .frame{border:1px solid var(--line);border-radius:18px;background:#fff;overflow:hidden}
-    .scroll{overflow:auto;scrollbar-width:thin;scrollbar-color:#B9B2D9 transparent;overscroll-behavior:contain}
-    table{width:100%;border-collapse:collapse;font-size:12px;color:var(--ink)}
+    .scroll{display:flex;flex-direction:column;overflow:auto;scrollbar-width:thin;scrollbar-color:#B9B2D9 transparent;overscroll-behavior:contain}
+    table{flex-shrink:0;width:100%;border-collapse:collapse;font-size:12px;color:var(--ink)}
     th{position:sticky;top:0;z-index:1;background:var(--card);text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:11px 12px;white-space:nowrap}
     td{padding:11px 12px;border-top:1px solid var(--line);vertical-align:middle}
     .index{width:44px;color:var(--muted);text-align:right}

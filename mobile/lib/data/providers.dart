@@ -15,6 +15,7 @@ import 'session_store.dart';
 import 'repositories/auth_repository.dart';
 import 'repositories/cart_repository.dart';
 import 'repositories/coupon_repository.dart';
+import 'repositories/issue_repository.dart';
 import 'repositories/ads_repository.dart';
 import 'repositories/delivery_slots_repository.dart';
 import 'repositories/favourites_repository.dart';
@@ -168,6 +169,11 @@ final couponRepositoryProvider = Provider<CouponRepository>((ref) {
   return config.useSeedData
       ? LocalCouponRepository()
       : ApiCouponRepository(ref.watch(apiClientProvider));
+});
+
+final issueRepositoryProvider = Provider<IssueRepository>((ref) {
+  final config = ref.watch(appConfigProvider);
+  return config.useSeedData ? LocalIssueRepository() : ApiIssueRepository(ref.watch(apiClientProvider));
 });
 
 final orderRepositoryProvider = Provider<OrderRepository>((ref) {

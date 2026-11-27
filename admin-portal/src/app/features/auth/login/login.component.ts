@@ -49,11 +49,14 @@ import { Role } from '../../../core/models/domain.model';
             [disabled]="loginForm.invalid || isLoading()"
             variant="primary"
           ></app-button>
+          <button type="button" class="forgot" (click)="forgot()">Forgot password?</button>
         </form>
       </div>
     </div>
   `,
   styles: [`
+    .forgot { color: #FFE27A; font: 700 13px inherit; justify-self: start; border: 0; background: none; padding: 0; cursor: pointer; text-decoration: underline; }
+
     .login-container {
       min-height: 100vh;
       display: flex;
@@ -100,7 +103,7 @@ import { Role } from '../../../core/models/domain.model';
     }
 
     h1 span {
-      color: #FFD400;
+      color: var(--ink);
     }
 
     .login-header p {
@@ -146,6 +149,8 @@ export class LoginComponent {
     });
   }
 
+  forgot(): void { this.router.navigate(['/forgot-password']); }
+
   onSubmit(): void {
     if (this.loginForm.invalid) {
       return;
@@ -158,7 +163,8 @@ export class LoginComponent {
         this.toast.success('Login successful');
         // The dashboard is the administrators' (the server refuses store staff), so staff start on Today.
         const staff = this.auth.userContext?.()?.role === Role.StoreStaff;
-        this.router.navigate([staff ? '/today' : '/admin/dashboard']);
+        const temporary = !!this.auth.userContext?.()?.mustChangePassword;
+        this.router.navigate([temporary ? '/change-password' : staff ? '/today' : '/admin/dashboard']);
       },
       error: (error: any) => {
         // The server's own words when it sent some (wrong password), otherwise the reason found here.

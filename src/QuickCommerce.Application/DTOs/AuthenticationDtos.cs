@@ -13,7 +13,8 @@ public sealed record AuthenticationUserResponse(
     Guid OrganizationId,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
-    StaffCategory? StaffCategory = null);
+    StaffCategory? StaffCategory = null,
+    bool MustChangePassword = false);
 
 public sealed record AuthenticationResponse(
     string AccessToken,

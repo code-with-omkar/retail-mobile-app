@@ -1,11 +1,13 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, filterState } from '../../shared/components/filter-layout/filter-state';
+import { Component, OnDestroy, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AdminOrder, OrderStatus } from '../../core/models/domain.model';
 import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
 import { DEFAULT_PAGE_SIZE, PaginationComponent } from '../../shared/components/pagination/pagination.component';
-import { REJECTION_REASONS, rejectionName } from '../../shared/utils/rejections';
+import { CANCEL_REASONS, REJECTION_REASONS, cancelName, failureName, rejectionName } from '../../shared/utils/rejections';
 import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 
 // The API sends the order status as the enum's number (0 is Pending); older answers may send the name.
@@ -28,7 +30,7 @@ export const STATUS_FILTERS: { value: string; label: string }[] = [
 ];
 
 interface Partner { id: string; name: string; phone?: string | null; activeDeliveries: number; }
-interface OrderPage { items: AdminOrder[]; totalCount: number; page: number; pageSize: number; stores: { id: string; name: string }[]; }
+interface OrderPage { items: AdminOrder[]; totalCount: number; page: number; pageSize: number; stores: { id: string; name: string; count?: number }[]; statusCounts?: Record<string, number> | null; }
 
 /**
  * The row being worked on stays in sight: when a status filter would drop it from the page after an action, it is kept where it was,
@@ -46,55 +48,66 @@ export function keepActive<T extends { id: string }>(shown: T[], fresh: T[], act
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent, SidePanelComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent, SidePanelComponent, FilterLayoutComponent],
   template: `
     <section class="page">
       <h2>Orders</h2>
       <p class="muted">Newest first. The order you act on is marked and stays in its row.</p>
 
-      <div class="filters">
-        <label>Search<input name="search" type="search" placeholder="Order number or customer" [ngModel]="search()" (ngModelChange)="search.set($event)" (keyup.enter)="filter()" /></label>
-        <label>Status<select name="status" [ngModel]="status()" (ngModelChange)="status.set($event); filter()"><option *ngFor="let s of statusFilters" [value]="s.value">{{ s.label }}</option></select></label>
-        <label *ngIf="stores().length > 1">Store<select name="storeFilter" [ngModel]="storeFilter()" (ngModelChange)="storeFilter.set($event); filter()"><option value="">All my stores</option><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select></label>
-        <button type="button" class="act" (click)="filter()">Search</button>
-      </div>
+      <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <input filterSearch type="search" name="search" aria-label="Search" placeholder="Order number or customer, then Enter" [value]="search()" (input)="search.set($any($event.target).value)" (keyup.enter)="filter()" />
+        <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
+        <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
 
-      <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
-      <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
-
-      <app-data-table [fill]="true" [columns]="columns" [rows]="orders()" [loading]="loading()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No orders found.">
-        <ng-template appCell="order" let-order>
-          <strong>{{ order.orderNumber }}</strong><em class="new" *ngIf="order.status === 'Pending'">NEW</em>
-          <small class="slot" *ngIf="order.deliverySlotStart">Deliver {{ windowLabel(order) }}</small>
-        </ng-template>
-        <ng-template appCell="customer" let-order>
-          {{ order.customer }}
-          <small class="note" *ngIf="order.note">Note: {{ order.note }}</small>
-          <small class="note" *ngIf="order.outOfStockChoice && isOpen(order)">If an item is out of stock: {{ choiceLabel(order.outOfStockChoice) }}</small>
-        </ng-template>
-        <ng-template appCell="date" let-order>{{ order.createdAt | date:'short' }}</ng-template>
-        <ng-template appCell="amount" let-order>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</ng-template>
-        <ng-template appCell="status" let-order>
-          <span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span>
-          <small *ngIf="order.deliveryPartner">by {{ order.deliveryPartner }}</small>
+        <app-data-table [fill]="true" [columns]="columns" [rows]="orders()" [loading]="loading()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No orders found.">
+          <ng-template appCell="order" let-order>
+            <strong>{{ order.orderNumber }}</strong><em class="new" *ngIf="order.status === 'Pending'">NEW</em>
+            <small class="slot" *ngIf="order.deliverySlotStart">Deliver {{ windowLabel(order) }}</small>
+          </ng-template>
+          <ng-template appCell="customer" let-order>
+            {{ order.customer }}
+            <small class="note" *ngIf="order.note">Note: {{ order.note }}</small>
+            <small class="note" *ngIf="order.outOfStockChoice && isOpen(order)">If an item is out of stock: {{ choiceLabel(order.outOfStockChoice) }}</small>
+          </ng-template>
+          <ng-template appCell="date" let-order>{{ order.createdAt | date:'short' }}</ng-template>
+          <ng-template appCell="amount" let-order>{{ order.totalAmount | currency:'INR':'symbol':'1.2-2' }}</ng-template>
+          <ng-template appCell="status" let-order>
+            <span class="badge" [ngClass]="statusClass(order.status)">{{ label(order.status) }}</span>
+            <small *ngIf="order.deliveryPartner">by {{ order.deliveryPartner }}</small>
+            <small class="note" *ngIf="order.status === 'Cancelled' && order.cancelReason">{{ cancelName(order.cancelReason) }}<ng-container *ngIf="order.cancelNote">: {{ order.cancelNote }}</ng-container><ng-container *ngIf="order.cancelledBy"> (by {{ order.cancelledBy }})</ng-container></small>
+          <small class="note failed" *ngIf="order.status === 'Ready' && order.deliveryFailedAt">Delivery failed {{ order.deliveryFailedAt | date:'shortTime' }}: {{ failureName(order.deliveryFailureReason) }}<ng-container *ngIf="order.deliveryFailureNote"> ({{ order.deliveryFailureNote }})</ng-container></small>
           <small class="note" *ngIf="order.status === 'Rejected' && order.rejectionReason">{{ reasonName(order.rejectionReason) }}<ng-container *ngIf="order.rejectionNote">: {{ order.rejectionNote }}</ng-container><ng-container *ngIf="order.rejectedBy"> (by {{ order.rejectedBy }})</ng-container></small>
-        </ng-template>
-        <ng-template appCell="actions" let-order>
-          <span class="actions">
-            <button *ngFor="let step of stepsFor(order)" type="button" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button>
-            <button type="button" class="act ghost" *ngIf="order.status === 'Accepted' || order.status === 'Preparing'" [disabled]="busyId() === order.id" (click)="openChange(order)">Change items</button>
+          </ng-template>
+          <ng-template appCell="actions" let-order>
+            <span class="actions">
+              <button *ngFor="let step of stepsFor(order)" type="button" class="act" [class.danger]="step.danger" [disabled]="busyId() === order.id" (click)="change(order, step)">{{ step.label }}</button>
+              <button type="button" class="act ghost" *ngIf="order.status === 'Accepted' || order.status === 'Preparing'" [disabled]="busyId() === order.id" (click)="openChange(order)">Change items</button>
+              <button type="button" class="act danger" *ngIf="canCancel(order)" [disabled]="busyId() === order.id" (click)="openCancel(order)">Cancel order</button>
             <ng-container *ngIf="order.status === 'Ready'">
-              <select class="pick" [attr.aria-label]="'Delivery partner for ' + order.orderNumber" [ngModel]="picked()[order.id] ?? order.deliveryPartnerId ?? ''" (ngModelChange)="pick(order.id, $event)">
-                <option value="">Delivery partner</option>
-                <option *ngFor="let p of partnersOf(order)" [value]="p.id">{{ p.name }} ({{ p.activeDeliveries }})</option>
-              </select>
-              <button type="button" class="act give" [disabled]="busyId() === order.id || !(picked()[order.id] || order.deliveryPartnerId) || (picked()[order.id] ?? order.deliveryPartnerId) === order.deliveryPartnerId" (click)="assign(order)">{{ order.deliveryPartnerId ? 'Change' : 'Give' }}</button>
-            </ng-container>
-          </span>
-        </ng-template>
-      </app-data-table>
+                <select class="pick" [attr.aria-label]="'Delivery partner for ' + order.orderNumber" [ngModel]="picked()[order.id] ?? order.deliveryPartnerId ?? ''" (ngModelChange)="pick(order.id, $event)">
+                  <option value="">Delivery partner</option>
+                  <option *ngFor="let p of partnersOf(order)" [value]="p.id">{{ p.name }} ({{ p.activeDeliveries }})</option>
+                </select>
+                <button type="button" class="act give" [disabled]="busyId() === order.id || !(picked()[order.id] || order.deliveryPartnerId) || (picked()[order.id] ?? order.deliveryPartnerId) === order.deliveryPartnerId" (click)="assign(order)">{{ order.deliveryPartnerId ? 'Change' : 'Give' }}</button>
+              </ng-container>
+            </span>
+          </ng-template>
+        </app-data-table>
 
-      <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="total()" (pageChange)="goTo($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+        <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="total()" (pageChange)="goTo($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+      </app-filter-layout>
+      <app-side-panel [open]="!!cancelling()" [title]="'Cancel order · ' + (cancelling()?.orderNumber ?? '')" (closed)="cancelling.set(null)">
+        <ng-container *ngIf="cancelling()">
+          <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
+          <p class="hint">The customer is told the reason and refunded if they paid online. Stock and any coupon use are given back. This cannot be undone.</p>
+          <label>Reason<select class="wide" name="cancelReason" [ngModel]="cancelReason()" (ngModelChange)="cancelReason.set($event)"><option *ngFor="let r of cancelReasons" [value]="r.key">{{ r.name }}</option></select></label>
+          <label>Remark {{ cancelReason() === 'Other' ? '(required)' : '(optional)' }}<input class="wide" name="cancelNote" maxlength="200" [ngModel]="cancelNote()" (ngModelChange)="cancelNote.set($event)" /></label>
+        </ng-container>
+        <div panelActions class="actions">
+          <button type="button" class="act ghost" (click)="cancelling.set(null)">Keep the order</button>
+          <button type="button" class="act danger" *ngIf="cancelling() as order" [disabled]="busyId() === order.id || (cancelReason() === 'Other' && !cancelNote().trim())" (click)="cancelOrder(order)">Cancel order</button>
+        </div>
+      </app-side-panel>
 
       <app-side-panel [open]="!!rejecting()" [title]="'Reject order · ' + (rejecting()?.orderNumber ?? '')" (closed)="rejecting.set(null)">
         <ng-container *ngIf="rejecting()">
@@ -183,16 +196,22 @@ export class OrdersComponent implements OnInit, OnDestroy {
     { key: 'order', label: 'Order' }, { key: 'customer', label: 'Customer' }, { key: 'store', label: 'Store' }, { key: 'date', label: 'Ordered' },
     { key: 'amount', label: 'Amount' }, { key: 'status', label: 'Status' }, { key: 'actions', label: 'Action' },
   ];
-  readonly statusFilters = STATUS_FILTERS;
+  readonly filters = filterState('orders');
+  private readonly statusCounts = signal<Record<string, number> | null>(null);
 
   readonly orders = signal<AdminOrder[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   readonly search = signal('');
-  readonly status = signal('');
-  readonly storeFilter = signal('');
-  readonly stores = signal<{ id: string; name: string }[]>([]);
+  readonly stores = signal<{ id: string; name: string; count?: number }[]>([]);
+  readonly groups = computed<FilterGroup[]>(() => {
+    const counts = this.statusCounts();
+    const status: FilterGroup = { key: 'status', label: 'Status', options: STATUS_FILTERS.filter(f => f.value).map(f => ({ ...f, count: counts ? counts[f.value] ?? 0 : undefined })) };
+    return this.stores().length > 1 ? [status, { key: 'store', label: 'Store', options: this.stores().map(s => ({ value: s.id, label: s.name, count: s.count })) }] : [status];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.filter(); }
+  clearFilters() { this.filters.clear(); this.search.set(''); this.filter(); }
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
@@ -345,6 +364,30 @@ export class OrdersComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ---- cancelling an accepted order ----
+  readonly cancelReasons = CANCEL_REASONS;
+  readonly cancelling = signal<AdminOrder | null>(null);
+  readonly cancelReason = signal('CustomerRequest');
+  readonly cancelNote = signal('');
+  cancelName(key: string) { return cancelName(key); }
+  failureName(key: string | null | undefined) { return failureName(key); }
+  canCancel(order: AdminOrder) { return ['Accepted', 'Preparing', 'Ready', 'Confirmed', 'OutForDelivery'].includes(order.status); }
+
+  openCancel(order: AdminOrder) {
+    this.closePanel(); this.error.set(null); this.notice.set(null); this.changedId.set(order.id);
+    this.cancelReason.set(order.deliveryFailedAt ? 'DeliveryFailed' : 'CustomerRequest'); this.cancelNote.set(''); this.cancelling.set(order);
+  }
+
+  cancelOrder(order: AdminOrder) {
+    if (this.busyId() || (this.cancelReason() === 'Other' && !this.cancelNote().trim())) return;
+    const reason = this.cancelReason(), note = this.cancelNote().trim() || null;
+    this.start(order);
+    this.api.post<unknown>('/operations/orders/' + order.id + '/cancel', { reason, note }).subscribe({
+      next: () => { this.busyId.set(null); this.cancelling.set(null); this.active = { ...order, status: statusName(9), cancelReason: reason, cancelNote: note }; this.notice.set(order.orderNumber + ': cancelled.'); this.load(); },
+      error: e => { this.busyId.set(null); this.error.set(e?.error?.message ?? e?.message ?? 'Could not cancel the order.'); this.load(); },
+    });
+  }
+
   // ---- steps and the list ----
   stepsFor(order: AdminOrder) { return (NEXT_STEPS[order.status] ?? []).filter(s => !(order.deliveryPartnerId && s.code === 4)); }
 
@@ -373,10 +416,10 @@ export class OrdersComponent implements OnInit, OnDestroy {
   private reset() { this.active = null; this.changedId.set(null); this.loading.set(true); this.load(); }
 
   load(quiet = false) {
-    const params: Record<string, string | number> = { page: this.page(), pageSize: this.pageSize() };
+    const params: Record<string, string | number | string[]> = { page: this.page(), pageSize: this.pageSize() };
     if (this.search().trim()) params['search'] = this.search().trim();
-    if (this.status()) params['status'] = this.status();
-    if (this.storeFilter()) params['storeId'] = this.storeFilter();
+    if (this.filters.of('status').length) params['status'] = this.filters.of('status');
+    if (this.filters.of('store').length) params['storeId'] = this.filters.of('store');
     const request = ++this.asked;
     this.api.get<OrderPage>('/orders/paged', { params }).subscribe({
       next: r => {
@@ -387,6 +430,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
         this.orders.set(keepActive(this.orders(), fresh, this.active));
         this.total.set(r.data?.totalCount ?? 0);
         this.stores.set(r.data?.stores ?? []);
+        this.statusCounts.set(r.data?.statusCounts ?? null);
         this.loadPartners(this.orders());
         this.loading.set(false);
         if (quiet) this.error.set(null);

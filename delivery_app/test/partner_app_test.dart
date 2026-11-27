@@ -36,6 +36,29 @@ class FakeApi implements DeliveryApi {
   @override
   Future<void> shareLocation(String orderId, double latitude, double longitude) async => shared.add((orderId, latitude, longitude));
 
+  @override
+  bool mustChangePassword = false;
+
+  @override
+  Future<void> reportFailed(String orderId, {required String reason, String? note}) async {
+    calls.add('failed $orderId $reason ${note ?? ''}');
+    if (failNext != null) throw failNext!;
+    items.removeWhere((d) => d.orderId == orderId);
+  }
+
+  @override
+  Future<void> changePassword(String current, String next) async {
+    calls.add('changePassword $current $next');
+    if (failNext != null) throw failNext!;
+    mustChangePassword = false;
+  }
+
+  @override
+  Future<void> forgotPassword(String email) async => calls.add('forgot $email');
+
+  @override
+  Future<void> resetPassword(String email, String code, String next) async => calls.add('reset $email $code $next');
+
   FakeApi({this.signedIn = false, List<Delivery>? items}) : items = items ?? [];
   bool signedIn;
   final List<Delivery> items;
@@ -114,6 +137,60 @@ Future<void> open(WidgetTester tester, FakeApi api, {List<Uri>? opened, Location
 
 void main() {
   sharingTests();
+  group('passwords and failed deliveries', () {
+    testWidgets('a temporary password must be changed before the deliveries show', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery()])..mustChangePassword = true;
+      await open(tester, api);
+      expect(find.text('Choose your password'), findsOneWidget);
+      expect(find.text('My deliveries'), findsNothing);
+
+      await tester.enterText(find.byKey(const Key('current')), 'Temp-1234abcd');
+      await tester.enterText(find.byKey(const Key('next')), 'short');
+      await tester.enterText(find.byKey(const Key('again')), 'short');
+      await tester.tap(find.byKey(const Key('save-password')));
+      await tester.pumpAndSettle();
+      expect(find.text('Use at least 8 characters.'), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('next')), 'my-own-pass1');
+      await tester.enterText(find.byKey(const Key('again')), 'my-own-pass1');
+      await tester.tap(find.byKey(const Key('save-password')));
+      await tester.pumpAndSettle();
+      expect(api.calls, contains('changePassword Temp-1234abcd my-own-pass1'));
+      expect(find.text('My deliveries'), findsOneWidget);
+    });
+
+    testWidgets('forgot password emails a code and saves the new one', (tester) async {
+      final api = FakeApi();
+      await open(tester, api);
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('email')), 'rina@example.test');
+      await tester.tap(find.byKey(const Key('send')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('code')), '123456');
+      await tester.enterText(find.byKey(const Key('next')), 'my-own-pass1');
+      await tester.enterText(find.byKey(const Key('again')), 'my-own-pass1');
+      await tester.tap(find.byKey(const Key('send')));
+      await tester.pumpAndSettle();
+      expect(api.calls, containsAll(['forgot rina@example.test', 'reset rina@example.test 123456 my-own-pass1']));
+    });
+
+    testWidgets('a delivery that cannot be made goes back to the store with its reason', (tester) async {
+      final api = FakeApi(signedIn: true, items: [delivery(status: 'OutForDelivery')]);
+      await open(tester, api);
+      await tester.tap(find.textContaining('KH-261012-0001'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('could-not')));
+      await tester.tap(find.byKey(const Key('could-not')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Wrong address'));
+      await tester.tap(find.byKey(const Key('report-failed')));
+      await tester.pumpAndSettle();
+      expect(api.calls, contains('failed o1 WrongAddress '));
+      expect(find.text('Nothing to deliver right now.'), findsOneWidget);
+    });
+  });
+
   group('signing in', () {
     testWidgets('a signed-out partner sees the sign-in screen, and a wrong password says so', (tester) async {
       await open(tester, FakeApi());

@@ -1,3 +1,6 @@
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, cached, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -33,7 +36,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 @Component({
   selector: 'app-behaviour',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FilterLayoutComponent, LoaderComponent],
   template: `
     <section class="page">
       <div class="head">
@@ -41,76 +44,65 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
           <h2>Customer behaviour</h2>
           <p class="muted">What customers do in the app, counted by anonymous sessions (one app start is one session). Nothing here identifies a person.</p>
         </div>
-        <div class="controls">
-          <label>Period
-            <select name="preset" [ngModel]="preset" (ngModelChange)="choose($event)">
-              <option *ngFor="let p of presets" [value]="p.key">{{ p.label }}</option>
-            </select>
-          </label>
-          <label *ngIf="canChooseStore()">Store
-            <select name="store" [ngModel]="storeId" (ngModelChange)="pickStore($event)">
-              <option value="">All stores</option>
-              <option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option>
-            </select>
-          </label>
-        </div>
       </div>
 
-      <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
-      <p *ngIf="loading() && !report()">Loading…</p>
+      <app-filter-layout [groups]="panel().groups" [selected]="panel().selected" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
+        <app-loader *ngIf="loading() && !report()" message="Loading…"></app-loader>
 
-      <ng-container *ngIf="report() as r">
-        <section class="tiles">
-          <article class="tile hero"><p>Bought something</p><strong>{{ conversion(r) }}%</strong><small>of the people who opened the app</small></article>
-          <article class="tile"><p>Sessions</p><strong>{{ r.funnel[0].sessions }}</strong><small>app opens in the period</small></article>
-          <article class="tile"><p>Orders placed</p><strong>{{ last(r)?.sessions ?? 0 }}</strong><small>sessions that ordered</small></article>
-          <article class="tile"><p>Biggest drop</p><strong class="word">{{ worstStep(r) }}</strong><small>where most people stop</small></article>
-        </section>
+        <ng-container *ngIf="report() as r">
+          <section class="tiles">
+            <article class="tile hero"><p>Bought something</p><strong>{{ conversion(r) }}%</strong><small>of the people who opened the app</small></article>
+            <article class="tile"><p>Sessions</p><strong>{{ r.funnel[0].sessions }}</strong><small>app opens in the period</small></article>
+            <article class="tile"><p>Orders placed</p><strong>{{ last(r)?.sessions ?? 0 }}</strong><small>sessions that ordered</small></article>
+            <article class="tile"><p>Biggest drop</p><strong class="word">{{ worstStep(r) }}</strong><small>where most people stop</small></article>
+          </section>
 
-        <section class="card">
-          <h3>Buying funnel</h3>
-          <p class="muted-card" *ngIf="r.funnel[0].sessions === 0">No sessions were recorded in this period yet.</p>
-          <div class="bar-row" *ngFor="let s of r.funnel; let i = index">
-            <span class="step-no">{{ i + 1 }}</span>
-            <span class="bar-label">{{ label(s.name) }}</span>
-            <div class="bar"><div class="fill" [style.width.%]="s.percentOfFirst" [attr.data-step]="s.name"></div></div>
-            <span class="bar-num"><strong>{{ s.sessions }}</strong> <small>{{ s.percentOfFirst }}% of openers<ng-container *ngIf="s.name !== 'app_open'"> · {{ s.percentOfPrevious }}% of the step before</ng-container></small></span>
-          </div>
-        </section>
-
-        <section class="card">
-          <h3>Sessions per day</h3>
-          <p class="muted-card" *ngIf="!r.dailySessions.length">No days to show.</p>
-          <div class="days">
-            <div class="day" *ngFor="let d of r.dailySessions" [title]="d.day + ': ' + d.sessions + ' sessions'">
-              <span class="value">{{ d.sessions }}</span>
-              <div class="col" [style.height.px]="height(d.sessions, r)"></div>
-              <small>{{ d.day.slice(8) }}</small>
+          <section class="card">
+            <h3>Buying funnel</h3>
+            <p class="muted-card" *ngIf="r.funnel[0].sessions === 0">No sessions were recorded in this period yet.</p>
+            <div class="bar-row" *ngFor="let s of r.funnel; let i = index">
+              <span class="step-no">{{ i + 1 }}</span>
+              <span class="bar-label">{{ label(s.name) }}</span>
+              <div class="bar"><div class="fill" [style.width.%]="s.percentOfFirst" [attr.data-step]="s.name"></div></div>
+              <span class="bar-num"><strong>{{ s.sessions }}</strong> <small>{{ s.percentOfFirst }}% of openers<ng-container *ngIf="s.name !== 'app_open'"> · {{ s.percentOfPrevious }}% of the step before</ng-container></small></span>
             </div>
-          </div>
-        </section>
-
-        <div class="two">
-          <section class="card">
-            <h3>Top searches</h3>
-            <p class="muted-card" *ngIf="r.topSearches.length === 0">No searches yet.</p>
-            <div class="rank" *ngFor="let t of r.topSearches; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ t.detail }}</span><i [style.width.%]="share(t.count, r.topSearches)"></i></div><strong>{{ t.count }}</strong></div>
           </section>
-          <section class="card">
-            <h3>Why coupons were refused</h3>
-            <p class="muted-card" *ngIf="r.couponRefusals.length === 0">No refusals.</p>
-            <div class="rank pink" *ngFor="let t of r.couponRefusals; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ reason(t.detail) }}</span><i [style.width.%]="share(t.count, r.couponRefusals)"></i></div><strong>{{ t.count }}</strong></div>
-          </section>
-        </div>
 
-        <section class="card">
-          <h3>Every step</h3>
-          <div class="steps">
-            <div class="row head-row"><span>#</span><span>Step</span><span>Times</span><span>Sessions</span></div>
-            <div class="row" *ngFor="let s of r.steps; let i = index"><span>{{ i + 1 }}</span><span>{{ label(s.name) }}</span><span>{{ s.events }}</span><span>{{ s.sessions }}</span></div>
+          <section class="card">
+            <h3>Sessions per day</h3>
+            <p class="muted-card" *ngIf="!r.dailySessions.length">No days to show.</p>
+            <div class="days">
+              <div class="day" *ngFor="let d of r.dailySessions" [title]="d.day + ': ' + d.sessions + ' sessions'">
+                <span class="value">{{ d.sessions }}</span>
+                <div class="col" [style.height.px]="height(d.sessions, r)"></div>
+                <small>{{ d.day.slice(8) }}</small>
+              </div>
+            </div>
+          </section>
+
+          <div class="two">
+            <section class="card">
+              <h3>Top searches</h3>
+              <p class="muted-card" *ngIf="r.topSearches.length === 0">No searches yet.</p>
+              <div class="rank" *ngFor="let t of r.topSearches; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ t.detail }}</span><i [style.width.%]="share(t.count, r.topSearches)"></i></div><strong>{{ t.count }}</strong></div>
+            </section>
+            <section class="card">
+              <h3>Why coupons were refused</h3>
+              <p class="muted-card" *ngIf="r.couponRefusals.length === 0">No refusals.</p>
+              <div class="rank pink" *ngFor="let t of r.couponRefusals; let i = index"><span class="no">{{ i + 1 }}</span><div><span>{{ reason(t.detail) }}</span><i [style.width.%]="share(t.count, r.couponRefusals)"></i></div><strong>{{ t.count }}</strong></div>
+            </section>
           </div>
-        </section>
-      </ng-container>
+
+          <section class="card">
+            <h3>Every step</h3>
+            <div class="steps">
+              <div class="row head-row"><span>#</span><span>Step</span><span>Times</span><span>Sessions</span></div>
+              <div class="row" *ngFor="let s of r.steps; let i = index"><span>{{ i + 1 }}</span><span>{{ label(s.name) }}</span><span>{{ s.events }}</span><span>{{ s.sessions }}</span></div>
+            </div>
+          </section>
+        </ng-container>
+      </app-filter-layout>
     </section>
   `,
   styles: [`
@@ -172,6 +164,28 @@ export class BehaviourComponent implements OnInit {
   storeId = '';
 
   /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  readonly filters = filterState('behaviour');
+  readonly panel = cached<{ groups: FilterGroup[]; selected: Selection }>(
+    () => [this.stores(), this.storeId, this.preset, this.canChooseStore()],
+    () => {
+      const period: FilterGroup = { key: 'period', label: 'Period', single: true, required: true, options: this.presets.map(p => ({ value: p.key, label: p.label })) };
+      return {
+        groups: this.canChooseStore() ? [period, { key: 'store', label: 'Store', single: true, options: this.stores().map(s => ({ value: s.id, label: s.name })) }] : [period],
+        selected: { period: [this.preset], store: this.storeId ? [this.storeId] : [] },
+      };
+    },
+  );
+  onFilters(next: Selection) {
+    const store = next['store']?.[0] ?? '', period = next['period']?.[0] ?? this.preset;
+    this.filters.set(next);
+    if (period !== this.preset) { this.storeId = store; this.choose(period); }
+    else if (store !== this.storeId) this.pickStore(store);
+  }
+  clearFilters() {
+    this.filters.clear();
+    this.storeId = this.stores()[0]?.id ?? '';
+    this.choose('7');
+  }
   canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
 
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
@@ -195,8 +209,9 @@ export class BehaviourComponent implements OnInit {
   share(count: number, all: { count: number }[]): number { return Math.round((count / Math.max(1, ...all.map(x => x.count))) * 100); }
 
   ngOnInit() {
+    const period = this.filters.of('period')[0]; if (this.presets.some(p => p.key === period)) this.preset = period;
     this.api.get<Store[]>('/stores').subscribe({
-      next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
+      next: r => { this.stores.set(storeChoices(r.data)); const kept = this.filters.of('store')[0]; if (kept && this.stores().some(s => s.id === kept)) this.storeId = kept; if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; if (this.filters.selected()['store']?.length === 0) this.storeId = ''; this.load(); },
       error: () => this.load(),
     });
   }

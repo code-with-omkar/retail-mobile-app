@@ -36,6 +36,8 @@ public static class ApplicationServiceRegistration
         services.AddScoped<ICommissionService, CommissionService>();
         services.AddScoped<ICouponService, CouponService>();
         services.AddScoped<IAdService, AdService>();
+        services.AddScoped<IPortalAlertService, PortalAlertService>();
+        services.AddScoped<IOrderIssueService, OrderIssueService>();
         services.AddScoped<ISlotService, SlotService>();
         services.AddScoped<ITodayService, TodayService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();

@@ -1,3 +1,6 @@
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, cached, filterState } from '../../shared/components/filter-layout/filter-state';
 import { rejectionName } from '../../shared/utils/rejections';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -40,114 +43,110 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FilterLayoutComponent, LoaderComponent],
   template: `
     <section class="page">
       <h2>Reports</h2>
       <p class="muted">Revenue is orders that reached the customer. Days run midnight to midnight, India time.</p>
 
-      <div class="bar">
-        <div class="presets">
-          <button type="button" *ngFor="let p of presets" [class.on]="preset === p.key" (click)="choose(p.key)">{{ p.label }}</button>
+      <app-filter-layout [groups]="panel().groups" [selected]="panel().selected" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <div class="bar">
+          <label *ngIf="preset === 'custom'">From<input type="date" name="from" [(ngModel)]="from" /></label>
+          <label *ngIf="preset === 'custom'">To<input type="date" name="to" [(ngModel)]="to" /></label>
+          <button class="primary" type="button" [disabled]="loading()" (click)="load()">Show</button>
+          <button class="act" type="button" [disabled]="loading() || !report()" (click)="download()">Download orders (CSV)</button>
         </div>
-        <label *ngIf="preset === 'custom'">From<input type="date" name="from" [(ngModel)]="from" /></label>
-        <label *ngIf="preset === 'custom'">To<input type="date" name="to" [(ngModel)]="to" /></label>
-        <label *ngIf="canChooseStore()">Store
-          <select name="store" [(ngModel)]="storeId" (ngModelChange)="load()"><option value="">All stores</option><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select>
-        </label>
-        <button class="primary" type="button" [disabled]="loading()" (click)="load()">Show</button>
-        <button class="act" type="button" [disabled]="loading() || !report()" (click)="download()">Download orders (CSV)</button>
-      </div>
-      <p class="error" *ngIf="error()">{{ error() }}</p>
-      <p *ngIf="loading()">Loading report...</p>
+        <p class="error" *ngIf="error()">{{ error() }}</p>
+        <app-loader *ngIf="loading()" message="Loading report…"></app-loader>
 
-      <ng-container *ngIf="report() as r">
-        <p class="scope">{{ r.storeName || 'All stores' }} · {{ r.from | date:'mediumDate' }}<span *ngIf="r.from !== r.to"> to {{ r.to | date:'mediumDate' }}</span></p>
-        <div class="kpis">
-          <article class="kpi yellow"><p>Revenue</p><strong>{{ r.totals.revenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>{{ r.totals.delivered }} delivered</small></article>
-          <article class="kpi green"><p>Orders placed</p><strong>{{ r.totals.orders }}</strong><small>{{ r.totals.inProgress }} in progress</small></article>
-          <article class="kpi lavender"><p>Average order</p><strong>{{ r.totals.averageOrder | currency:'INR':'symbol':'1.0-0' }}</strong><small>of delivered orders</small></article>
-          <article class="kpi pink"><p>Lost</p><strong>{{ r.totals.cancelled + r.totals.rejected }}</strong><small>{{ r.totals.cancelled }} cancelled · {{ r.totals.rejected }} declined ({{ lostPercent(r) }}%)</small></article>
-          <article class="kpi lavender"><p>Cash on delivery</p><strong>{{ r.totals.cashRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>delivered</small></article>
-          <article class="kpi green"><p>Paid online</p><strong>{{ r.totals.onlineRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>delivered</small></article>
-          <article class="kpi yellow"><p>New customers</p><strong>{{ r.totals.newCustomers }}</strong><small>first order in this period</small></article>
-          <article class="kpi pink"><p>Refunds</p><strong>{{ r.totals.refunds }}</strong><small>{{ r.totals.refundedAmount | currency:'INR':'symbol':'1.0-0' }} returned</small></article>
-          <article class="kpi yellow" *ngIf="r.totals.couponDiscount"><p>Coupons</p><strong>{{ r.totals.couponDiscount | currency:'INR':'symbol':'1.0-0' }}</strong><small>given as discounts</small></article>
-        </div>
-
-        <h3>Revenue by day</h3>
-        <div class="chart" role="img" aria-label="Revenue by day">
-          <div class="col" *ngFor="let d of r.days" [title]="(d.date | date:'mediumDate') + ': ' + d.orders + ' orders, ' + (d.revenue | currency:'INR':'symbol':'1.0-0')">
-            <span class="bar-fill" [style.height.%]="height(d.revenue, maxRevenue(r))"></span>
-            <small *ngIf="showLabel(r, d)">{{ d.date | date:'d MMM' }}</small>
+        <ng-container *ngIf="report() as r">
+          <p class="scope">{{ r.storeName || 'All stores' }} · {{ r.from | date:'mediumDate' }}<span *ngIf="r.from !== r.to"> to {{ r.to | date:'mediumDate' }}</span></p>
+          <div class="kpis">
+            <article class="kpi yellow"><p>Revenue</p><strong>{{ r.totals.revenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>{{ r.totals.delivered }} delivered</small></article>
+            <article class="kpi green"><p>Orders placed</p><strong>{{ r.totals.orders }}</strong><small>{{ r.totals.inProgress }} in progress</small></article>
+            <article class="kpi lavender"><p>Average order</p><strong>{{ r.totals.averageOrder | currency:'INR':'symbol':'1.0-0' }}</strong><small>of delivered orders</small></article>
+            <article class="kpi pink"><p>Lost</p><strong>{{ r.totals.cancelled + r.totals.rejected }}</strong><small>{{ r.totals.cancelled }} cancelled · {{ r.totals.rejected }} declined ({{ lostPercent(r) }}%)</small></article>
+            <article class="kpi lavender"><p>Cash on delivery</p><strong>{{ r.totals.cashRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>delivered</small></article>
+            <article class="kpi green"><p>Paid online</p><strong>{{ r.totals.onlineRevenue | currency:'INR':'symbol':'1.0-0' }}</strong><small>delivered</small></article>
+            <article class="kpi yellow"><p>New customers</p><strong>{{ r.totals.newCustomers }}</strong><small>first order in this period</small></article>
+            <article class="kpi pink"><p>Refunds</p><strong>{{ r.totals.refunds }}</strong><small>{{ r.totals.refundedAmount | currency:'INR':'symbol':'1.0-0' }} returned</small></article>
+            <article class="kpi yellow" *ngIf="r.totals.couponDiscount"><p>Coupons</p><strong>{{ r.totals.couponDiscount | currency:'INR':'symbol':'1.0-0' }}</strong><small>given as discounts</small></article>
           </div>
-        </div>
 
-        <h3>Busiest hours</h3>
-        <div class="chart hours" role="img" aria-label="Orders by hour of the day">
-          <div class="col" *ngFor="let h of r.hours" [title]="h.hour + ':00 · ' + h.orders + ' orders'">
-            <span class="bar-fill alt" [style.height.%]="height(h.orders, maxHour(r))"></span>
-            <small *ngIf="h.hour % 3 === 0">{{ h.hour }}</small>
-          </div>
-        </div>
-
-        <div class="two">
-          <section class="card">
-            <h3>Top products</h3>
-            <p *ngIf="r.topProducts.length === 0" class="muted-dark">No delivered orders in this period.</p>
-            <div class="row head" *ngIf="r.topProducts.length"><span>Product</span><span>Sold</span><span>Revenue</span></div>
-            <div class="row" *ngFor="let p of r.topProducts"><strong>{{ p.name }}</strong><span>{{ p.quantity }}</span><span>{{ p.revenue | currency:'INR':'symbol':'1.0-0' }}</span></div>
-          </section>
-          <section class="card" *ngIf="r.stores.length">
-            <h3>By store</h3>
-            <div class="row head"><span>Store</span><span>Orders</span><span>Revenue</span></div>
-            <div class="row" *ngFor="let s of r.stores"><strong>{{ s.store }}</strong><span>{{ s.orders }} ({{ s.delivered }} delivered)</span><span>{{ s.revenue | currency:'INR':'symbol':'1.0-0' }}</span></div>
-          </section>
-          <section class="card" *ngIf="r.earnings?.length">
-            <h3>Earnings by shop <small>(delivered orders; sales are after discounts, the store keeps delivery and handling fees)</small></h3>
-            <div class="row head"><span>Shop</span><span>Sales</span><span>Our commission</span></div>
-            <div class="row" *ngFor="let e of r.earnings"><strong>{{ e.store }}<small> {{ e.orders }} orders</small></strong><span>{{ e.sales | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ e.commission | currency:'INR':'symbol':'1.2-2' }}<small>store keeps {{ e.net | currency:'INR':'symbol':'1.0-0' }}</small></span></div>
-            <div class="row" *ngIf="r.earnings!.length > 1"><strong>All shops</strong><span>{{ sumOf(r.earnings!, 'sales') | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ sumOf(r.earnings!, 'commission') | currency:'INR':'symbol':'1.2-2' }}</span></div>
-          </section>
-          <section class="card" *ngIf="r.rejections?.length">
-            <h3>Rejected orders by store <small>(share of the store's orders)</small></h3>
-            <div class="row head"><span>Store</span><span>Rejected</span><span>Why</span></div>
-            <div class="row" *ngFor="let x of r.rejections"><strong>{{ x.store }}</strong><span>{{ x.rejected }} of {{ x.orders }} ({{ x.percent }}%)</span><span>{{ reasonsLine(x.reasons) }}</span></div>
-          </section>
-          <section class="card" *ngIf="r.income as i">
-            <h3>Platform income</h3>
-            <div class="row"><strong>Offer fees paid</strong><span></span><span>{{ i.offerFeesPaid | currency:'INR':'symbol':'1.0-0' }}</span></div>
-            <div class="row"><strong>Offer fees returned</strong><span></span><span>{{ i.offerFeesRefunded | currency:'INR':'symbol':'1.0-0' }}</span></div>
-            <div class="row"><strong>Placement bids kept</strong><span></span><span>{{ i.placementPaid | currency:'INR':'symbol':'1.0-0' }}</span></div>
-            <div class="row"><strong>Placement bids returned</strong><span></span><span>{{ i.placementRefunded | currency:'INR':'symbol':'1.0-0' }}</span></div>
-          </section>
-        </div>
-
-        <section class="card wide" *ngIf="ratings() as q">
-          <h3>Customer ratings</h3>
-          <p *ngIf="q.summary.count === 0" class="muted-dark">No ratings in this period yet.</p>
-          <ng-container *ngIf="q.summary.count > 0">
-            <div class="rate-head">
-              <div><strong class="big">{{ q.summary.averageStore | number:'1.1-1' }}</strong><span class="stars">{{ stars(q.summary.averageStore) }}</span><small>{{ q.summary.count }} ratings</small></div>
-              <div *ngIf="q.summary.averageDelivery !== null"><strong class="big">{{ q.summary.averageDelivery | number:'1.1-1' }}</strong><span class="stars">{{ stars(q.summary.averageDelivery) }}</span><small>delivery</small></div>
-              <div class="spread">
-                <div class="srow" *ngFor="let n of [5,4,3,2,1]"><span>{{ n }}★</span><span class="track"><span class="fill" [style.width.%]="share(q.summary, n)"></span></span><span>{{ q.summary.stars[n - 1] }}</span></div>
-              </div>
+          <h3>Revenue by day</h3>
+          <div class="chart" role="img" aria-label="Revenue by day">
+            <div class="col" *ngFor="let d of r.days" [title]="(d.date | date:'mediumDate') + ': ' + d.orders + ' orders, ' + (d.revenue | currency:'INR':'symbol':'1.0-0')">
+              <span class="bar-fill" [style.height.%]="height(d.revenue, maxRevenue(r))"></span>
+              <small *ngIf="showLabel(r, d)">{{ d.date | date:'d MMM' }}</small>
             </div>
-            <div class="row head" *ngIf="q.summary.partners.length"><span>Delivery partner</span><span>Ratings</span><span>Average</span></div>
-            <div class="row" *ngFor="let p of q.summary.partners"><strong>{{ p.partner }}</strong><span>{{ p.count }}</span><span>{{ p.average | number:'1.1-1' }} {{ stars(p.average) }}</span></div>
-            <h3 class="sub">Latest comments</h3>
-            <div class="comment" *ngFor="let c of q.recent"><span class="stars">{{ stars(c.storeStars) }}</span> <strong>{{ c.orderNumber }}</strong> <small>{{ c.store }} · {{ c.createdAt | date:'medium' }}<span *ngIf="c.deliveryStars"> · delivery {{ c.deliveryStars }}★</span></small><p *ngIf="c.comment">{{ c.comment }}</p></div>
-          </ng-container>
-        </section>
+          </div>
 
-        <section class="card wide">
-          <h3>Running low</h3>
-          <p *ngIf="r.lowStock.length === 0" class="muted-dark">Nothing is at or below its reorder level.</p>
-          <div class="row low head" *ngIf="r.lowStock.length"><span>Product</span><span>Size</span><span>Store</span><span>In stock</span><span>Reorder at</span></div>
-          <div class="row low" *ngFor="let l of r.lowStock"><strong>{{ l.product }}</strong><span>{{ l.size }}</span><span>{{ l.store }}</span><span [class.zero]="l.available === 0">{{ l.available }}</span><span>{{ l.reorderThreshold }}</span></div>
-        </section>
-      </ng-container>
+          <h3>Busiest hours</h3>
+          <div class="chart hours" role="img" aria-label="Orders by hour of the day">
+            <div class="col" *ngFor="let h of r.hours" [title]="h.hour + ':00 · ' + h.orders + ' orders'">
+              <span class="bar-fill alt" [style.height.%]="height(h.orders, maxHour(r))"></span>
+              <small *ngIf="h.hour % 3 === 0">{{ h.hour }}</small>
+            </div>
+          </div>
+
+          <div class="two">
+            <section class="card">
+              <h3>Top products</h3>
+              <p *ngIf="r.topProducts.length === 0" class="muted-dark">No delivered orders in this period.</p>
+              <div class="row head" *ngIf="r.topProducts.length"><span>Product</span><span>Sold</span><span>Revenue</span></div>
+              <div class="row" *ngFor="let p of r.topProducts"><strong>{{ p.name }}</strong><span>{{ p.quantity }}</span><span>{{ p.revenue | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            </section>
+            <section class="card" *ngIf="r.stores.length">
+              <h3>By store</h3>
+              <div class="row head"><span>Store</span><span>Orders</span><span>Revenue</span></div>
+              <div class="row" *ngFor="let s of r.stores"><strong>{{ s.store }}</strong><span>{{ s.orders }} ({{ s.delivered }} delivered)</span><span>{{ s.revenue | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            </section>
+            <section class="card" *ngIf="r.earnings?.length">
+              <h3>Earnings by shop <small>(delivered orders; sales are after discounts, the store keeps delivery and handling fees)</small></h3>
+              <div class="row head"><span>Shop</span><span>Sales</span><span>Our commission</span></div>
+              <div class="row" *ngFor="let e of r.earnings"><strong>{{ e.store }}<small> {{ e.orders }} orders</small></strong><span>{{ e.sales | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ e.commission | currency:'INR':'symbol':'1.2-2' }}<small>store keeps {{ e.net | currency:'INR':'symbol':'1.0-0' }}</small></span></div>
+              <div class="row" *ngIf="r.earnings!.length > 1"><strong>All shops</strong><span>{{ sumOf(r.earnings!, 'sales') | currency:'INR':'symbol':'1.0-0' }}</span><span>{{ sumOf(r.earnings!, 'commission') | currency:'INR':'symbol':'1.2-2' }}</span></div>
+            </section>
+            <section class="card" *ngIf="r.rejections?.length">
+              <h3>Rejected orders by store <small>(share of the store's orders)</small></h3>
+              <div class="row head"><span>Store</span><span>Rejected</span><span>Why</span></div>
+              <div class="row" *ngFor="let x of r.rejections"><strong>{{ x.store }}</strong><span>{{ x.rejected }} of {{ x.orders }} ({{ x.percent }}%)</span><span>{{ reasonsLine(x.reasons) }}</span></div>
+            </section>
+            <section class="card" *ngIf="r.income as i">
+              <h3>Platform income</h3>
+              <div class="row"><strong>Offer fees paid</strong><span></span><span>{{ i.offerFeesPaid | currency:'INR':'symbol':'1.0-0' }}</span></div>
+              <div class="row"><strong>Offer fees returned</strong><span></span><span>{{ i.offerFeesRefunded | currency:'INR':'symbol':'1.0-0' }}</span></div>
+              <div class="row"><strong>Placement bids kept</strong><span></span><span>{{ i.placementPaid | currency:'INR':'symbol':'1.0-0' }}</span></div>
+              <div class="row"><strong>Placement bids returned</strong><span></span><span>{{ i.placementRefunded | currency:'INR':'symbol':'1.0-0' }}</span></div>
+            </section>
+          </div>
+
+          <section class="card wide" *ngIf="ratings() as q">
+            <h3>Customer ratings</h3>
+            <p *ngIf="q.summary.count === 0" class="muted-dark">No ratings in this period yet.</p>
+            <ng-container *ngIf="q.summary.count > 0">
+              <div class="rate-head">
+                <div><strong class="big">{{ q.summary.averageStore | number:'1.1-1' }}</strong><span class="stars">{{ stars(q.summary.averageStore) }}</span><small>{{ q.summary.count }} ratings</small></div>
+                <div *ngIf="q.summary.averageDelivery !== null"><strong class="big">{{ q.summary.averageDelivery | number:'1.1-1' }}</strong><span class="stars">{{ stars(q.summary.averageDelivery) }}</span><small>delivery</small></div>
+                <div class="spread">
+                  <div class="srow" *ngFor="let n of [5,4,3,2,1]"><span>{{ n }}★</span><span class="track"><span class="fill" [style.width.%]="share(q.summary, n)"></span></span><span>{{ q.summary.stars[n - 1] }}</span></div>
+                </div>
+              </div>
+              <div class="row head" *ngIf="q.summary.partners.length"><span>Delivery partner</span><span>Ratings</span><span>Average</span></div>
+              <div class="row" *ngFor="let p of q.summary.partners"><strong>{{ p.partner }}</strong><span>{{ p.count }}</span><span>{{ p.average | number:'1.1-1' }} {{ stars(p.average) }}</span></div>
+              <h3 class="sub">Latest comments</h3>
+              <div class="comment" *ngFor="let c of q.recent"><span class="stars">{{ stars(c.storeStars) }}</span> <strong>{{ c.orderNumber }}</strong> <small>{{ c.store }} · {{ c.createdAt | date:'medium' }}<span *ngIf="c.deliveryStars"> · delivery {{ c.deliveryStars }}★</span></small><p *ngIf="c.comment">{{ c.comment }}</p></div>
+            </ng-container>
+          </section>
+
+          <section class="card wide">
+            <h3>Running low</h3>
+            <p *ngIf="r.lowStock.length === 0" class="muted-dark">Nothing is at or below its reorder level.</p>
+            <div class="row low head" *ngIf="r.lowStock.length"><span>Product</span><span>Size</span><span>Store</span><span>In stock</span><span>Reorder at</span></div>
+            <div class="row low" *ngFor="let l of r.lowStock"><strong>{{ l.product }}</strong><span>{{ l.size }}</span><span>{{ l.store }}</span><span [class.zero]="l.available === 0">{{ l.available }}</span><span>{{ l.reorderThreshold }}</span></div>
+          </section>
+        </ng-container>
+      </app-filter-layout>
     </section>
   `,
   styles: [`
@@ -178,8 +177,8 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
     .chart{display:flex;gap:3px;align-items:flex-end;height:150px;background:var(--card-bg,#F5F5F7);border-radius:24px;padding:14px 14px 22px;overflow-x:auto}
     .col{flex:1;min-width:8px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative}
     .col small{position:absolute;bottom:-18px;font-size:9px;color:var(--on-card-muted,#5E5A66);white-space:nowrap}
-    .bar-fill{display:block;width:100%;min-height:2px;border-radius:6px 6px 2px 2px;background:#141118}
-    .bar-fill.alt{background:#C42F1D}
+    .bar-fill{display:block;width:100%;min-height:3px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#FF8A00,#E05A00)}
+    .bar-fill.alt{background:linear-gradient(180deg,#7C3AED,#2A1BFF)}
     .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:20px}
     .card{background:var(--card-bg,#F5F5F7);color:var(--on-card,#141118);border-radius:24px;padding:18px}
     .wide{margin-top:12px}
@@ -190,7 +189,7 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
     .zero{color:#B00060;font-weight:800}
     .rate-head{display:flex;gap:28px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
     .rate-head .big{font-family:'Bricolage Grotesque',sans-serif;font-size:32px;margin-right:8px}
-    .stars{color:#E8A400;letter-spacing:1px}
+    .stars{color:#8A5200;letter-spacing:1px}
     .rate-head small{display:block;color:var(--on-card-muted,#5E5A66);font-size:11px}
     .spread{display:grid;gap:3px;min-width:220px;flex:1;max-width:340px}
     .srow{display:grid;grid-template-columns:28px 1fr 28px;gap:8px;align-items:center;font-size:11px}
@@ -199,6 +198,14 @@ const addDays = (date: Date, days: number) => new Date(date.getTime() + days * 8
     .sub{margin-top:14px}
     .comment{border-top:1px solid rgba(20,17,24,.12);padding:8px 0;font-size:12px;color:var(--on-card-muted,#5E5A66)}
     .comment p{margin:4px 0 0;color:var(--on-card,#141118);white-space:pre-wrap;word-break:break-word}
+  
+    /* each figure has its own colour: a stripe on top and the number itself */
+    .kpi{border-top:6px solid #2A1BFF}
+    .kpi.yellow{border-top-color:#E08A00}.kpi.yellow strong{color:#A85B00}
+    .kpi.green{border-top-color:#0B7A3E}.kpi.green strong{color:#0B7A3E}
+    .kpi.lavender{border-top-color:#5B16EE}.kpi.lavender strong{color:#5B16EE}
+    .kpi.pink{border-top-color:#D7263D}.kpi.pink strong{color:#C41E33}
+    .card h3{color:#2A1BFF}
   `],
 })
 export class ReportsComponent implements OnInit {
@@ -227,13 +234,38 @@ export class ReportsComponent implements OnInit {
   storeId = '';
 
   /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  readonly filters = filterState('reports');
+  readonly panel = cached<{ groups: FilterGroup[]; selected: Selection }>(
+    () => [this.stores(), this.storeId, this.preset, this.canChooseStore()],
+    () => {
+      const period: FilterGroup = { key: 'period', label: 'Period', single: true, required: true, options: this.presets.map(p => ({ value: p.key, label: p.label })) };
+      return {
+        groups: this.canChooseStore() ? [period, { key: 'store', label: 'Store', single: true, options: this.stores().map(s => ({ value: s.id, label: s.name })) }] : [period],
+        selected: { period: [this.preset], store: this.storeId ? [this.storeId] : [] },
+      };
+    },
+  );
+  onFilters(next: Selection) {
+    const store = next['store']?.[0] ?? '', period = next['period']?.[0] ?? this.preset;
+    this.filters.set(next);
+    const moved = store !== this.storeId;
+    this.storeId = store;
+    // "Choose dates" waits for the dates; a new period loads by itself
+    if (period !== this.preset) this.choose(period);
+    else if (moved) this.load();
+  }
+  clearFilters() {
+    this.filters.clear();
+    this.storeId = this.stores()[0]?.id ?? '';
+    this.choose('7');
+  }
   canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
 
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
 
   ngOnInit() {
     this.api.get<Store[]>('/stores').subscribe({
-      next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
+      next: r => { this.stores.set(storeChoices(r.data)); const kept = this.filters.of('store')[0]; if (kept && this.stores().some(s => s.id === kept)) this.storeId = kept; if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; if (this.filters.selected()['store']?.length === 0) this.storeId = ''; this.load(); },
       error: () => this.load(),
     });
   }

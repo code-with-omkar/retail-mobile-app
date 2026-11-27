@@ -11,8 +11,8 @@ public sealed class CatalogAdminController(ICatalogAdminService catalogue, IStoc
 {
     [HttpGet("api/admin/catalog/products")]
     [Authorize(Policy = SecurityPolicies.CatalogManagement)]
-    public async Task<IActionResult> List([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) =>
-        Respond(await catalogue.ListAsync(search, page, pageSize, cancellationToken));
+    public async Task<IActionResult> List([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] Guid[]? categoryId = null, [FromQuery] bool? active = null, CancellationToken cancellationToken = default) =>
+        Respond(await catalogue.ListAsync(search, page, pageSize, new ProductFilter(categoryId, active), cancellationToken));
 
     [HttpGet("api/admin/catalog/products/{id:guid}")]
     [Authorize(Policy = SecurityPolicies.CatalogManagement)]

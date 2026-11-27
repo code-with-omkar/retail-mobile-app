@@ -29,6 +29,11 @@ public sealed class DeliveryController(IDeliveryService delivery) : ControllerBa
     [Authorize(Policy = SecurityPolicies.DeliveryPartner)]
     public async Task<IActionResult> Deliver(Guid orderId, DeliverRequest request, CancellationToken cancellationToken) => Respond(await delivery.DeliverAsync(orderId, request, cancellationToken));
 
+    /// <summary>The partner could not deliver: the order goes back to the store with the reason.</summary>
+    [HttpPost("api/delivery/{orderId:guid}/failed")]
+    [Authorize(Policy = SecurityPolicies.DeliveryPartner)]
+    public async Task<IActionResult> Failed(Guid orderId, DeliveryFailedRequest request, CancellationToken cancellationToken) => Respond(await delivery.FailAsync(orderId, request, cancellationToken));
+
     private IActionResult Respond<T>(DeliveryResult<T> result) => result.Status switch
     {
         DeliveryResultStatus.Succeeded => Ok(new { success = true, data = result.Value }),

@@ -20,7 +20,9 @@ public sealed record StoreResponse(
     double Latitude,
     double Longitude,
     double ServiceRadiusKm,
-    bool IsActive);
+    bool IsActive,
+    string? Code = null,
+    string? PhoneNumber = null);
 
 /// <summary>Product as shown to customers. Deliberately has no SKU or IsActive; it can grow (MRP, translations, availability) without changing the admin contract.</summary>
 /// <param name="Mrp">Maximum retail price. Always present: equals the price when the product has no separate MRP.</param>

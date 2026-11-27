@@ -420,6 +420,28 @@ public sealed class CouponEfTests
         }
     }
 
+    [Fact]
+    public async Task A_store_cancelling_an_accepted_order_gives_the_stock_back()
+    {
+        if (ConnectionString is null) { return; }
+        await using var world = await World.CreateAsync(1, 10);
+        var placed = await world.Checkout(world.CustomerIds[0], Commit("k" + Guid.NewGuid().ToString("N")[..12]));
+        await using var db = world.Db();
+        var organizationId = await db.Stores.Where(store => store.Id == world.Store.Id).Select(store => store.OrganizationId).SingleAsync();
+        var data = new EfCommerceStore(db);
+        var stockAfterOrder = await db.StoreVariantInventory.AsNoTracking().Where(row => row.StoreId == world.Store.Id).SumAsync(row => row.AvailableQuantity);
+        var why = new OrderCancellation("DeliveryFailed", null, Guid.NewGuid());
+
+        Assert.Equal(OrderLifecycleStatus.InvalidTransition, (await data.TryStaffCancelAsync(placed.Order!.Id, organizationId, world.Store.Id, why)).Status); // still new
+        await data.TryTransitionOrderAsync(placed.Order.Id, organizationId, world.Store.Id, OrderStatus.Accepted);
+        db.ChangeTracker.Clear();
+        Assert.Equal(OrderLifecycleStatus.Succeeded, (await data.TryStaffCancelAsync(placed.Order.Id, organizationId, world.Store.Id, why)).Status);
+
+        var saved = await db.Orders.AsNoTracking().SingleAsync(order => order.Id == placed.Order.Id);
+        Assert.Equal((OrderStatus.Cancelled, "DeliveryFailed"), (saved.Status, saved.CancelReason));
+        Assert.True(await db.StoreVariantInventory.AsNoTracking().Where(row => row.StoreId == world.Store.Id).SumAsync(row => row.AvailableQuantity) > stockAfterOrder);
+    }
+
     private static async Task<CartResponse> CartOf(World world, Guid customerId)
     {
         await using var db = world.Db();

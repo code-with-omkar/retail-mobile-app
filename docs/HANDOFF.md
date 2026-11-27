@@ -20,6 +20,66 @@ All committed on `mobile-app` (latest `65dd7b1`). Unpushed: `d3c1c5a` (CI fix: `
 ## P25 replacement products (built, tested, migration not applied)
 Store offers a replacement for an out-of-stock line (portal: Change items, Replace); the customer accepts or declines in the app within 5 minutes; no answer removes the item and refunds. Dearer replacements allowed for cash orders only. Migration `AddReplacementProposals` generated, **not applied**. Cases: section S. Backend 1003, customer app 535. NEXT (user asked): Google Maps; the user has created a Maps key (never print it; ask where to put it).
 
+## P57 Portal icons, card controls and fresh buttons (portal only; built, 309 tests; not committed)
+
+- Buttons are solid orange (no gradient, red for delete), on Reports too; menu highlight yellow; selected states orange; gradient thin scrollbar shown on hover; clearer table header and row lines.
+- Header: administrators see a connection icon (checked every minute); profile shows the organization name (administrators only), never its number.
+- Header: "API connected" text removed; the avatar menu has only View profile (Logout stays in the header). My profile redrawn with icons and tags.
+- Buttons: flat light green (main), lavender and orange (neighbours differ), red for delete. Filters button is black with a yellow icon. Complaints has its own menu icon.
+- Today: coloured boxes with icon and status word; the two cards have icon headers, status pills and icon empty states.
+- Row actions and statuses are icons with tooltips; cards have minimise and maximise (Escape restores): layout/shell/decorate.ts.
+- Complaints shows "No records found." on 404 (the running API predates the complaints endpoint); screens fill the height; Today boxes in one row; store cards aligned.
+
+## P56 Missing features 1 to 5 (built, tested; THREE MIGRATIONS NOT APPLIED to the dev DB; not committed)
+
+- Staff passwords: admin gives a temporary password (Users screen, and automatically for new staff), forced change at first sign-in; forgot/reset works for staff; portal and partner app have change and forgot screens. Migration AddStaffPasswords.
+- Stores: administrator adds and edits (portal Stores screen); code, phone, location, radius, open/closed.
+- Orders: store cancels an accepted order with a reason (refund, stock, coupon, slot); partner reports a failed delivery and the order returns to Ready. Migration AddOrderCancellation.
+- Complaints: customer reports within 48 hours; store manager or admin approves part or all, or refuses; online refunds use the refund job, cash is marked paid by hand. Migration AddOrderIssues.
+- Known limit: complaint refunds do not change commission or store earnings.
+- To go live: ask first, back up, dotnet ef database update, rebuild and restart APIs (not before the migrations), rebuild both phone apps.
+
+## P55 Colours after screenshots (built, 297 tests; not committed)
+
+- Buttons orange (green add/save, red refuse/remove), orange scrollbars on hover, menu headings pale yellow, report figures and chart bars coloured, permission card headers neutral.
+- Screens checked by headless browser screenshots (script kept only in the session scratchpad).
+
+## P54 Portal fixes from review (built, 297 tests; not committed)
+
+- Side menu uses the page gradient; secondary buttons blue/violet/orange instead of black; messages are bottom toasts (success hides after 6s); Minimize/Expand all is an icon with a tooltip; Notifications fills the screen.
+- Roles and Permissions screens restored to the 871edea design (the table version was reverted).
+- Signed-in screens not yet checked visually.
+
+## P53 Portal Daylight Clean palette (user direction; built, 297 tests; not committed)
+
+- Page #2A1BFF to #8A10D8, white cards everywhere, floating side menu as a see-through gradient card (user asked; not black), yellow active/selected, green add/links, ink #141118. Replaces the P52 colours.
+- Portal only; signed-in screens not yet checked visually.
+
+## P52 Portal colours and buttons (portal only; built, 297 tests; not committed)
+
+- Background gradient around #5B16EE (index.css), white text on it; light surfaces get dark text via the generated deep-surfaces rule at the end of index.css (add new light classes there).
+- Scrollbars appear on hover; menu hover is dark; buttons are gradients (gold main, purple other, red, green) and stay in one row.
+- Signed-in screens not yet checked visually.
+
+## P51 Portal look (built, tested; portal only; not committed)
+
+- Filters hidden by default; groups can be minimised (and all at once). Electric gradient, full width, one button size, tick boxes drawn as switches, shared card loader (app-loader).
+- Ads, Coupons and Offers follow the Orders layout: list with filters, New/Edit in a wide side panel; offer fees in their own panel.
+- Later the same day Overview, Categories, Approvals, Placement, Roles, Permissions and Profile were given the Orders layout too (side panels for new/edit; Categories picks category and store in the left panel). Tests: portal 297. Needs a visual check after sign-in.
+
+## P50 Split-screen filters in the portal (built, tested; NO migration; APIs restarted; not committed)
+
+- Shared app-filter-layout (30/70): grouped lists, multi-select, counts, hide panel, clear all, remembered per screen; Filters button on narrow windows.
+- Orders, Users, Stores, Delivery times, Commission, Notifications, Stock, Catalog (new category and on-sale filters), Today, Reports, Behaviour. One-store APIs keep a single store choice.
+- Server: repeated status/storeId (orders), role (users), categoryId (products), with counts.
+- Tests: server 1281, portal 296. Not checked visually.
+
+## P49 Expiry alerts and portal Notifications (built, tested; NO migration; APIs restarted; not committed)
+
+- GET api/admin/alerts: coupons, offers and ads ending within 3 days or ended in the last 3. Admin: all; store manager: offers and ads of their stores and all-store ones.
+- Portal Notifications screen with unread badge; read marks are kept in the browser only.
+- Tests: server 1281, portal 292.
+
 ## P48 Order rejection reasons (built, tested; MIGRATION AddOrderRejection APPLIED to the dev DB 2026-11-26 after backup; not committed)
 
 - Rejecting needs a reason (OutOfStock, StoreClosed, TooBusy, AddressProblem, Other + remark). Who rejected is saved. Customer sees the reason, never the remark. Admin Reports: rejections by store.

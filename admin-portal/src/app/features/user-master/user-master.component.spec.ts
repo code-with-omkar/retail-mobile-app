@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
@@ -27,13 +28,14 @@ function open(over: Svc = {}) {
     getStores: ok([{ id: 's1', name: 'Kharghar' }]),
     getRoles: ok([{ id: 'r1', code: Role.StoreStaff, name: 'Store Staff', isActive: true, permissions: [{ id: 'p1', code: 'orders:read' }] }]),
     getPermissions: ok([]),
+    setTemporaryPassword: vi.fn(() => of({ success: true, data: { temporaryPassword: 'Temp-pass-1234' } })),
     createUser: vi.fn(ok(user())),
     updateUser: vi.fn(ok(user())),
     toggleUserStatus: vi.fn(ok(user())),
     permissions: signal([]),
     ...over,
   };
-  TestBed.configureTestingModule({ providers: [{ provide: UserMasterService, useValue: svc }] });
+  TestBed.configureTestingModule({ providers: [{ provide: UserMasterService, useValue: svc }, { provide: AuthService, useValue: { getUserId: () => 'me' } }] });
   const fixture = TestBed.createComponent(UserMasterComponent);
   fixture.detectChanges();
   fixture.detectChanges();
@@ -43,13 +45,14 @@ function open(over: Svc = {}) {
 const validForm = (c: UserMasterComponent) => c.form.patchValue({ firstName: 'Meena', lastName: 'Joshi', email: 'meena@shop.in', organizationId: 'o1', role: Role.Customer });
 
 describe('UserMasterComponent', () => {
+  beforeEach(() => localStorage.clear());
   it('loads a page of users with their full names and the totals, plus organisations and roles', () => {
     const { c } = open();
 
     expect(c.users().map(u => u.fullName)).toEqual(['Asha Patil', 'Ravi Kale', 'Bina Shah']);
     expect(c.organizations()).toHaveLength(2);
     expect(c.roleOptions()).toEqual([{ value: Role.StoreStaff, label: 'Store Staff' }]);
-    expect(c.roleFilterOptions()[0]).toEqual({ value: 'all', label: 'All roles' });
+    expect(c.groups().map(g => g.key)).toEqual(['role', 'status', 'sort']);
     expect([c.total(), c.allCount(), c.activeCount(), c.roleCount()]).toEqual([3, 3, 2, 2]);
     expect(c.isLoading()).toBe(false);
   });
@@ -66,13 +69,13 @@ describe('UserMasterComponent', () => {
     const { c, svc } = open();
     const asked = () => (svc.getUsersPage as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0];
 
-    expect(asked()).toEqual({ search: '', role: 'all', status: 'all', sort: 'name', page: 1, pageSize: 20 });
+    expect(asked()).toEqual({ search: '', roles: [], statuses: [], sort: 'name', page: 1, pageSize: 20 });
     c.goTo(3);
     expect(asked().page).toBe(3);
     c.searchTerm.set('  ravi ');
-    c.onStatusFilterChange(UserStatus.Inactive);
-    c.onRoleFilterChange(Role.Customer);
-    expect(asked()).toEqual({ search: 'ravi', role: Role.Customer, status: UserStatus.Inactive, sort: 'name', page: 1, pageSize: 20 });
+    c.onFilters({ ...c.filters.selected(), status: [UserStatus.Inactive] });
+    c.onFilters({ ...c.filters.selected(), role: [Role.Customer] });
+    expect(asked()).toEqual({ search: 'ravi', roles: [Role.Customer], statuses: [UserStatus.Inactive], sort: 'name', page: 1, pageSize: 20 });
   });
 
   it('numbers the rows and marks the user being edited', () => {

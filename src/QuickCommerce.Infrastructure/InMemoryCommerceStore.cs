@@ -189,12 +189,23 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
     {
         query = query.Clamped();
         var all = (await GetScopedOrderSummariesAsync(organizationId, storeIds, isApplicationAdmin, cancellationToken))
-            .Where(order => query.Status is null || order.Status == query.Status)
-            .Where(order => query.StoreId is null || order.StoreId == query.StoreId)
+            .Where(order => query.Statuses is not { Count: > 0 } || query.Statuses.Contains(order.Status))
+            .Where(order => query.StoreIds is not { Count: > 0 } || query.StoreIds.Contains(order.StoreId))
             .Where(order => query.Search is null || order.OrderNumber.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || order.Customer.Contains(query.Search, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(order => order.CreatedAt).ThenByDescending(order => order.Id)
             .ToArray();
         return (all.Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToArray(), all.Length);
+    }
+
+    public async Task<AdminOrderCounts> GetScopedOrderCountsAsync(Guid organizationId, IReadOnlySet<Guid> storeIds, bool isApplicationAdmin, AdminOrderQuery query, CancellationToken cancellationToken = default)
+    {
+        query = query.Clamped();
+        var searched = (await GetScopedOrderSummariesAsync(organizationId, storeIds, isApplicationAdmin, cancellationToken))
+            .Where(order => query.Search is null || order.OrderNumber.Contains(query.Search, StringComparison.OrdinalIgnoreCase) || order.Customer.Contains(query.Search, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return new AdminOrderCounts(
+            searched.Where(order => query.StoreIds is not { Count: > 0 } || query.StoreIds.Contains(order.StoreId)).GroupBy(order => order.Status).ToDictionary(group => group.Key, group => group.Count()),
+            searched.Where(order => query.Statuses is not { Count: > 0 } || query.Statuses.Contains(order.Status)).GroupBy(order => order.StoreId).ToDictionary(group => group.Key, group => group.Count()));
     }
 
     public Task<Guid?> GetOrderStoreIdAsync(Guid orderId, CancellationToken cancellationToken = default) =>
@@ -1114,6 +1125,45 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
+    public Task<OrderLifecycleResult> TryStaffCancelAsync(Guid orderId, Guid organizationId, Guid? storeId, OrderCancellation cancellation, CancellationToken cancellationToken = default)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && (!storeId.HasValue || item.StoreId == storeId.Value));
+            if (order is null || !Stores.Any(store => store.Id == order.StoreId && store.OrganizationId == organizationId))
+            {
+                return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.NotFound));
+            }
+
+            if (!OrderCancellations.CanCancel(order.Status))
+            {
+                return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.InvalidTransition));
+            }
+
+            order.Status = OrderStatus.Cancelled;
+            order.StatusHistory.Add(new OrderStatusHistory { Status = OrderStatus.Cancelled });
+            order.CancelReason = cancellation.Reason;
+            order.CancelNote = cancellation.Note;
+            order.CancelledBy = cancellation.CancelledBy;
+            EndPayment(order, wasAwaitingPayment: false);
+            foreach (var line in order.Items.Where(item => item.VariantId.HasValue).GroupBy(item => item.VariantId!.Value))
+            {
+                var row = Inventory.FirstOrDefault(item => item.StoreId == order.StoreId && item.VariantId == line.Key);
+                if (row is not null)
+                {
+                    row.AvailableQuantity += line.Sum(item => item.Quantity);
+                }
+            }
+
+            if (Customers.FirstOrDefault(item => item.UserId == order.UserId) is { } customer)
+            {
+                Notifications.Add(NotificationCatalog.ForStatus(customer.Id, order, OrderStatus.Cancelled));
+            }
+
+            return Task.FromResult(new OrderLifecycleResult(OrderLifecycleStatus.Succeeded, MapOrder(order)));
+        }
+    }
+
     Task<User?> IDeliveryLookup.GetPartnerAsync(Guid userId, CancellationToken cancellationToken)
     {
         lock (SyncRoot)
@@ -1190,6 +1240,26 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
         }
     }
 
+    Task<DeliveryChange> IDeliveryStore.FailAsync(Guid orderId, Guid partnerId, string reason, string? note, DateTime now, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var order = Orders.FirstOrDefault(item => item.Id == orderId && item.DeliveryPartnerId == partnerId);
+            if (order is null)
+            {
+                return Task.FromResult(new DeliveryChange(DeliveryChangeStatus.NotFound));
+            }
+
+            var status = DeliveryRules.Fail(order, partnerId, reason, note, now);
+            if (status == DeliveryChangeStatus.Succeeded && Customers.FirstOrDefault(item => item.UserId == order.UserId) is { } customer)
+            {
+                Notifications.Add(NotificationCatalog.Create(customer.Id, order.Id, NotificationTypes.DeliveryFailed, order.OrderNumber));
+            }
+
+            return Task.FromResult(new DeliveryChange(status, order));
+        }
+    }
+
     Task<DeliveryChange> IDeliveryStore.DeliverAsync(Guid orderId, Guid partnerId, string otp, decimal cashCollected, DateTime now, CancellationToken cancellationToken)
     {
         lock (SyncRoot)
@@ -1231,12 +1301,26 @@ public sealed class InMemoryCommerceStore : ICommerceStore, IPaymentStore, ICamp
     private bool SkuInUse(string sku, Guid? exceptVariantId, Guid? exceptProductId) =>
         Variants.Any(variant => variant.Sku == sku && variant.Id != exceptVariantId) || Products.Any(product => product.Sku == sku && product.Id != exceptProductId);
 
-    Task<(IReadOnlyList<ProductBundle> Items, int Total)> ICatalogAdminStore.ListProductsAsync(string? search, int skip, int take, CancellationToken cancellationToken)
+    Task<ProductCounts> ICatalogAdminStore.CountProductsAsync(string? search, ProductFilter? filter, CancellationToken cancellationToken)
+    {
+        lock (SyncRoot)
+        {
+            var searched = Products.Where(item => search is null || item.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || item.Sku.Contains(search, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var inCategories = searched.Where(item => filter?.CategoryIds is not { Count: > 0 } ids || ids.Contains(item.CategoryId)).ToArray();
+            return Task.FromResult(new ProductCounts(
+                searched.Where(item => filter?.Active is not { } active || item.IsActive == active).GroupBy(item => item.CategoryId).ToDictionary(group => group.Key, group => group.Count()),
+                inCategories.Count(item => item.IsActive), inCategories.Count(item => !item.IsActive)));
+        }
+    }
+
+    Task<(IReadOnlyList<ProductBundle> Items, int Total)> ICatalogAdminStore.ListProductsAsync(string? search, int skip, int take, ProductFilter? filter, CancellationToken cancellationToken)
     {
         lock (SyncRoot)
         {
             var matches = Products
                 .Where(product => search is null || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase) || product.Sku.Contains(search, StringComparison.OrdinalIgnoreCase))
+                .Where(product => filter?.CategoryIds is not { Count: > 0 } ids || ids.Contains(product.CategoryId))
+                .Where(product => filter?.Active is not { } active || product.IsActive == active)
                 .OrderBy(product => product.Name).ThenBy(product => product.Id).ToArray();
             return Task.FromResult<(IReadOnlyList<ProductBundle>, int)>((matches.Skip(skip).Take(take).Select(BundleOf).ToArray(), matches.Length));
         }

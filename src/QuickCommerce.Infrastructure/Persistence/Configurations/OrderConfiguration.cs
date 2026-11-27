@@ -24,6 +24,11 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(order => order.OrderNote).HasMaxLength(200);
         builder.Property(order => order.RejectionReason).HasMaxLength(20);
         builder.Property(order => order.RejectionNote).HasMaxLength(200);
+        builder.Property(order => order.CancelReason).HasMaxLength(20);
+        builder.Property(order => order.CancelNote).HasMaxLength(200);
+        builder.Property(order => order.DeliveryFailureReason).HasMaxLength(24);
+        builder.Property(order => order.DeliveryFailureNote).HasMaxLength(200);
+        builder.Property(order => order.DeliveryFailedAt).HasColumnType("datetime2");
         builder.Property(order => order.CommissionPercent).HasColumnType("decimal(5,2)");
         builder.Property(order => order.CommissionAmount).HasColumnType("decimal(18,2)");
         builder.Property(order => order.OutOfStockChoice).HasMaxLength(20);

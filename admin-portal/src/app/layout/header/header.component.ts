@@ -19,10 +19,9 @@ export function greetingFor(time: Date): string {
         <h1>{{ greeting() }}, {{ userName() }} <span>✦</span></h1>
       </div>
       <div class="top-actions">
-        <div class="status" [class.online]="isOnline">
-          <i [class.online]="isOnline"></i>
-          {{ isOnline ? 'API connected' : 'Demo mode' }}
-        </div>
+        <span class="api" *ngIf="showApi" role="status" [class.off]="!isOnline" [attr.title]="isOnline ? 'API connected' : 'API not reachable'" [attr.aria-label]="isOnline ? 'API connected' : 'API not reachable'">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="isOnline ? 'M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0M12 20h.01' : 'M3 3l18 18M8.5 16a5 5 0 0 1 7 0M5 12.5a10 10 0 0 1 5-2.7M14 5.2A15 15 0 0 1 22 9M12 20h.01'"/></svg>
+        </span>
         <button class="logout-button" type="button" (click)="onLogout.emit()">
           Logout
         </button>
@@ -61,26 +60,12 @@ export function greetingFor(time: Date): string {
       color:var(--ink);
     }
 
-    h1 span { color: #FFD400; font-size: 20px; }
+    h1 span { color: var(--ink); font-size: 20px; }
 
     .top-actions { display: flex; align-items: center; gap: 11px; }
 
-    .status {
-      color: #141118;
-      background: #D9F7E3;
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-
-    .status i { display: inline-block; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
-    .status i.online { background: #fff; }
-    .status:not(.online) { background: #FFD400; }
+    .api { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #D9F7E3; color: #15803D; }
+    .api.off { background: #FFE0E6; color: #BE123C; }
 
     .icon-button {
       border: 0;
@@ -133,7 +118,6 @@ export function greetingFor(time: Date): string {
     .mini-avatar:hover { transform: scale(1.06); }
 
     @media (max-width: 1000px) {
-      .status { display: none; }
       h1 { font-size: 20px; }
     }
 
@@ -148,6 +132,8 @@ export class HeaderComponent {
   private authService = inject(AuthService);
 
   @Input() dateLabel = '';
+  /** The connection mark, for administrators only. */
+  @Input() showApi = false;
   @Input() isOnline = true;
   @Output() onSearch = new EventEmitter<void>();
   @Output() onNotifications = new EventEmitter<void>();

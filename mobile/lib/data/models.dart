@@ -356,6 +356,7 @@ class Order {
     this.couponCode,
     this.couponDiscount = 0,
     this.rejectionReason,
+    this.cancelReason,
     this.deliverySlotStart,
     this.deliverySlotEnd,
     this.storeRating,
@@ -379,6 +380,9 @@ class Order {
 
   /// Why the store declined the order; null otherwise.
   final String? rejectionReason;
+
+  /// Why the store cancelled an accepted order; null otherwise.
+  final String? cancelReason;
 
   /// An open replacement waiting for the customer's answer, if any.
   final Replacement? replacement;
@@ -446,6 +450,7 @@ class Order {
         couponCode: couponCode,
         couponDiscount: couponDiscount,
         rejectionReason: rejectionReason,
+        cancelReason: cancelReason,
         deliverySlotStart: deliverySlotStart,
         deliverySlotEnd: deliverySlotEnd,
         storeRating: storeRating,
@@ -485,6 +490,7 @@ class Order {
     couponCode: couponCode,
     couponDiscount: couponDiscount,
     rejectionReason: rejectionReason,
+    cancelReason: cancelReason,
     deliverySlotStart: deliverySlotStart,
     deliverySlotEnd: deliverySlotEnd,
     storeRating: storeRating,

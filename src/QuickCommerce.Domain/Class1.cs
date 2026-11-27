@@ -182,6 +182,9 @@ public sealed class UserCredential
 	public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
 	public int FailedLoginCount { get; set; }
 	public DateTime? LockedUntil { get; set; }
+
+	/// <summary>Set with a temporary password an administrator handed out: the person must choose their own before doing anything else.</summary>
+	public bool MustChangePassword { get; set; }
 	public bool IsActive { get; set; } = true;
 	public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 	public string? CreatedBy { get; set; }
@@ -438,6 +441,16 @@ public sealed class Order
 	/// <summary>The staff member or administrator who rejected it.</summary>
 	public Guid? RejectedBy { get; set; }
 
+	/// <summary>Why the store cancelled the order after accepting it, with the team's remark and who did it.</summary>
+	public string? CancelReason { get; set; }
+	public string? CancelNote { get; set; }
+	public Guid? CancelledBy { get; set; }
+
+	/// <summary>The last time a partner could not deliver it: why, the remark and when. The order goes back to Ready.</summary>
+	public string? DeliveryFailureReason { get; set; }
+	public string? DeliveryFailureNote { get; set; }
+	public DateTime? DeliveryFailedAt { get; set; }
+
 	/// <summary>What the customer wrote for the store (up to 200 characters); erased when the account is deleted.</summary>
 	public string? OrderNote { get; set; }
 
@@ -646,6 +659,9 @@ public static class NotificationTypes
 	public const string OutForDelivery = "OutForDelivery";
 	public const string OrderDelivered = "OrderDelivered";
 	public const string OrderRejected = "OrderRejected";
+	public const string DeliveryFailed = "DeliveryFailed";
+	public const string IssueApproved = "IssueApproved";
+	public const string IssueRefused = "IssueRefused";
 	public const string OrderCancelled = "OrderCancelled";
 	public const string OrderChanged = "OrderChanged";
 	public const string ReplacementProposed = "ReplacementProposed";

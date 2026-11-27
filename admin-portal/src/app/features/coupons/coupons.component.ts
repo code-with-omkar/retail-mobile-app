@@ -1,3 +1,4 @@
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +8,9 @@ import { OFFER_CARD_DESIGNS, designOf } from '../../shared/components/offer-card
 import { CARD_ANIMATIONS, animationName } from '../../shared/components/offer-card/card-extras';
 import { CellDirective, DataColumn, DataTableComponent } from '../../shared/components/data-table/data-table.component';
 import { DEFAULT_PAGE_SIZE, PaginationComponent, pageCount } from '../../shared/components/pagination/pagination.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, facets, filterState } from '../../shared/components/filter-layout/filter-state';
+import { SidePanelComponent } from '../../shared/components/side-panel/side-panel.component';
 import { ApiService } from '../../core/services/api.service';
 import { ConfigService } from '../../core/services/config.service';
 
@@ -32,76 +36,89 @@ const toLocal = (iso: string | null): string => {
 @Component({
   selector: 'app-coupons',
   standalone: true,
-  imports: [CommonModule, FormsModule, PhonePreviewComponent, FileUploadComponent, DataTableComponent, CellDirective, PaginationComponent],
+  imports: [CommonModule, FormsModule, PhonePreviewComponent, FileUploadComponent, DataTableComponent, CellDirective, PaginationComponent, LoaderComponent, FilterLayoutComponent, SidePanelComponent],
   template: `
     <section class="page">
-      <h2>Coupons</h2>
-      <p class="muted">Codes customers type in the cart. We pay for them, so a store's commission and earnings do not change. Editing a coupon affects new orders only.</p>
+      <div class="top"><div><h2>Coupons</h2>
+      <p class="muted">Codes customers type in the cart. We pay for them, so a store's commission and earnings do not change. Editing a coupon affects new orders only.</p></div><div class="top-actions"><button type="button" class="primary" (click)="reset(); creating.set(true)">＋ New coupon</button></div></div>
       <p *ngIf="error()" class="error">{{ error() }}</p>
       <p *ngIf="notice()" class="notice">{{ notice() }}</p>
 
-      <div class="with-preview">
-      <form class="card" (ngSubmit)="save()" #f="ngForm">
-        <h3>{{ editing() ? 'Edit coupon ' + editing()!.code : 'New coupon' }}</h3>
-        <div class="grid">
-          <label>Code<input name="code" [(ngModel)]="code" maxlength="20" required placeholder="e.g. WELCOME50" /></label>
-          <label>Kind
-            <select name="kind" [(ngModel)]="kind">
-              <option value="Percent">Percent off</option>
-              <option value="Flat">Flat amount off</option>
-              <option value="FreeDelivery">Free delivery</option>
-            </select>
-          </label>
-          <label *ngIf="kind !== 'FreeDelivery'">{{ kind === 'Percent' ? 'Percent (1 to 100)' : 'Amount (₹)' }}<input type="number" name="value" [(ngModel)]="value" min="0" step="0.01" /></label>
-          <label *ngIf="kind === 'Percent'">Most it can take off (₹, optional)<input type="number" name="cap" [(ngModel)]="cap" min="0" step="0.01" /></label>
-          <label>Minimum order (₹)<input type="number" name="min" [(ngModel)]="minSubtotal" min="0" step="0.01" /></label>
-          <label>Starts<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
-          <label>Ends (optional)<input type="datetime-local" name="endsAt" [(ngModel)]="endsAt" /></label>
-          <label>Uses in all (optional)<input type="number" name="totalLimit" [(ngModel)]="totalLimit" min="1" step="1" /></label>
-          <label>Uses per customer (optional)<input type="number" name="perCustomer" [(ngModel)]="perCustomerLimit" min="1" step="1" /></label>
-          <label class="wide">Note for the team (optional)<input name="description" [(ngModel)]="description" maxlength="200" /></label>
-        </div>
-        <label class="check"><input type="checkbox" name="first" [(ngModel)]="firstOrderOnly" /> Only for a customer's first order</label>
-        <fieldset>
-          <legend>How it looks in the app (optional)</legend>
-          <div class="design-grid" role="radiogroup" aria-label="Card design">
-            <button type="button" class="design-tile" role="radio" [attr.aria-checked]="!design" [class.on]="!design" (click)="design = ''"><span class="swatch"></span>Plain</button>
-            <button type="button" class="design-tile" role="radio" *ngFor="let d of designs" [attr.aria-checked]="design === d.key" [class.on]="design === d.key" (click)="design = d.key"><span class="swatch" [style.background]="d.bg"></span>{{ d.name }}</button>
-          </div>
-          <app-file-upload label="Picture" hint="Square works best. JPEG, PNG or WebP up to 2 MB." [previewUrl]="imageUrl() ? img(imageUrl()) : null" [busy]="busy()" (fileSelected)="takeImage($event)" (removed)="imageUrl.set(null)"></app-file-upload>
-          <div class="grid">
-            <label>Ribbon (up to 20 characters)<input name="ribbon" [(ngModel)]="ribbon" maxlength="20" placeholder="e.g. NEW" /></label>
-            <label>Animation when applied<select name="animation" [(ngModel)]="animation"><option value="">None</option><option *ngFor="let a of animations" [value]="a.key">{{ a.name }}</option></select></label>
-          </div>
-          <label class="check"><input type="checkbox" name="showInApp" [ngModel]="showInApp || showAsPopup" (ngModelChange)="showInApp = $event" [disabled]="showAsPopup" /> Show in the customers' cart, with an Apply button</label>
-          <label class="check"><input type="checkbox" name="showAsPopup" [(ngModel)]="showAsPopup" /> Also show once as a pop-up when the app opens (customers can close it)</label>
-        </fieldset>
-        <div class="buttons">
-          <button class="primary" type="submit" [disabled]="busy() || f.invalid">{{ busy() ? 'Saving…' : (editing() ? 'Save changes' : 'Create coupon') }}</button>
-          <button type="button" class="ghost" *ngIf="editing()" (click)="reset()">Cancel</button>
-        </div>
-      </form>
-        <app-phone-preview [coupon]="{ code: code.trim().toUpperCase(), kind: kind, value: +(value || 0), cap: +(cap || 0), minSubtotal: +(minSubtotal || 0), design: design, imageUrl: imageUrl() ? img(imageUrl()) : null, ribbon: ribbon, popup: showAsPopup, animation: animation }"></app-phone-preview>
-      </div>
 
-      <p *ngIf="loading()">Loading coupons…</p>
-      <p *ngIf="!loading() && coupons().length === 0">No coupons yet.</p>
-      <ng-container *ngIf="coupons().length">
-        <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="900px">
-          <ng-template appCell="code" let-c><strong>{{ c.code }}</strong><small *ngIf="c.description">{{ c.description }}</small><small *ngIf="c.showAsPopup">Pop-up in the app</small><small *ngIf="c.showInApp && !c.showAsPopup">Shown in the cart</small><small *ngIf="c.design">Design: {{ designName(c.design) }}</small><small *ngIf="c.animation">Animation: {{ animationLabel(c.animation) }}</small></ng-template>
-          <ng-template appCell="what" let-c>{{ describe(c) }}<small *ngIf="c.minSubtotal > 0">Minimum order {{ rupees(c.minSubtotal) }}</small><small *ngIf="c.firstOrderOnly">First order only</small><small *ngIf="c.perCustomerLimit">{{ c.perCustomerLimit }} per customer</small></ng-template>
-          <ng-template appCell="valid" let-c>{{ c.startsAt | date:'mediumDate' }}<small *ngIf="c.endsAt">to {{ c.endsAt | date:'mediumDate' }}</small></ng-template>
-          <ng-template appCell="used" let-c>{{ c.usedCount }}<small *ngIf="c.totalLimit">of {{ c.totalLimit }}</small></ng-template>
-          <ng-template appCell="cost" let-c>{{ rupees(c.discountGiven) }}</ng-template>
-          <ng-template appCell="status" let-c><span class="badge" [ngClass]="'badge-' + c.status.toLowerCase().replace(' ', '')">{{ c.status }}</span></ng-template>
-          <ng-template appCell="action" let-c><span class="actions"><button class="act" [disabled]="busy()" (click)="edit(c)">Edit</button>
-            <button class="act" [disabled]="busy()" (click)="toggle(c)">{{ c.isActive ? 'Switch off' : 'Switch on' }}</button></span></ng-template>
-        </app-data-table>
-        <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="coupons().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
-      </ng-container>
+      <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <app-loader *ngIf="loading()" message="Loading coupons…"></app-loader>
+        <p *ngIf="!loading() && coupons().length === 0">No coupons yet.</p>
+        <ng-container *ngIf="coupons().length">
+          <app-data-table [columns]="columns" [rows]="pageRows()" [startIndex]="(shownPage() - 1) * pageSize()" [activeId]="editing()?.id ?? null" minWidth="900px">
+            <ng-template appCell="code" let-c><strong>{{ c.code }}</strong><small *ngIf="c.description">{{ c.description }}</small><small *ngIf="c.showAsPopup">Pop-up in the app</small><small *ngIf="c.showInApp && !c.showAsPopup">Shown in the cart</small><small *ngIf="c.design">Design: {{ designName(c.design) }}</small><small *ngIf="c.animation">Animation: {{ animationLabel(c.animation) }}</small></ng-template>
+            <ng-template appCell="what" let-c>{{ describe(c) }}<small *ngIf="c.minSubtotal > 0">Minimum order {{ rupees(c.minSubtotal) }}</small><small *ngIf="c.firstOrderOnly">First order only</small><small *ngIf="c.perCustomerLimit">{{ c.perCustomerLimit }} per customer</small></ng-template>
+            <ng-template appCell="valid" let-c>{{ c.startsAt | date:'mediumDate' }}<small *ngIf="c.endsAt">to {{ c.endsAt | date:'mediumDate' }}</small></ng-template>
+            <ng-template appCell="used" let-c>{{ c.usedCount }}<small *ngIf="c.totalLimit">of {{ c.totalLimit }}</small></ng-template>
+            <ng-template appCell="cost" let-c>{{ rupees(c.discountGiven) }}</ng-template>
+            <ng-template appCell="status" let-c><span class="badge" [ngClass]="'badge-' + c.status.toLowerCase().replace(' ', '')">{{ c.status }}</span></ng-template>
+            <ng-template appCell="action" let-c><span class="actions"><button class="act" [disabled]="busy()" (click)="edit(c)">Edit</button>
+              <button class="act" [disabled]="busy()" (click)="toggle(c)">{{ c.isActive ? 'Switch off' : 'Switch on' }}</button></span></ng-template>
+          </app-data-table>
+          <app-pagination [page]="shownPage()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+        </ng-container>
+      </app-filter-layout>
+
+      <app-side-panel [wide]="true" [open]="creating()" [title]="editing() ? 'Edit coupon ' + editing()!.code : 'New coupon'" (closed)="reset()">
+        <p class="error" role="alert" *ngIf="error()">{{ error() }}</p>
+        <div class="with-preview">
+        <form class="card" (ngSubmit)="save()" #f="ngForm">
+          <h3>{{ editing() ? 'Edit coupon ' + editing()!.code : 'New coupon' }}</h3>
+          <div class="grid">
+            <label>Code<input name="code" [(ngModel)]="code" maxlength="20" required placeholder="e.g. WELCOME50" /></label>
+            <label>Kind
+              <select name="kind" [(ngModel)]="kind">
+                <option value="Percent">Percent off</option>
+                <option value="Flat">Flat amount off</option>
+                <option value="FreeDelivery">Free delivery</option>
+              </select>
+            </label>
+            <label *ngIf="kind !== 'FreeDelivery'">{{ kind === 'Percent' ? 'Percent (1 to 100)' : 'Amount (₹)' }}<input type="number" name="value" [(ngModel)]="value" min="0" step="0.01" /></label>
+            <label *ngIf="kind === 'Percent'">Most it can take off (₹, optional)<input type="number" name="cap" [(ngModel)]="cap" min="0" step="0.01" /></label>
+            <label>Minimum order (₹)<input type="number" name="min" [(ngModel)]="minSubtotal" min="0" step="0.01" /></label>
+            <label>Starts<input type="datetime-local" name="startsAt" [(ngModel)]="startsAt" /></label>
+            <label>Ends (optional)<input type="datetime-local" name="endsAt" [(ngModel)]="endsAt" /></label>
+            <label>Uses in all (optional)<input type="number" name="totalLimit" [(ngModel)]="totalLimit" min="1" step="1" /></label>
+            <label>Uses per customer (optional)<input type="number" name="perCustomer" [(ngModel)]="perCustomerLimit" min="1" step="1" /></label>
+            <label class="wide">Note for the team (optional)<input name="description" [(ngModel)]="description" maxlength="200" /></label>
+          </div>
+          <label class="check"><input type="checkbox" name="first" [(ngModel)]="firstOrderOnly" /> Only for a customer's first order</label>
+          <fieldset>
+            <legend>How it looks in the app (optional)</legend>
+            <div class="design-grid" role="radiogroup" aria-label="Card design">
+              <button type="button" class="design-tile" role="radio" [attr.aria-checked]="!design" [class.on]="!design" (click)="design = ''"><span class="swatch"></span>Plain</button>
+              <button type="button" class="design-tile" role="radio" *ngFor="let d of designs" [attr.aria-checked]="design === d.key" [class.on]="design === d.key" (click)="design = d.key"><span class="swatch" [style.background]="d.bg"></span>{{ d.name }}</button>
+            </div>
+            <app-file-upload label="Picture" hint="Square works best. JPEG, PNG or WebP up to 2 MB." [previewUrl]="imageUrl() ? img(imageUrl()) : null" [busy]="busy()" (fileSelected)="takeImage($event)" (removed)="imageUrl.set(null)"></app-file-upload>
+            <div class="grid">
+              <label>Ribbon (up to 20 characters)<input name="ribbon" [(ngModel)]="ribbon" maxlength="20" placeholder="e.g. NEW" /></label>
+              <label>Animation when applied<select name="animation" [(ngModel)]="animation"><option value="">None</option><option *ngFor="let a of animations" [value]="a.key">{{ a.name }}</option></select></label>
+            </div>
+            <label class="check"><input type="checkbox" name="showInApp" [ngModel]="showInApp || showAsPopup" (ngModelChange)="showInApp = $event" [disabled]="showAsPopup" /> Show in the customers' cart, with an Apply button</label>
+            <label class="check"><input type="checkbox" name="showAsPopup" [(ngModel)]="showAsPopup" /> Also show once as a pop-up when the app opens (customers can close it)</label>
+          </fieldset>
+          <div class="buttons">
+            <button class="primary" type="submit" [disabled]="busy() || f.invalid">{{ busy() ? 'Saving…' : (editing() ? 'Save changes' : 'Create coupon') }}</button>
+            <button type="button" class="ghost" *ngIf="editing()" (click)="reset()">Cancel</button>
+          </div>
+        </form>
+          <app-phone-preview [coupon]="{ code: code.trim().toUpperCase(), kind: kind, value: +(value || 0), cap: +(cap || 0), minSubtotal: +(minSubtotal || 0), design: design, imageUrl: imageUrl() ? img(imageUrl()) : null, ribbon: ribbon, popup: showAsPopup, animation: animation }"></app-phone-preview>
+        </div>
+      </app-side-panel>
     </section>
   `,
   styles: [`
+    :host{display:flex;flex-direction:column}
+    .page{flex:1;min-height:0;display:flex!important;flex-direction:column;gap:12px}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+    .top-actions{display:flex;gap:10px}
+    app-side-panel .with-preview{grid-template-columns:minmax(0,1fr) 320px}
+    @media(max-width:900px){app-side-panel .with-preview{grid-template-columns:1fr}}
+
     app-data-table small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
     .edit-card{display:grid!important;gap:12px}
 
@@ -176,10 +193,23 @@ export class CouponsComponent implements OnInit {
   readonly coupons = signal<Coupon[]>([]);
   readonly columns: DataColumn[] = [{ key: 'code', label: 'Code' }, { key: 'what', label: 'What it does' }, { key: 'valid', label: 'Valid' }, { key: 'used', label: 'Used' }, { key: 'cost', label: 'Cost' }, { key: 'status', label: 'Status' }, { key: 'action', label: 'Action' }];
   readonly page = signal(1);
+  /** The new or edit form is open. */
+  readonly creating = signal(false);
+  readonly filters = filterState('coupons');
+  private readonly found = computed(() => facets(this.coupons(), this.filters.selected(), { status: c => c.status, kind: c => c.kind }));
+  readonly shown = computed(() => this.found().shown);
+  readonly groups = computed<FilterGroup[]>(() => {
+    const found = this.found(), all = this.coupons();
+    const group = (key: string, label: string, of: (row: any) => string, name: (value: string) => string = v => v): FilterGroup =>
+      ({ key, label, options: [...new Set(all.map(of))].sort().map(value => ({ value, label: name(value), count: found.count(key, value) })) });
+    return [group('status', 'Status', c => c.status), group('kind', 'Kind', c => c.kind, v => (v === 'Flat' ? 'Flat amount' : v === 'FreeDelivery' ? 'Free delivery' : 'Percent off'))];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.page.set(1); }
+  clearFilters() { this.filters.clear(); this.page.set(1); }
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   /** The page asked for, or the last one there is after the list shrinks. */
-  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.coupons().length, this.pageSize())));
-  readonly pageRows = computed(() => this.coupons().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
+  readonly shownPage = computed(() => Math.min(this.page(), pageCount(this.shown().length, this.pageSize())));
+  readonly pageRows = computed(() => this.shown().slice((this.shownPage() - 1) * this.pageSize(), this.shownPage() * this.pageSize()));
   readonly editing = signal<Coupon | null>(null);
   readonly loading = signal(false);
   readonly busy = signal(false);
@@ -240,6 +270,7 @@ export class CouponsComponent implements OnInit {
   }
 
   reset() {
+    this.creating.set(false);
     this.editing.set(null);
     this.code = ''; this.kind = 'Percent'; this.value = null; this.cap = null; this.minSubtotal = 0; this.startsAt = ''; this.endsAt = '';
     this.totalLimit = null; this.perCustomerLimit = null; this.firstOrderOnly = false; this.description = '';
@@ -248,6 +279,7 @@ export class CouponsComponent implements OnInit {
 
   edit(c: Coupon) {
     this.editing.set(c);
+    this.creating.set(true);
     this.code = c.code; this.kind = c.kind; this.value = c.kind === 'FreeDelivery' ? null : c.value; this.cap = c.maxDiscount; this.minSubtotal = c.minSubtotal;
     this.startsAt = toLocal(c.startsAt); this.endsAt = toLocal(c.endsAt); this.totalLimit = c.totalLimit; this.perCustomerLimit = c.perCustomerLimit;
     this.firstOrderOnly = c.firstOrderOnly; this.description = c.description ?? '';

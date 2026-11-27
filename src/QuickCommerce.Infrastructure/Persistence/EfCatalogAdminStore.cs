@@ -10,13 +10,29 @@ public sealed class EfCatalogAdminStore(QuickCommerceDbContext db) : ICatalogAdm
 {
     private const int Attempts = 4;
 
-    public async Task<(IReadOnlyList<ProductBundle> Items, int Total)> ListProductsAsync(string? search, int skip, int take, CancellationToken cancellationToken = default)
+    private IQueryable<Product> Searched(string? search)
     {
         var query = db.Products.AsNoTracking().AsQueryable();
-        if (search is not null)
-        {
-            query = query.Where(product => product.Name.Contains(search) || product.Sku.Contains(search));
-        }
+        return search is null ? query : query.Where(product => product.Name.Contains(search) || product.Sku.Contains(search));
+    }
+
+    private static IQueryable<Product> InCategories(IQueryable<Product> query, ProductFilter? filter) =>
+        filter?.CategoryIds is { Count: > 0 } ids ? query.Where(product => ids.Contains(product.CategoryId)) : query;
+
+    private static IQueryable<Product> OnSale(IQueryable<Product> query, ProductFilter? filter) =>
+        filter?.Active is { } active ? query.Where(product => product.IsActive == active) : query;
+
+    public async Task<ProductCounts> CountProductsAsync(string? search, ProductFilter? filter = null, CancellationToken cancellationToken = default)
+    {
+        var categories = await OnSale(Searched(search), filter).GroupBy(product => product.CategoryId).Select(group => new { group.Key, Count = group.Count() }).ToListAsync(cancellationToken);
+        var inCategories = InCategories(Searched(search), filter);
+        return new ProductCounts(categories.ToDictionary(item => item.Key, item => item.Count),
+            await inCategories.CountAsync(product => product.IsActive, cancellationToken), await inCategories.CountAsync(product => !product.IsActive, cancellationToken));
+    }
+
+    public async Task<(IReadOnlyList<ProductBundle> Items, int Total)> ListProductsAsync(string? search, int skip, int take, ProductFilter? filter = null, CancellationToken cancellationToken = default)
+    {
+        var query = OnSale(InCategories(Searched(search), filter), filter);
 
         var total = await query.CountAsync(cancellationToken);
         var products = await query.OrderBy(product => product.Name).ThenBy(product => product.Id).Skip(skip).Take(take).ToListAsync(cancellationToken);

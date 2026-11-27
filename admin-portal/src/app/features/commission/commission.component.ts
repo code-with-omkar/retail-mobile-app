@@ -1,3 +1,5 @@
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, facets, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,7 +17,7 @@ interface CommissionData { defaultPercent: number; stores: StoreCommission[]; }
 @Component({
   selector: 'app-commission',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, CellDirective, PaginationComponent, FilterLayoutComponent],
   template: `
     <section class="page">
       <header>
@@ -32,27 +34,25 @@ interface CommissionData { defaultPercent: number; stores: StoreCommission[]; }
         <article class="tile"><p>Highest in force</p><strong>{{ highest() }}%</strong><small>lowest {{ lowest() }}%</small></article>
       </div>
 
-      <div class="filters">
-        <label>Search<input type="search" name="search" placeholder="Store name" [ngModel]="search()" (ngModelChange)="search.set($event); page.set(1)" /></label>
-        <label>Show<select name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event); page.set(1)"><option value="all">All stores</option><option value="own">With own percent</option><option value="default">Using the default</option></select></label>
-      </div>
+      <app-filter-layout [fill]="true" [groups]="groups()" [selected]="filters.selected()" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <input filterSearch type="search" name="search" aria-label="Search" placeholder="Store name" [value]="search()" (input)="search.set($any($event.target).value); page.set(1)" />
+        <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
+        <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
 
-      <p *ngIf="error()" class="error" role="alert">{{ error() }}</p>
-      <p *ngIf="notice()" class="notice" role="status">{{ notice() }}</p>
+        <app-data-table [fill]="true" [columns]="columns" [rows]="pageRows()" [loading]="!data() && !error()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No store matches.">
+          <ng-template appCell="store" let-s><strong>{{ s.name }}</strong><small>{{ s.overridePercent === null ? '(default ' + (data()?.defaultPercent ?? 0) + '%)' : 'own percent' }}</small></ng-template>
+          <ng-template appCell="force" let-s><div class="meter"><span class="bar"><i [style.width.%]="s.effectivePercent ?? 0"></i></span><b>{{ s.effectivePercent ?? 0 }}%</b></div></ng-template>
+          <ng-template appCell="own" let-s><span class="edit"><input type="number" min="0" max="100" step="0.01" [name]="'c-' + s.storeId" [attr.aria-label]="'Percent for ' + s.name" [ngModel]="storePercent()[s.storeId]" (ngModelChange)="setStore(s.storeId, $event)" (keyup.enter)="saveStore(s.storeId)" [placeholder]="'default ' + (data()?.defaultPercent ?? 0)" /><span>%</span></span></ng-template>
+          <ng-template appCell="action" let-s>
+            <span class="actions">
+              <button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button>
+              <button type="button" class="act ghost" *ngIf="s.overridePercent !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button>
+            </span>
+          </ng-template>
+        </app-data-table>
 
-      <app-data-table [fill]="true" [columns]="columns" [rows]="pageRows()" [loading]="!data() && !error()" [activeId]="changedId()" [startIndex]="(page() - 1) * pageSize()" emptyText="No store matches.">
-        <ng-template appCell="store" let-s><strong>{{ s.name }}</strong><small>{{ s.overridePercent === null ? '(default ' + (data()?.defaultPercent ?? 0) + '%)' : 'own percent' }}</small></ng-template>
-        <ng-template appCell="force" let-s><div class="meter"><span class="bar"><i [style.width.%]="s.effectivePercent ?? 0"></i></span><b>{{ s.effectivePercent ?? 0 }}%</b></div></ng-template>
-        <ng-template appCell="own" let-s><span class="edit"><input type="number" min="0" max="100" step="0.01" [name]="'c-' + s.storeId" [attr.aria-label]="'Percent for ' + s.name" [ngModel]="storePercent()[s.storeId]" (ngModelChange)="setStore(s.storeId, $event)" (keyup.enter)="saveStore(s.storeId)" [placeholder]="'default ' + (data()?.defaultPercent ?? 0)" /><span>%</span></span></ng-template>
-        <ng-template appCell="action" let-s>
-          <span class="actions">
-            <button type="button" class="act" [disabled]="busy()" (click)="saveStore(s.storeId)">Save</button>
-            <button type="button" class="act ghost" *ngIf="s.overridePercent !== null" [disabled]="busy()" (click)="clearStore(s.storeId)">Use default</button>
-          </span>
-        </ng-template>
-      </app-data-table>
-
-      <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+        <app-pagination [page]="page()" [pageSize]="pageSize()" [total]="shown().length" (pageChange)="page.set($event)" (pageSizeChange)="pageSize.set($event)"></app-pagination>
+      </app-filter-layout>
     </section>
   `,
   styles: [`
@@ -95,18 +95,27 @@ export class CommissionComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
   readonly search = signal('');
-  readonly kind = signal('all');
   readonly page = signal(1);
   readonly pageSize = signal<number>(DEFAULT_PAGE_SIZE);
   readonly changedId = signal<string | null>(null);
   defaultPercent = '0';
 
-  readonly shown = computed(() => {
-    const text = this.search().trim().toLowerCase(), kind = this.kind();
-    return [...(this.data()?.stores ?? [])]
-      .filter(s => (!text || s.name.toLowerCase().includes(text)) && (kind === 'all' || (s.overridePercent !== null) === (kind === 'own')))
-      .sort((a, b) => a.name.localeCompare(b.name));
+  readonly filters = filterState('commission');
+  private readonly found = computed(() => {
+    const text = this.search().trim().toLowerCase();
+    const searched = (this.data()?.stores ?? []).filter(s => !text || s.name.toLowerCase().includes(text));
+    return facets(searched, this.filters.selected(), { kind: s => (s.overridePercent !== null ? 'own' : 'default') });
   });
+  /** The stores matching the search and filters, by name. */
+  readonly shown = computed(() => [...this.found().shown].sort((a, b) => a.name.localeCompare(b.name)));
+  readonly groups = computed<FilterGroup[]>(() => {
+    const found = this.found();
+    return [
+      { key: 'kind', label: 'Show', options: [['own','With own percent'],['default','Using the default']].map(([value, label]) => ({ value, label, count: found.count('kind', value) })) },
+    ];
+  });
+  onFilters(next: Selection) { this.filters.set(next); this.page.set(1); }
+  clearFilters() { this.filters.clear(); this.search.set(''); this.page.set(1); }
   readonly pageRows = computed(() => this.shown().slice((this.page() - 1) * this.pageSize(), this.page() * this.pageSize()).map(s => ({ ...s, id: s.storeId })));
   readonly ownCount = computed(() => this.data()?.stores.filter(s => s.overridePercent !== null).length ?? 0);
   readonly highest = computed(() => Math.max(0, ...(this.data()?.stores.map(s => s.effectivePercent ?? 0) ?? [])));

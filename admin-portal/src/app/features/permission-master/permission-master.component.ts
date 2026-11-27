@@ -60,8 +60,8 @@ interface GroupChip { name: string; count: number; accent: Accent; }
   styles: [`
     @media (max-width: 900px) { .stats { grid-template-columns: 1fr 1fr !important; } .grid { grid-template-columns: 1fr !important; } }
     .grid .card { background: #fff; border: 1px solid var(--line); }
-    :host { display: block; color: #141118; font-family: 'Plus Jakarta Sans', sans-serif; }
-    .page { max-width: 1180px; margin: auto; display: grid; gap: 18px; }
+    :host { display: block; color: var(--ink); font-family: 'Plus Jakarta Sans', sans-serif; }
+    .page { width: 100%; display: grid; gap: 18px; }
     .eyebrow { display: inline-block; background: var(--soft); color: #141118; font-size: 10px; font-weight: 800; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 999px; }
     h1 { margin: 10px 0 6px; font: 800 32px 'Bricolage Grotesque', sans-serif; letter-spacing: -1px; color:var(--ink); }
     .heading p { margin: 0; color:var(--muted); font-size: 12px; }
@@ -123,6 +123,9 @@ interface GroupChip { name: string; count: number; accent: Accent; }
     .group{background:#F1F0F4!important}
     .state.on{background:#EDECF1!important;color:#141118!important}
     .state.off{background:#fff!important;color:#6F6A80!important;border:1px solid #E2E0E8}
+  
+    .grid .card header{background:#F1F0F4!important;color:#141118!important}
+    .grid .card header .group{background:transparent!important}
   `],
 })
 export class PermissionMasterComponent implements OnInit {

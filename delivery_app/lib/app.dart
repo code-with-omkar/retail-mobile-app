@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
+import 'passwords.dart';
 import 'location.dart';
 
 const _ink = Color(0xFF141118);
@@ -67,6 +68,17 @@ class _GateState extends State<_Gate> {
   @override
   Widget build(BuildContext context) {
     if (_checking) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_signedIn && widget.api.mustChangePassword) {
+      return ChangePasswordScreen(
+        api: widget.api,
+        forced: true,
+        onDone: () => setState(() {}),
+        onSignOut: () async {
+          await widget.api.signOut();
+          if (mounted) setState(() => _signedIn = false);
+        },
+      );
+    }
     return _signedIn
         ? DeliveriesScreen(api: widget.api, open: widget.open, pollEvery: widget.pollEvery, locate: widget.locate, shareEvery: widget.shareEvery, onSignedOut: () => setState(() => _signedIn = false))
         : LoginScreen(api: widget.api, onSignedIn: () => setState(() => _signedIn = true));
@@ -118,6 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
             if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, key: const Key('error'), style: const TextStyle(color: Color(0xFFB00060), fontWeight: FontWeight.w700))),
             const SizedBox(height: 24),
             FilledButton(onPressed: _busy ? null : _go, child: Text(_busy ? 'Signing in…' : 'Sign in')),
+            TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ForgotPasswordScreen(api: widget.api))), child: const Text('Forgot password?')),
           ]),
         ),
       );
@@ -204,7 +217,14 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     final todo = items?.where((d) => !d.isDone).toList() ?? const <Delivery>[];
     final done = items?.where((d) => d.isDone).toList() ?? const <Delivery>[];
     return Scaffold(
-      appBar: AppBar(title: const Text('My deliveries'), actions: [IconButton(tooltip: 'Sign out', onPressed: _signOut, icon: const Icon(Icons.logout))]),
+      appBar: AppBar(title: const Text('My deliveries'), actions: [
+        IconButton(
+          tooltip: 'Change password',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (page) => ChangePasswordScreen(api: widget.api, onDone: () => Navigator.of(page).pop()))),
+          icon: const Icon(Icons.lock_outline),
+        ),
+        IconButton(tooltip: 'Sign out', onPressed: _signOut, icon: const Icon(Icons.logout)),
+      ]),
       body: RefreshIndicator(
         onRefresh: _load,
         child: items == null && _error == null
@@ -321,6 +341,21 @@ class _DetailScreenState extends State<DetailScreen> {
     return typed < d.cashToCollect ? 'Less than the ${rupees(d.cashToCollect)} to collect.' : 'More than the ${rupees(d.cashToCollect)} to collect.';
   }
 
+  /// Hands the order back to the store with the reason; it leaves this partner's list.
+  Future<void> _couldNotDeliver() async {
+    final told = await showDialog<(String, String)>(context: context, builder: (_) => const _FailedDialog());
+    if (told == null || !mounted) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      await widget.api.reportFailed(d.orderId, reason: told.$1, note: told.$2.isEmpty ? null : told.$2);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The store has been told. Take the order back to it.')));
+      Navigator.of(context).pop();
+    } on ApiError catch (e) {
+      if (mounted) setState(() { _busy = false; _error = e.message; });
+    }
+  }
+
   Future<void> _call(String? phone) async {
     if (phone == null) return;
     if (!await widget.open(Uri(scheme: 'tel', path: phone)) && mounted) {
@@ -375,6 +410,7 @@ class _DetailScreenState extends State<DetailScreen> {
               child: Text(_busy ? 'Please wait…' : 'Delivered'),
             ),
           ],
+          if (!d.isDone) TextButton.icon(key: const Key('could-not'), onPressed: _busy ? null : _couldNotDeliver, icon: const Icon(Icons.report_gmailerrorred_outlined), label: const Text('Could not deliver')),
           if (d.isDone) const Padding(padding: EdgeInsets.only(top: 8), child: Text('This delivery is complete.', style: TextStyle(fontWeight: FontWeight.w800))),
           if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, key: const Key('error'), style: const TextStyle(color: Color(0xFFB00060), fontWeight: FontWeight.w700))),
         ]),
@@ -392,5 +428,55 @@ class _Block extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 12, color: Colors.black54)), const SizedBox(height: 4), ...children]),
         ),
+      );
+}
+
+const _failureReasons = {
+  'CustomerUnavailable': 'Customer not available',
+  'WrongAddress': 'Wrong address',
+  'CustomerRefused': 'Customer refused it',
+  'VehicleProblem': 'Vehicle problem',
+  'Other': 'Other',
+};
+
+/// Why the order could not be handed over. Returns the reason and the remark, or null when closed.
+class _FailedDialog extends StatefulWidget {
+  const _FailedDialog();
+  @override
+  State<_FailedDialog> createState() => _FailedDialogState();
+}
+
+class _FailedDialogState extends State<_FailedDialog> {
+  String _reason = 'CustomerUnavailable';
+  final _note = TextEditingController();
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Could not deliver'),
+        content: SingleChildScrollView(
+          child: RadioGroup<String>(
+            groupValue: _reason,
+            onChanged: (value) => setState(() => _reason = value ?? _reason),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final entry in _failureReasons.entries) RadioListTile<String>(value: entry.key, title: Text(entry.value), contentPadding: EdgeInsets.zero),
+              TextField(key: const Key('failed-note'), controller: _note, maxLength: 200, decoration: InputDecoration(labelText: _reason == 'Other' ? 'Remark (required)' : 'Remark (optional)', errorText: _error)),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Keep trying')),
+          TextButton(
+            key: const Key('report-failed'),
+            onPressed: () {
+              if (_reason == 'Other' && _note.text.trim().isEmpty) {
+                setState(() => _error = 'Write what happened.');
+                return;
+              }
+              Navigator.of(context).pop((_reason, _note.text.trim()));
+            },
+            child: const Text('Tell the store'),
+          ),
+        ],
       );
 }

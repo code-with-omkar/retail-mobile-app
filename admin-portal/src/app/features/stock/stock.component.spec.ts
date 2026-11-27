@@ -27,6 +27,8 @@ async function open(api: Api, role: Role = Role.StoreStaff) {
 
 const text = (f: ComponentFixture<unknown>) => (f.nativeElement as HTMLElement).textContent ?? '';
 
+beforeEach(() => localStorage.clear());
+
 describe('StockComponent', () => {
   it('store staff see their own store stock straight away, without choosing a store', async () => {
     const get = vi.fn(() => of({ success: true, data: [row()] }));

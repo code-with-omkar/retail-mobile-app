@@ -515,6 +515,7 @@ public sealed class DeliveryTests
         public Task<DeliveryResult<IReadOnlyList<PartnerDeliveryResponse>>> MineAsync(CancellationToken cancellationToken = default) => Task.FromResult(Answer<IReadOnlyList<PartnerDeliveryResponse>>([]));
         public Task<DeliveryResult<PartnerDeliveryResponse>> PickUpAsync(Guid orderId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<DeliveryResult<PartnerDeliveryResponse>> DeliverAsync(Guid orderId, DeliverRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<DeliveryResult<PartnerDeliveryResponse>> FailAsync(Guid orderId, DeliveryFailedRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }
 

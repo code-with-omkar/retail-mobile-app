@@ -31,6 +31,8 @@ function open(opts: { get?: Call; put?: Call; delete?: Call } = {}) {
 
 const text = (f: { nativeElement: unknown }) => (f.nativeElement as HTMLElement).textContent ?? '';
 
+beforeEach(() => localStorage.clear());
+
 describe('DeliverySlotsComponent', () => {
   it('shows the default and each store, saying which have their own settings', () => {
     const { f } = open();

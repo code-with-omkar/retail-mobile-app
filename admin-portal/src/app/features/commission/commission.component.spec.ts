@@ -23,6 +23,8 @@ async function open(api: Partial<Record<'get' | 'put', (...a: any[]) => Observab
 const text = (f: ComponentFixture<unknown>) => (f.nativeElement as HTMLElement).textContent ?? '';
 const buttons = (f: ComponentFixture<unknown>) => Array.from((f.nativeElement as HTMLElement).querySelectorAll('button'));
 
+beforeEach(() => localStorage.clear());
+
 describe('CommissionComponent', () => {
   it('lists the default and every store, noting which stores use the default', async () => {
     const f = await open({ get: () => of({ success: true, data: data() }) });

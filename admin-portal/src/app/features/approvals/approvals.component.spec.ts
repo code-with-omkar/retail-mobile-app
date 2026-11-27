@@ -50,6 +50,9 @@ describe('ApprovalsComponent', () => {
   it('an employee sees their own requests and the new-request form, but no Approve buttons', () => {
     const mine = list([request()]);
     const f = open(StaffCategory.StoreEmployee, { mine, pending: list([]) });
+    // the new-request form is in the side panel
+    f.componentInstance.creating.set(true);
+    f.detectChanges();
     const el = f.nativeElement as HTMLElement;
 
     expect(text(f)).toContain('My Approval Requests');

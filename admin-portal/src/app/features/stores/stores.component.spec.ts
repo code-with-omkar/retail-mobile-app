@@ -1,3 +1,4 @@
+import { AuthService } from '../../core/services/auth.service';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { StoresComponent } from './stores.component';
@@ -6,7 +7,7 @@ import { ApiService } from '../../core/services/api.service';
 const store = (over: Record<string, unknown> = {}) => ({ id: 's1', name: 'kharghar', address: 'Sector 7', isActive: true, ...over });
 
 function open(get: (...a: any[]) => any) {
-  TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: { get } }] });
+  TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: { get } }, { provide: AuthService, useValue: { isAdmin: () => false } }] });
   const fixture = TestBed.createComponent(StoresComponent);
   fixture.detectChanges();
   fixture.detectChanges();
@@ -14,6 +15,8 @@ function open(get: (...a: any[]) => any) {
 }
 
 const text = (f: { nativeElement: unknown }) => (f.nativeElement as HTMLElement).textContent ?? '';
+
+beforeEach(() => localStorage.clear());
 
 describe('StoresComponent', () => {
   it('lists each store with its address, first letter and Active / Inactive', () => {
@@ -34,5 +37,22 @@ describe('StoresComponent', () => {
     const f = open(() => throwError(() => ({ message: 'Offline' })));
     expect(text(f)).toContain('Offline');
     expect(f.componentInstance.loading()).toBe(false);
+  });
+
+  it('a new store is checked, saved with its code in capitals, and the list is read again', async () => {
+    const api = { get: vi.fn(() => of({ success: true, data: [] })), post: vi.fn(() => of({ success: true, data: {} })), put: vi.fn() };
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: api }, { provide: AuthService, useValue: { isAdmin: () => true } }] });
+    const f = TestBed.createComponent(StoresComponent);
+    f.detectChanges();
+    const c = f.componentInstance;
+    c.edit(null);
+    c.save();
+    expect(api.post).not.toHaveBeenCalled();
+    c.form = { ...c.form, name: ' Vashi ', address: '1 Road', latitude: 19.07, longitude: 73.0, code: 'vsh' };
+    c.save();
+    expect(api.post).toHaveBeenCalledWith('/admin/stores', expect.objectContaining({ name: 'Vashi', code: 'VSH', serviceRadiusKm: 6, phoneNumber: null }));
+    expect(c.panelOpen()).toBe(false);
+    expect(api.get).toHaveBeenCalledTimes(2);
   });
 });

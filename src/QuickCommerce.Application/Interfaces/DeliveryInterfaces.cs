@@ -34,6 +34,9 @@ public sealed record PartnerDeliveryResponse(
     DateTime? DeliverySlotStart = null,
     DateTime? DeliverySlotEnd = null);
 
+/// <summary>The partner cannot hand the order over; see DeliveryFailures for the reasons.</summary>
+public sealed record DeliveryFailedRequest(string? Reason, string? Note = null);
+
 public enum DeliveryChangeStatus
 {
     Succeeded,
@@ -72,6 +75,9 @@ public interface IDeliveryService
 
     Task<DeliveryResult<PartnerDeliveryResponse>> PickUpAsync(Guid orderId, CancellationToken cancellationToken = default);
     Task<DeliveryResult<PartnerDeliveryResponse>> DeliverAsync(Guid orderId, DeliverRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Hands the order back to the store as Ready, with the reason, to be sent again or cancelled.</summary>
+    Task<DeliveryResult<PartnerDeliveryResponse>> FailAsync(Guid orderId, DeliveryFailedRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Partner details for the customer's view of an order.</summary>
@@ -96,4 +102,5 @@ public interface IDeliveryStore : IDeliveryLookup
 
     Task<DeliveryChange> PickUpAsync(Guid orderId, Guid partnerId, DateTime now, CancellationToken cancellationToken = default);
     Task<DeliveryChange> DeliverAsync(Guid orderId, Guid partnerId, string otp, decimal cashCollected, DateTime now, CancellationToken cancellationToken = default);
+    Task<DeliveryChange> FailAsync(Guid orderId, Guid partnerId, string reason, string? note, DateTime now, CancellationToken cancellationToken = default);
 }

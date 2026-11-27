@@ -197,12 +197,17 @@ public sealed class StaffOrderScopeTests
 
         var first = await Page(new AdminOrderQuery(PageSize: 2));
         var second = await Page(new AdminOrderQuery(Page: 2, PageSize: 2));
-        var oneStore = await Page(new AdminOrderQuery(StoreId: rig.Other.Id));
-        var notMine = await Page(new AdminOrderQuery(StoreId: rig.Data.Stores[2].Id));
+        var oneStore = await Page(new AdminOrderQuery(StoreIds: [rig.Other.Id]));
+        var notMine = await Page(new AdminOrderQuery(StoreIds: [rig.Data.Stores[2].Id]));
         var found = await Page(new AdminOrderQuery(Search: newer.OrderNumber[^8..]));
-        var delivered = await Page(new AdminOrderQuery(Status: OrderStatus.Delivered));
+        var delivered = await Page(new AdminOrderQuery(Statuses: [OrderStatus.Delivered]));
 
         Assert.Equal((3, 2, 1), (first.TotalCount, first.Items.Count, second.Items.Count));
+        // Several values at once, and each filter counted under the other one.
+        Assert.Equal(3, (await Page(new AdminOrderQuery(Statuses: [OrderStatus.Pending, OrderStatus.Delivered], StoreIds: [rig.Primary.Id, rig.Other.Id]))).TotalCount);
+        var counts = await rig.Data.GetScopedOrderCountsAsync(organization, mine, false, new AdminOrderQuery(Statuses: [OrderStatus.Delivered], StoreIds: [rig.Other.Id]));
+        Assert.Equal(1, counts.ByStatus[OrderStatus.Pending]);
+        Assert.Empty(counts.ByStore);
         Assert.Equal(newer.Id, first.Items[0].Id);
         Assert.DoesNotContain(first.Items.Concat(second.Items), order => order.Id == elsewhere.Id);
         Assert.Equal([rig.OtherOrder.Id], oneStore.Items.Select(order => order.Id));

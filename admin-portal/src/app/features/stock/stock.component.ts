@@ -1,3 +1,6 @@
+import { LoaderComponent } from '../../shared/components/loader/loader.component';
+import { FilterLayoutComponent } from '../../shared/components/filter-layout/filter-layout.component';
+import { FilterGroup, Selection, cached, filterState } from '../../shared/components/filter-layout/filter-state';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -12,34 +15,30 @@ interface Row { productId: string; productName: string; variantId: string; varia
 @Component({
   selector: 'app-stock',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, FilterLayoutComponent, LoaderComponent],
   template: `
     <section class="page">
       <h2>Stock</h2>
       <p class="muted">Tick "Sells here" for what your store carries and set how many you have. Customers only see what your store carries.</p>
-      <div class="bar">
-        <label *ngIf="canChooseStore()">Store
-          <select name="store" [(ngModel)]="storeId" (ngModelChange)="load()"><option value="">Choose a store</option><option *ngFor="let s of stores()" [value]="s.id">{{ s.name }}</option></select>
-        </label>
-        <input class="search" name="q" [(ngModel)]="query" placeholder="Search product" />
-        <label class="check"><input type="checkbox" name="only" [(ngModel)]="onlyCarried" /> Only what we sell</label>
-      </div>
-      <p class="error" *ngIf="error()">{{ error() }}</p>
-      <p class="notice" *ngIf="notice()">{{ notice() }}</p>
-      <p *ngIf="loading()">Loading stock...</p>
-      <div class="table" *ngIf="shown().length">
-        <div class="row head"><span>Product</span><span>Size</span><span>Sells here</span><span>In stock</span><span>Reorder at</span><span>Store price (₹)</span><span></span></div>
-        <div class="row" *ngFor="let r of shown()">
-          <strong>{{ r.productName }}</strong>
-          <span>{{ r.variantLabel }}</span>
-          <input type="checkbox" [name]="'c' + r.variantId" [(ngModel)]="r.carried" />
-          <input type="number" min="0" max="100000" [name]="'a' + r.variantId" [(ngModel)]="r.available" [disabled]="!r.carried" />
-          <input type="number" min="0" max="100000" [name]="'t' + r.variantId" [(ngModel)]="r.reorderThreshold" [disabled]="!r.carried" />
-          <span class="price"><input type="number" min="0.01" max="100000" step="0.01" [name]="'p' + r.variantId" [(ngModel)]="r.priceOverride" [disabled]="!r.carried" [placeholder]="'Shared ' + (r.basePrice ?? '')" /><small *ngIf="r.priceOverride && r.basePrice && r.priceOverride < r.basePrice">{{ discountPercent(r) }}% below the shared price</small></span>
-          <button class="act" type="button" [disabled]="busyId() === r.variantId" (click)="save(r)">Save</button>
+      <app-filter-layout [groups]="panel().groups" [selected]="panel().selected" (selectedChange)="onFilters($event)" (cleared)="clearFilters()">
+        <input filterSearch type="search" name="q" aria-label="Search product" placeholder="Search product" [value]="query" (input)="query = $any($event.target).value" />
+        <p class="error" *ngIf="error()">{{ error() }}</p>
+        <p class="notice" *ngIf="notice()">{{ notice() }}</p>
+        <app-loader *ngIf="loading()" message="Loading stock…"></app-loader>
+        <div class="table" *ngIf="shown().length">
+          <div class="row head"><span>Product</span><span>Size</span><span>Sells here</span><span>In stock</span><span>Reorder at</span><span>Store price (₹)</span><span></span></div>
+          <div class="row" *ngFor="let r of shown()">
+            <strong>{{ r.productName }}</strong>
+            <span>{{ r.variantLabel }}</span>
+            <input type="checkbox" [name]="'c' + r.variantId" [(ngModel)]="r.carried" />
+            <input type="number" min="0" max="100000" [name]="'a' + r.variantId" [(ngModel)]="r.available" [disabled]="!r.carried" />
+            <input type="number" min="0" max="100000" [name]="'t' + r.variantId" [(ngModel)]="r.reorderThreshold" [disabled]="!r.carried" />
+            <span class="price"><input type="number" min="0.01" max="100000" step="0.01" [name]="'p' + r.variantId" [(ngModel)]="r.priceOverride" [disabled]="!r.carried" [placeholder]="'Shared ' + (r.basePrice ?? '')" /><small *ngIf="r.priceOverride && r.basePrice && r.priceOverride < r.basePrice">{{ discountPercent(r) }}% below the shared price</small></span>
+            <button class="act" type="button" [disabled]="busyId() === r.variantId" (click)="save(r)">Save</button>
+          </div>
         </div>
-      </div>
-      <p *ngIf="!loading() && !error() && rows().length > 0 && shown().length === 0">Nothing matches.</p>
+        <p *ngIf="!loading() && !error() && rows().length > 0 && shown().length === 0">Nothing matches.</p>
+      </app-filter-layout>
     </section>
   `,
   styles: [`
@@ -82,6 +81,28 @@ export class StockComponent implements OnInit {
   onlyCarried = false;
 
   /** A store list to pick from: always for administrators, and for a manager who has more than one store. */
+  readonly filters = filterState('stock');
+  readonly panel = cached<{ groups: FilterGroup[]; selected: Selection }>(
+    () => [this.stores(), this.storeId, this.onlyCarried, this.canChooseStore()],
+    () => {
+      const sells: FilterGroup = { key: 'sells', label: 'Show', options: [{ value: 'carried', label: 'Only what we sell' }] };
+      return {
+        groups: this.canChooseStore() ? [{ key: 'store', label: 'Store', single: true, required: true, options: this.stores().map(s => ({ value: s.id, label: s.name })) }, sells] : [sells],
+        selected: { store: this.storeId ? [this.storeId] : [], sells: this.onlyCarried ? ['carried'] : [] },
+      };
+    },
+  );
+  onFilters(next: Selection) {
+    const store = next['store']?.[0] ?? '';
+    this.onlyCarried = !!next['sells']?.length;
+    this.filters.set(next);
+    if (store !== this.storeId) { this.storeId = store; this.load(); }
+  }
+  clearFilters() {
+    this.query = '';
+    this.onlyCarried = false;
+    this.filters.set({ store: this.storeId ? [this.storeId] : [] });
+  }
   canChooseStore(): boolean { return this.isAdmin() || this.stores().length > 1; }
 
   isAdmin(): boolean { return this.auth.hasRole(Role.ApplicationAdmin) || this.auth.hasRole(Role.Admin); }
@@ -92,8 +113,9 @@ export class StockComponent implements OnInit {
   }
 
   ngOnInit() {
+    this.onlyCarried = !!this.filters.of('sells').length;
     this.api.get<Store[]>('/stores').subscribe({
-      next: r => { this.stores.set(storeChoices(r.data)); if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
+      next: r => { this.stores.set(storeChoices(r.data)); const kept = this.filters.of('store')[0]; if (kept && this.stores().some(s => s.id === kept)) this.storeId = kept; if (!this.storeId) this.storeId = this.stores()[0]?.id ?? ''; this.load(); },
       error: () => this.load(),
     });
   }
